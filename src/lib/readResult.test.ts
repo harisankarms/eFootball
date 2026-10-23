@@ -36,6 +36,10 @@ describe('reading the stats table', () => {
     ).toEqual({ possession: [53, 47], shots: [14, 6], shots_on_target: [7, 4], passes: [149, 199], successful_passes: [126, 160] })
   })
 
+  it('knows the other wordings the game uses', () => {
+    expect(parseStats([row('9 Total Shots 9', '9', '9')])).toEqual({ shots: [9, 9] })
+  })
+
   it('drops a number when the two readings disagree', () => {
     expect(parseStats([row('149 Passes 199', '189', '199')])).toEqual({})
   })

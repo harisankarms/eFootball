@@ -173,6 +173,46 @@ export function splitRows(table: HTMLCanvasElement): HTMLCanvasElement[] {
     })
 }
 
+/**
+ * Narrows a black-and-white line of text to the text itself. A short name sits at one end of
+ * a wide strip, and the empty space plus any stray specks in it make OCR unsure of itself.
+ */
+export function trimToText(line: HTMLCanvasElement): HTMLCanvasElement {
+  const { width, height } = line
+  const d = line.getContext('2d', { willReadFrequently: true })!.getImageData(0, 0, width, height).data
+  const ink: number[] = []
+  for (let x = 0; x < width; x++) {
+    let n = 0
+    for (let y = 0; y < height; y++) if (d[(y * width + x) * 4] === 0) n++
+    ink.push(n)
+  }
+  // Group inked columns into clusters, allowing gaps the size of a word space.
+  const clusters: { start: number; end: number; ink: number }[] = []
+  const gap = height * 0.6
+  for (let x = 0; x < width; x++) {
+    if (!ink[x]) continue
+    const last = clusters.at(-1)
+    if (last && x - last.end <= gap) {
+      last.end = x + 1
+      last.ink += ink[x]
+    } else clusters.push({ start: x, end: x + 1, ink: ink[x] })
+  }
+  const most = Math.max(0, ...clusters.map((c) => c.ink))
+  const text = clusters.filter((c) => c.ink >= most * 0.05)
+  if (!text.length) return line
+  const pad = 16
+  const from = Math.max(0, text[0].start - pad)
+  const to = Math.min(width, text[text.length - 1].end + pad)
+  const out = document.createElement('canvas')
+  out.width = to - from
+  out.height = height
+  const ctx = out.getContext('2d')!
+  ctx.fillStyle = '#fff'
+  ctx.fillRect(0, 0, out.width, out.height)
+  ctx.drawImage(line, from, 0, to - from, height, 0, 0, to - from, height)
+  return out
+}
+
 /** A slice of a row strip, between two fractions of its width, with a white margin. */
 function slice(strip: HTMLCanvasElement, from: number, to: number) {
   const x = Math.round(strip.width * from)
@@ -231,10 +271,13 @@ function settle(fromRow: number | null, rowConfidence: number, column: Reading):
   return null
 }
 
+/** Other wordings the game uses for some stats. */
+const LABEL_ALIASES: [StatKey, string][] = [['shots', 'Total Shots']]
+
 /** Turns the rows of the stats table into numbers, keeping only rows that make sense. */
 export function parseStats(rows: StatRow[]): MatchStats {
   const stats: MatchStats = {}
-  const labels = Object.entries(STAT_LABELS) as [StatKey, string][]
+  const labels = [...(Object.entries(STAT_LABELS) as [StatKey, string][]), ...LABEL_ALIASES]
   const letters = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '')
   for (const { row, home, away } of rows) {
     const tokens = row.text.trim().split(/\s+/).filter(Boolean)
@@ -272,10 +315,47 @@ export function parseStats(rows: StatRow[]): MatchStats {
 /** Screenshots smaller than this (in height of the game's 16:9 area) are too blurry for the stats table. */
 const MIN_STATS_HEIGHT = 540
 
+/** The OCR engine files are served by this site (see vite.config.ts) rather than a public CDN. */
+const ENGINE = { workerPath: '/ocr/worker.min.js', corePath: '/ocr', langPath: '/ocr', workerBlobURL: false }
+const ENGINE_TIMEOUT = 60_000
+
+/** Thrown when the OCR engine can't be loaded, for example on a bad connection. */
+export class ReaderUnavailableError extends Error {}
+
+type OcrWorker = Awaited<ReturnType<typeof import('tesseract.js').createWorker>>
+
+async function startEngine(): Promise<{ worker: OcrWorker; PSM: typeof import('tesseract.js').PSM }> {
+  try {
+    const { createWorker, PSM } = await import('tesseract.js')
+    const starting = createWorker('eng', 1, ENGINE)
+    const worker = await new Promise<OcrWorker>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error('The OCR engine took too long to load'))
+        void starting.then((w) => w.terminate()).catch(() => undefined)
+      }, ENGINE_TIMEOUT)
+      starting.then(
+        (w) => {
+          clearTimeout(timer)
+          resolve(w)
+        },
+        (e: unknown) => {
+          clearTimeout(timer)
+          reject(e instanceof Error ? e : new Error(String(e)))
+        },
+      )
+    })
+    return { worker, PSM }
+  } catch (e) {
+    console.warn('Screenshot reader:', e)
+    const message = e instanceof Error ? e.message : String(e)
+    throw new ReaderUnavailableError(message && message !== 'undefined' ? message : "The reader's files didn't download")
+  }
+}
+
 /**
  * Reads a full-time screenshot; returns null when it doesn't look like one or the score
- * can't be read. `onScore` gets the names and score as soon as they are read, before the
- * slower stats table.
+ * can't be read, and throws ReaderUnavailableError when the OCR engine can't be loaded.
+ * `onScore` gets the names and score as soon as they are read, before the slower stats table.
  */
 export async function readResultScreenshot(file: Blob, onScore?: (reading: ScreenshotReading) => void): Promise<ScreenshotReading | null> {
   const bitmap = await createImageBitmap(file)
@@ -289,8 +369,7 @@ export async function readResultScreenshot(file: Blob, onScore?: (reading: Scree
   const layout = findLayout(img)
   if (!layout) return null
 
-  const { createWorker, PSM } = await import('tesseract.js')
-  const worker = await createWorker('eng')
+  const { worker, PSM } = await startEngine()
   try {
     const recognise = async (image: HTMLCanvasElement): Promise<Reading> => {
       const { text, confidence } = (await worker.recognize(image)).data
@@ -309,7 +388,7 @@ export async function readResultScreenshot(file: Blob, onScore?: (reading: Scree
 
     await worker.setParameters({ tessedit_char_whitelist: '' })
     const name = async (rect: Rect) => {
-      const r = await read(rect, isYellow)
+      const r = await recognise(trimToText(inkCanvas(canvas, rect, layout.scale, isYellow)))
       return r.confidence >= 50 ? cleanName(r.text) : null
     }
     const reading: ScreenshotReading = { homeName: await name(layout.homeName), awayName: await name(layout.awayName), homeGoals, awayGoals, stats: {} }

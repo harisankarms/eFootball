@@ -13,12 +13,26 @@ import { compressScreenshot, formatBytes } from '../lib/image'
 import { unlocksFrom } from '../lib/achievements'
 import { gameNameOwner, type MatchStats } from '../lib/matchStats'
 import { keys, useAchievements, useAuth, useAwards, useLeague, type League } from '../lib/queries'
-import { readResultScreenshot, type ScreenshotReading } from '../lib/readResult'
+import { ReaderUnavailableError, readResultScreenshot, type ScreenshotReading } from '../lib/readResult'
 import { pastWeeks, winnerOf } from '../lib/stats'
+import { POPULAR_TEAMS, clubName } from '../lib/teams'
 import { toLocalInputValue, weekKey } from '../lib/time'
 import type { Match, MatchInput, Player, Shot } from '../lib/types'
 
-type ReadState = { status: 'reading' | 'done' | 'failed'; result: ScreenshotReading | null }
+type ReadState = {
+  status: 'reading' | 'done' | 'failed'
+  result: ScreenshotReading | null
+  /** Why reading failed: the picture isn't a full-time stats screen, the reader couldn't load, or something broke. */
+  reason?: 'not-a-result' | 'unavailable' | 'error'
+  /** The technical reason, shown small so it can be passed on when something goes wrong. */
+  detail?: string
+}
+
+/** Club and country names are spelled properly, since OCR sometimes misreads their lettering. */
+function tidy(r: ScreenshotReading): ScreenshotReading {
+  const fix = (name: string | null) => (name ? (clubName(name) ?? name) : null)
+  return { ...r, homeName: fix(r.homeName), awayName: fix(r.awayName) }
+}
 
 /** The same reading seen from the other side, for when the sides are swapped. */
 function flipped(r: ScreenshotReading): ScreenshotReading {
@@ -29,13 +43,30 @@ function flipped(r: ScreenshotReading): ScreenshotReading {
   return { homeName: r.awayName, awayName: r.homeName, homeGoals: r.awayGoals, awayGoals: r.homeGoals, stats }
 }
 
-function ReadNote({ read }: { read: ReadState }) {
+function ReadNote({ read, onRetry }: { read: ReadState; onRetry: () => void }) {
   const r = read.result
+  if (read.status === 'failed' && read.reason !== 'not-a-result') {
+    return (
+      <div className="flex items-start gap-2 text-xs text-muted">
+        <CircleAlert className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden />
+        <div className="min-w-0">
+          {read.reason === 'unavailable'
+            ? "Couldn't load the screenshot reader. Check your connection and try again, or fill the result in below."
+            : 'Something went wrong while reading this screenshot. Try again, or fill the result in below.'}
+          <button type="button" onClick={onRetry} className="ml-1.5 font-semibold text-accent hover:underline">
+            Try again
+          </button>
+          {read.detail && <span className="mt-1 block break-words text-[11px] text-muted/70">{read.detail}</span>}
+        </div>
+      </div>
+    )
+  }
   if (read.status === 'failed') {
     return (
       <p className="flex items-start gap-2 text-xs text-muted">
         <CircleAlert className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden />
-        Couldn't read a result from this screenshot, so fill it in below.
+        Couldn't find a result in this picture. It works with the full-time stats screen, the one with the score and the stats
+        table. Fill the result in below.
       </p>
     )
   }
@@ -56,29 +87,6 @@ function ReadNote({ read }: { read: ReadState }) {
     </p>
   )
 }
-
-const POPULAR_TEAMS = [
-  'Dream Team',
-  'Real Madrid',
-  'FC Barcelona',
-  'Manchester City',
-  'Manchester United',
-  'Liverpool',
-  'Arsenal',
-  'Chelsea',
-  'Bayern München',
-  'Paris Saint-Germain',
-  'Inter',
-  'AC Milan',
-  'Juventus',
-  'Argentina',
-  'Brazil',
-  'France',
-  'England',
-  'Portugal',
-  'Spain',
-  'Germany',
-]
 
 function celebrate() {
   const shared = { particleCount: 80, spread: 65, startVelocity: 48, colors: ['#3dff8f', '#ffc94d', '#ffffff'], disableForReducedMotion: true }
@@ -194,6 +202,7 @@ function MatchForm({ league, me, existing }: { league: League; me: Player; exist
   const [read, setRead] = useState<ReadState | null>(null)
   const [askWho, setAskWho] = useState(false)
   const readRun = useRef(0)
+  const readFile = useRef<File | null>(null)
   const gameNames = read?.result
 
   const selectable = league.players.filter((p) => p.active)
@@ -212,8 +221,13 @@ function MatchForm({ league, me, existing }: { league: League; me: Player; exist
   function fillFrom(r: ScreenshotReading) {
     setHg(r.homeGoals)
     setAg(r.awayGoals)
-    let home = r.homeName ? gameNameOwner(r.homeName, league.matches, league.players) : null
-    let away = r.awayName ? gameNameOwner(r.awayName, league.matches, league.players) : null
+    // A club or country name says which team was used, not who played it.
+    const homeClub = r.homeName ? clubName(r.homeName) : null
+    const awayClub = r.awayName ? clubName(r.awayName) : null
+    if (homeClub) setHomeTeam(homeClub)
+    if (awayClub) setAwayTeam(awayClub)
+    let home = r.homeName && !homeClub ? gameNameOwner(r.homeName, league.matches, league.players) : null
+    let away = r.awayName && !awayClub ? gameNameOwner(r.awayName, league.matches, league.players) : null
     if (home && home === away) return
     if (!home && !away) {
       setAskWho(!!(r.homeName && r.awayName))
@@ -232,17 +246,26 @@ function MatchForm({ league, me, existing }: { league: League; me: Player; exist
   async function readShot(file: File) {
     const run = ++readRun.current
     const current = () => run === readRun.current
+    readFile.current = file
     setRead({ status: 'reading', result: null })
     setAskWho(false)
     try {
       const result = await readResultScreenshot(file, (early) => {
         if (!current()) return
-        fillFrom(early)
-        setRead({ status: 'reading', result: early })
+        fillFrom(tidy(early))
+        setRead({ status: 'reading', result: tidy(early) })
       })
-      if (current()) setRead(result ? { status: 'done', result } : { status: 'failed', result: null })
-    } catch {
-      if (current()) setRead({ status: 'failed', result: null })
+      if (current()) setRead(result ? { status: 'done', result: tidy(result) } : { status: 'failed', result: null, reason: 'not-a-result' })
+    } catch (e) {
+      console.warn('Screenshot reader:', e)
+      if (current()) {
+        setRead({
+          status: 'failed',
+          result: null,
+          reason: e instanceof ReaderUnavailableError ? 'unavailable' : 'error',
+          detail: e instanceof Error ? e.message : String(e),
+        })
+      }
     }
   }
 
@@ -380,13 +403,17 @@ function MatchForm({ league, me, existing }: { league: League; me: Player; exist
             <img src={shot?.preview ?? existingShot ?? ''} alt="Screenshot preview" className="w-full rounded-xl border border-line" />
             {read && (
               <div className="mt-3">
-                <ReadNote read={read} />
+                <ReadNote read={read} onRetry={() => readFile.current && void readShot(readFile.current)} />
               </div>
             )}
             {askWho && gameNames?.homeName && gameNames.awayName && (
               <div className="mt-3 rounded-xl border border-accent/30 bg-accent/[0.06] p-3">
                 <div className="text-sm font-semibold">Which one is you?</div>
-                <div className="mt-0.5 text-xs text-muted">Next time these names are filled in for you.</div>
+                <div className="mt-0.5 text-xs text-muted">
+                  {clubName(gameNames.homeName) || clubName(gameNames.awayName)
+                    ? 'Tap the team you played as.'
+                    : 'Next time these names are filled in for you.'}
+                </div>
                 <div className="mt-2.5 grid grid-cols-2 gap-2">
                   {(['home', 'away'] as const).map((side) => (
                     <button
