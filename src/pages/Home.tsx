@@ -1,4 +1,4 @@
-import { Camera, ChevronRight, Copy, Crown, Megaphone, PenLine, Plus, Share2, UserPlus, Users } from 'lucide-react'
+import { Camera, ChevronRight, Copy, Crown, Megaphone, PenLine, Plus, Share2, Trophy, UserPlus, Users } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { AnnouncementCard, ComposerSheet } from '../components/Announcements'
@@ -8,8 +8,9 @@ import { StandingsTable } from '../components/StandingsTable'
 import { useToast } from '../components/Toast'
 import { BallLogo, Button, ErrorState, GlowIcon, PageSkeleton, SectionTitle, Wordmark, buttonClass, type Tint } from '../components/ui'
 import { formatPoints, groupByWeek, newestFirst, weekResult } from '../lib/stats'
-import { useAnnouncements, useAuth, useJoinRequests, useLeague, useNow, type League } from '../lib/queries'
+import { useAnnouncements, useAuth, useJoinRequests, useLeague, useNow, useTournaments, type League } from '../lib/queries'
 import { addDays, weekKey } from '../lib/time'
+import { phaseLabel, tournamentState } from '../lib/tournaments'
 
 function MoreLink({ to, children }: { to: string; children: string }) {
   return (
@@ -196,6 +197,43 @@ function Welcome({ league }: { league: League }) {
   )
 }
 
+/** Tournaments still being played, with the next game in each. */
+function LiveTournaments({ league }: { league: League }) {
+  const { data } = useTournaments()
+  const active = useMemo(
+    () =>
+      (data ?? [])
+        .map((t) => ({ t, s: tournamentState(t, league.matches) }))
+        .filter((x) => x.s.phase !== 'finished')
+        .slice(0, 2),
+    [data, league.matches],
+  )
+  if (!active.length) return null
+  return (
+    <section>
+      <SectionTitle title="Tournaments" action={<MoreLink to="/tournaments">All tournaments</MoreLink>} />
+      <div className="grid gap-3 md:grid-cols-2">
+        {active.map(({ t, s }) => {
+          const next = s.open[0]
+          return (
+            <Link key={t.id} to={`/tournaments/${t.id}`} className="card card-hover flex items-center gap-3 p-4">
+              <GlowIcon icon={Trophy} tint="gold" />
+              <div className="min-w-0 flex-1">
+                <div className="truncate font-display text-xl leading-tight font-bold uppercase italic">{t.name}</div>
+                <div className="truncate text-xs text-muted">
+                  {phaseLabel(s.phase)}
+                  {next ? ` · next: ${league.nameOf(next.home)} vs ${league.nameOf(next.away)}` : ''}
+                </div>
+              </div>
+              <ChevronRight className="h-4 w-4 shrink-0 text-muted" aria-hidden />
+            </Link>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
 export default function Home() {
   const { league, error, refetch } = useLeague()
   const { isAdmin } = useAuth()
@@ -222,6 +260,7 @@ export default function Home() {
     <div className="space-y-7">
       {isAdmin && <WaitingBanner />}
       <PotwHero league={league} week={view.week} lastWeek={view.lastWeek} now={now} />
+      <LiveTournaments league={league} />
       <div className="grid grid-cols-1 gap-7 md:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] md:items-start">
         <div className="min-w-0 space-y-7">
           <section>

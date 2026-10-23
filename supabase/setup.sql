@@ -100,6 +100,15 @@ as $$
   )
 $$;
 
+-- Only approved squad members (signed in and linked to an active player) see the app's contents.
+create or replace function public.is_member()
+returns boolean
+language sql stable security definer
+set search_path = public
+as $$
+  select public.my_player_id() is not null
+$$;
+
 -- Called by the app after every sign-in. Returns the caller's player, or null
 -- if they are waiting for approval. The very first account becomes the admin.
 create or replace function public.link_my_player()
@@ -247,8 +256,9 @@ alter table public.settings enable row level security;
 alter table public.join_requests enable row level security;
 
 drop policy if exists "Anyone can view players" on public.players;
-create policy "Anyone can view players" on public.players
-  for select using (true);
+drop policy if exists "Squad members view players" on public.players;
+create policy "Squad members view players" on public.players
+  for select to authenticated using (public.is_member());
 
 drop policy if exists "Admins add players" on public.players;
 create policy "Admins add players" on public.players
@@ -263,8 +273,9 @@ create policy "Admins remove players" on public.players
   for delete to authenticated using (public.is_admin());
 
 drop policy if exists "Anyone can view matches" on public.matches;
-create policy "Anyone can view matches" on public.matches
-  for select using (true);
+drop policy if exists "Squad members view matches" on public.matches;
+create policy "Squad members view matches" on public.matches
+  for select to authenticated using (public.is_member());
 
 drop policy if exists "Squad members add matches" on public.matches;
 create policy "Squad members add matches" on public.matches
@@ -291,8 +302,9 @@ create policy "Admins or the submitter delete matches" on public.matches
   );
 
 drop policy if exists "Anyone can view settings" on public.settings;
-create policy "Anyone can view settings" on public.settings
-  for select using (true);
+drop policy if exists "Squad members view settings" on public.settings;
+create policy "Squad members view settings" on public.settings
+  for select to authenticated using (public.is_member());
 
 drop policy if exists "Admins change settings" on public.settings;
 create policy "Admins change settings" on public.settings
@@ -307,13 +319,15 @@ create policy "Admins dismiss join requests" on public.join_requests
   for delete to authenticated using (public.is_admin());
 
 grant usage on schema public to anon, authenticated;
-grant select on public.players, public.matches, public.settings to anon, authenticated;
+grant select on public.players, public.matches, public.settings to authenticated;
+revoke select on public.players, public.matches, public.settings from anon;
 grant insert, update, delete on public.players, public.matches to authenticated;
 grant update on public.settings to authenticated;
 grant select, delete on public.join_requests to authenticated;
 grant execute on function
   public.my_player_id(),
   public.is_admin(),
+  public.is_member(),
   public.link_my_player(),
   public.approve_join(uuid, uuid),
   public.dispute_match(uuid, text),
@@ -332,9 +346,11 @@ on conflict (id) do update
       file_size_limit = excluded.file_size_limit,
       allowed_mime_types = excluded.allowed_mime_types;
 
+-- Images are shown through their long random public links; listing the bucket is for members only.
 drop policy if exists "Anyone can view screenshots" on storage.objects;
-create policy "Anyone can view screenshots" on storage.objects
-  for select using (bucket_id = 'screenshots');
+drop policy if exists "Squad members list screenshots" on storage.objects;
+create policy "Squad members list screenshots" on storage.objects
+  for select to authenticated using (bucket_id = 'screenshots' and public.is_member());
 
 drop policy if exists "Squad members upload screenshots" on storage.objects;
 create policy "Squad members upload screenshots" on storage.objects
@@ -359,8 +375,9 @@ on conflict (id) do update
       allowed_mime_types = excluded.allowed_mime_types;
 
 drop policy if exists "Anyone can view avatars" on storage.objects;
-create policy "Anyone can view avatars" on storage.objects
-  for select using (bucket_id = 'avatars');
+drop policy if exists "Squad members list avatars" on storage.objects;
+create policy "Squad members list avatars" on storage.objects
+  for select to authenticated using (bucket_id = 'avatars' and public.is_member());
 
 drop policy if exists "Players upload their own photo" on storage.objects;
 create policy "Players upload their own photo" on storage.objects
@@ -499,16 +516,18 @@ alter table public.achievements enable row level security;
 alter table public.player_achievements enable row level security;
 
 drop policy if exists "Anyone can view achievements" on public.achievements;
-create policy "Anyone can view achievements" on public.achievements
-  for select using (true);
+drop policy if exists "Squad members view achievements" on public.achievements;
+create policy "Squad members view achievements" on public.achievements
+  for select to authenticated using (public.is_member());
 
 drop policy if exists "Admins manage achievements" on public.achievements;
 create policy "Admins manage achievements" on public.achievements
   for all to authenticated using (public.is_admin()) with check (public.is_admin());
 
 drop policy if exists "Anyone can view awarded achievements" on public.player_achievements;
-create policy "Anyone can view awarded achievements" on public.player_achievements
-  for select using (true);
+drop policy if exists "Squad members view awarded achievements" on public.player_achievements;
+create policy "Squad members view awarded achievements" on public.player_achievements
+  for select to authenticated using (public.is_member());
 
 drop policy if exists "Admins award achievements" on public.player_achievements;
 create policy "Admins award achievements" on public.player_achievements
@@ -544,8 +563,9 @@ alter table public.announcements enable row level security;
 alter table public.match_comments enable row level security;
 
 drop policy if exists "Anyone can view announcements" on public.announcements;
-create policy "Anyone can view announcements" on public.announcements
-  for select using (true);
+drop policy if exists "Squad members view announcements" on public.announcements;
+create policy "Squad members view announcements" on public.announcements
+  for select to authenticated using (public.is_member());
 
 drop policy if exists "Squad members post announcements" on public.announcements;
 create policy "Squad members post announcements" on public.announcements
@@ -556,8 +576,9 @@ create policy "Authors and admins delete announcements" on public.announcements
   for delete to authenticated using (public.is_admin() or player_id = public.my_player_id());
 
 drop policy if exists "Anyone can view comments" on public.match_comments;
-create policy "Anyone can view comments" on public.match_comments
-  for select using (true);
+drop policy if exists "Squad members view comments" on public.match_comments;
+create policy "Squad members view comments" on public.match_comments
+  for select to authenticated using (public.is_member());
 
 drop policy if exists "Squad members comment" on public.match_comments;
 create policy "Squad members comment" on public.match_comments
@@ -567,15 +588,162 @@ drop policy if exists "Authors and admins delete comments" on public.match_comme
 create policy "Authors and admins delete comments" on public.match_comments
   for delete to authenticated using (public.is_admin() or player_id = public.my_player_id());
 
-grant select on public.achievements, public.player_achievements, public.announcements, public.match_comments to anon, authenticated;
+grant select on public.achievements, public.player_achievements, public.announcements, public.match_comments to authenticated;
+revoke select on public.achievements, public.player_achievements, public.announcements, public.match_comments from anon;
 grant insert, update, delete on public.achievements, public.player_achievements to authenticated;
 grant insert, delete on public.announcements, public.match_comments to authenticated;
 grant execute on function public.update_my_avatar(text), public.update_my_card(text) to anon, authenticated;
 
 
 -- ---------------------------------------------------------------------
---  Live updates: everyone's screen refreshes when a result, comment or
---  announcement is added
+--  Tournaments: a round-robin league stage, then optional knockouts
+--  (quarter-finals, semi-finals, final). Fixtures, tables and brackets
+--  are worked out in the app from the tournament's results.
+-- ---------------------------------------------------------------------
+
+create table if not exists public.tournaments (
+  id               uuid primary key default gen_random_uuid(),
+  name             text not null check (char_length(name) between 1 and 60),
+  -- How many times everyone plays everyone in the league stage.
+  league_rounds    smallint not null default 1 check (league_rounds between 1 and 2),
+  -- How many players go through to the knockouts: none, a final, semi-finals or quarter-finals.
+  knockout_size    smallint not null default 4 check (knockout_size in (0, 2, 4, 8)),
+  -- Set when the tournament is created: whether its results also count in the main table and stats.
+  counts_in_stats  boolean not null default true,
+  created_by       uuid references public.players (id) on delete set null,
+  created_at       timestamptz not null default now()
+);
+
+create table if not exists public.tournament_players (
+  tournament_id  uuid not null references public.tournaments (id) on delete cascade,
+  player_id      uuid not null references public.players (id) on delete cascade,
+  -- The order players were picked in, which fixes the fixture list.
+  position       smallint not null default 0,
+  primary key (tournament_id, player_id)
+);
+
+-- A tournament with results can't be deleted, so no result is ever lost or silently moved into the main stats.
+alter table public.matches add column if not exists tournament_id uuid references public.tournaments (id) on delete restrict;
+alter table public.matches add column if not exists stage text check (stage in ('league', 'qf', 'sf', 'final'));
+alter table public.matches add column if not exists in_stats boolean not null default true;
+create index if not exists matches_tournament_id_idx on public.matches (tournament_id);
+
+-- Checks every tournament result and decides whether it counts in the main stats.
+create or replace function public.tournament_match_rules()
+returns trigger
+language plpgsql security definer
+set search_path = public
+as $$
+declare
+  counts boolean;
+begin
+  if new.tournament_id is null then
+    new.stage := null;
+    new.in_stats := true;
+    return new;
+  end if;
+  select counts_in_stats into counts from public.tournaments where id = new.tournament_id;
+  if not found then
+    raise exception 'That tournament no longer exists';
+  end if;
+  if new.stage is null then
+    raise exception 'Pick the tournament stage';
+  end if;
+  if (select count(*) from public.tournament_players
+       where tournament_id = new.tournament_id and player_id in (new.home_id, new.away_id)) < 2 then
+    raise exception 'Both players have to be in the tournament';
+  end if;
+  if new.stage <> 'league' and new.home_goals = new.away_goals and new.pens_winner_id is null then
+    raise exception 'A knockout match needs a winner, so add the penalty shootout';
+  end if;
+  new.in_stats := counts;
+  return new;
+end;
+$$;
+
+drop trigger if exists tournament_match_rules on public.matches;
+create trigger tournament_match_rules
+  before insert or update on public.matches
+  for each row execute function public.tournament_match_rules();
+
+-- Creates a tournament and its players in one go, checking the format fits the squad.
+create or replace function public.create_tournament(
+  p_name text,
+  p_players uuid[],
+  p_league_rounds int,
+  p_knockout_size int,
+  p_counts_in_stats boolean
+)
+returns uuid
+language plpgsql security definer
+set search_path = public
+as $$
+declare
+  me uuid := public.my_player_id();
+  found_players int;
+  new_id uuid;
+begin
+  if me is null then
+    raise exception 'Only squad members can create tournaments';
+  end if;
+  if char_length(trim(coalesce(p_name, ''))) = 0 then
+    raise exception 'Give the tournament a name';
+  end if;
+  select count(*) into found_players
+    from public.players
+   where id = any (p_players) and active;
+  if found_players <> coalesce(cardinality(p_players), 0) or found_players <> (select count(distinct p) from unnest(p_players) p) then
+    raise exception 'Pick each player once, from the active squad';
+  end if;
+  if found_players < 2 or found_players > 16 then
+    raise exception 'A tournament needs 2 to 16 players';
+  end if;
+  if p_knockout_size not in (0, 2, 4, 8) or p_knockout_size > found_players then
+    raise exception 'Not enough players for those knockouts';
+  end if;
+  insert into public.tournaments (name, league_rounds, knockout_size, counts_in_stats, created_by)
+  values (trim(p_name), p_league_rounds, p_knockout_size, p_counts_in_stats, me)
+  returning id into new_id;
+  insert into public.tournament_players (tournament_id, player_id, position)
+  select new_id, u.p, u.i from unnest(p_players) with ordinality as u (p, i);
+  return new_id;
+end;
+$$;
+
+alter table public.tournaments enable row level security;
+alter table public.tournament_players enable row level security;
+
+drop policy if exists "Squad members view tournaments" on public.tournaments;
+create policy "Squad members view tournaments" on public.tournaments
+  for select to authenticated using (public.is_member());
+
+drop policy if exists "Creators and admins rename tournaments" on public.tournaments;
+create policy "Creators and admins rename tournaments" on public.tournaments
+  for update to authenticated
+  using (public.is_admin() or created_by = public.my_player_id())
+  with check (public.is_admin() or created_by = public.my_player_id());
+
+drop policy if exists "Creators and admins delete tournaments" on public.tournaments;
+create policy "Creators and admins delete tournaments" on public.tournaments
+  for delete to authenticated using (public.is_admin() or created_by = public.my_player_id());
+
+drop policy if exists "Squad members view tournament players" on public.tournament_players;
+create policy "Squad members view tournament players" on public.tournament_players
+  for select to authenticated using (public.is_member());
+
+-- Only the name can change after creation: the format and whether it counts in the main stats are fixed.
+revoke insert, update on public.tournaments from authenticated;
+grant select, delete on public.tournaments to authenticated;
+grant update (name) on public.tournaments to authenticated;
+revoke insert, update, delete on public.tournament_players from authenticated;
+grant select on public.tournament_players to authenticated;
+revoke all on public.tournaments, public.tournament_players from anon;
+grant execute on function public.create_tournament(text, uuid[], int, int, boolean) to authenticated;
+
+
+-- ---------------------------------------------------------------------
+--  Live updates: everyone's screen refreshes when a result, comment,
+--  announcement or tournament is added
 -- ---------------------------------------------------------------------
 
 do $$
@@ -585,7 +753,7 @@ begin
   if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
     return;
   end if;
-  foreach t in array array['matches', 'match_comments', 'announcements'] loop
+  foreach t in array array['matches', 'match_comments', 'announcements', 'tournaments'] loop
     if not exists (
       select 1 from pg_publication_tables
        where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t

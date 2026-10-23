@@ -12,6 +12,8 @@ import {
   type Match,
   type Player,
   type Settings,
+  type Stage,
+  type Tournament,
 } from './types'
 
 export const DEMO_USER_ID = 'demo-user-1'
@@ -149,6 +151,7 @@ function demoCardImage(): string {
 export type DemoDb = {
   players: Player[]
   matches: Match[]
+  tournaments: Tournament[]
   settings: Settings
   joinRequests: JoinRequest[]
   achievements: Achievement[]
@@ -254,6 +257,69 @@ export function makeDemoData(now = new Date()): DemoDb {
     }
   }
 
+  // Two tournaments: a finished one kept out of the main stats, and one in its semi-finals.
+  const tournaments: Tournament[] = []
+  const evening = (daysAgo: number, minute: number) => startOfDay(addDays(today, -daysAgo), tz).getTime() + (21 * 60 + minute) * 60_000
+  const cupGame = (t: Tournament, home: Player, away: Player, hg: number, ag: number, stage: Stage, at: number, pens: Player | null = null) => {
+    seq++
+    matches.push({
+      id: `demo-match-${seq}`,
+      played_at: new Date(at).toISOString(),
+      home_id: home.id,
+      away_id: away.id,
+      home_goals: hg,
+      away_goals: ag,
+      pens_winner_id: pens?.id ?? null,
+      home_team: null,
+      away_team: null,
+      notes: null,
+      screenshot_path: null,
+      thumb_path: null,
+      submitted_by: home.id,
+      status: 'ok',
+      dispute_reason: null,
+      disputed_by: null,
+      created_at: new Date(at + 5 * 60_000).toISOString(),
+      tournament_id: t.id,
+      stage,
+      in_stats: t.counts_in_stats,
+    })
+  }
+  const [hari, sam, alex, jay, leo, nik] = players
+  const friendly: Tournament = {
+    id: 'demo-cup-1',
+    name: 'Summer Friendly',
+    league_rounds: 1,
+    knockout_size: 2,
+    counts_in_stats: false,
+    created_by: sam.id,
+    created_at: new Date(evening(25, 0)).toISOString(),
+    players: [sam.id, leo.id, nik.id],
+  }
+  tournaments.push(friendly)
+  cupGame(friendly, sam, leo, 3, 1, 'league', evening(24, 0))
+  cupGame(friendly, leo, nik, 0, 2, 'league', evening(24, 40))
+  cupGame(friendly, nik, sam, 1, 1, 'league', evening(23, 0))
+  cupGame(friendly, sam, nik, 2, 2, 'final', evening(22, 0), nik)
+  const october: Tournament = {
+    id: 'demo-cup-2',
+    name: 'October Cup',
+    league_rounds: 1,
+    knockout_size: 4,
+    counts_in_stats: true,
+    created_by: hari.id,
+    created_at: new Date(evening(7, 0)).toISOString(),
+    players: [hari.id, sam.id, jay.id, alex.id],
+  }
+  tournaments.push(october)
+  cupGame(october, hari, sam, 2, 1, 'league', evening(6, 0))
+  cupGame(october, jay, alex, 1, 1, 'league', evening(6, 40))
+  cupGame(october, hari, jay, 3, 0, 'league', evening(5, 0))
+  cupGame(october, sam, alex, 2, 0, 'league', evening(5, 40))
+  cupGame(october, alex, hari, 1, 1, 'league', evening(4, 0))
+  cupGame(october, jay, sam, 2, 1, 'league', evening(4, 40))
+  cupGame(october, hari, alex, 2, 0, 'sf', evening(2, 0))
+
   // Most results come with stats, as if read from the full-time screenshot. A separate random
   // sequence keeps the results themselves the same as before stats existed.
   const statRand = mulberry32(5150)
@@ -265,7 +331,7 @@ export function makeDemoData(now = new Date()): DemoDb {
   }
 
   // One recent result is disputed, so the dispute flow is visible in the demo.
-  const disputed = [...matches].reverse().find((m) => m.home_goals !== m.away_goals)
+  const disputed = [...matches].reverse().find((m) => m.home_goals !== m.away_goals && !m.tournament_id)
   if (disputed) {
     disputed.status = 'disputed'
     disputed.disputed_by = disputed.submitted_by === disputed.home_id ? disputed.away_id : disputed.home_id
@@ -316,6 +382,7 @@ export function makeDemoData(now = new Date()): DemoDb {
   return {
     players,
     matches,
+    tournaments,
     settings: { ...DEFAULT_SETTINGS },
     achievements,
     awards,

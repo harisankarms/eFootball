@@ -1,11 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query'
 import {
+  Award,
   Camera,
   Gamepad2,
   House,
   Info,
   ListOrdered,
-  LogIn,
   LogOut,
   Megaphone,
   Pencil,
@@ -18,8 +18,8 @@ import {
   Users,
   type LucideIcon,
 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
-import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router'
 import { friendlyError } from '../lib/api'
 import { api, isDemo } from '../lib/backend'
 import { keys, useAuth, useLeague, useLiveUpdates, useProgress, useSettings } from '../lib/queries'
@@ -27,17 +27,20 @@ import { DEFAULT_SETTINGS } from '../lib/types'
 import { Avatar } from './Avatar'
 import { AvatarEditor } from './AvatarEditor'
 import { CardFigureEditor } from './CardFigureEditor'
+import { WaitingForApproval } from './Guards'
 import { LevelBadge } from './Level'
 import { useToast } from './Toast'
-import { BallLogo, Button, Sheet, Wordmark, buttonClass } from './ui'
+import { BallLogo, Button, PageSkeleton, Sheet, Wordmark, buttonClass } from './ui'
 
-type NavItem = { to: string; label: string; icon: LucideIcon; match: (path: string) => boolean }
+/** `long` is the label in the desktop header, where there's room for it. */
+type NavItem = { to: string; label: string; long?: string; icon: LucideIcon; match: (path: string) => boolean }
 
 const NAV: NavItem[] = [
   { to: '/', label: 'Home', icon: House, match: (p) => p === '/' },
   { to: '/matches', label: 'Matches', icon: Gamepad2, match: (p) => p.startsWith('/match') },
   { to: '/table', label: 'Table', icon: ListOrdered, match: (p) => p.startsWith('/table') },
-  { to: '/h2h', label: 'H2H', icon: Swords, match: (p) => p.startsWith('/h2h') },
+  { to: '/tournaments', label: 'Cups', long: 'Tournaments', icon: Trophy, match: (p) => p.startsWith('/tournaments') },
+  { to: '/h2h', label: 'H2H', long: 'Head to Head', icon: Swords, match: (p) => p.startsWith('/h2h') },
   { to: '/players', label: 'Players', icon: Users, match: (p) => p.startsWith('/players') || p.startsWith('/hall-of-fame') },
 ]
 
@@ -100,6 +103,21 @@ function EditNameSheet({ open, onClose, current }: { open: boolean; onClose: () 
   )
 }
 
+/** For someone signed in who isn't in the squad yet: just a way out. */
+function GuestMenu() {
+  const toast = useToast()
+  return (
+    <Button
+      size="sm"
+      variant="secondary"
+      icon={<LogOut className="h-4 w-4" />}
+      onClick={() => api.signOut().catch((e: unknown) => toast.error(friendlyError(e)))}
+    >
+      Sign out
+    </Button>
+  )
+}
+
 function AccountMenu() {
   const { ready, session, me, isAdmin } = useAuth()
   const { league } = useLeague()
@@ -122,15 +140,7 @@ function AccountMenu() {
     return () => document.removeEventListener('mousedown', close)
   }, [open])
 
-  if (!ready) return <div className="h-9 w-9" />
-  if (!session) {
-    return (
-      <Link to="/login" className={buttonClass('secondary', 'sm')}>
-        <LogIn className="h-4 w-4" aria-hidden />
-        Sign in
-      </Link>
-    )
-  }
+  if (!ready || !session) return <div className="h-9 w-9" />
 
   const item = 'flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-ink-2 transition hover:bg-white/[0.06] hover:text-ink'
   return (
@@ -159,7 +169,7 @@ function AccountMenu() {
                   <UserRound className="h-4 w-4" aria-hidden /> My profile
                 </Link>
                 <Link to="/achievements" onClick={() => setOpen(false)} className={item}>
-                  <Trophy className="h-4 w-4" aria-hidden /> Achievements
+                  <Award className="h-4 w-4" aria-hidden /> Achievements
                   {level && <span className="ml-auto text-xs font-semibold text-gold">{level.xp.toLocaleString()} XP</span>}
                 </Link>
                 <button
@@ -221,7 +231,8 @@ function AccountMenu() {
 }
 
 function Header() {
-  const { data: settings } = useSettings()
+  const { session, isMember } = useAuth()
+  const { data: settings } = useSettings(isMember)
   const { pathname } = useLocation()
   const name = settings?.group_name ?? DEFAULT_SETTINGS.group_name
   useEffect(() => {
@@ -234,7 +245,7 @@ function Header() {
           <BallLogo className="h-9 w-9 shrink-0 drop-shadow-[0_0_12px_rgb(61_255_143/0.45)] transition duration-500 group-hover:rotate-[72deg]" />
           <Wordmark name={name} className="truncate text-[1.6rem] leading-none" />
         </Link>
-        <nav className="ml-5 hidden items-center gap-1 md:flex" aria-label="Main">
+        <nav className={`ml-5 hidden items-center gap-1 ${isMember ? 'md:flex' : ''}`} aria-label="Main">
           {[...NAV, ...DESKTOP_EXTRA].map((n) => {
             const active = n.match(pathname)
             return (
@@ -245,7 +256,7 @@ function Header() {
                   active ? 'bg-white/[0.06] text-ink' : 'text-muted hover:bg-white/[0.04] hover:text-ink'
                 }`}
               >
-                {n.label === 'H2H' ? 'Head to Head' : n.label}
+                {n.long ?? n.label}
                 {active && (
                   <span
                     aria-hidden
@@ -257,13 +268,15 @@ function Header() {
           })}
         </nav>
         <div className="ml-auto flex shrink-0 items-center gap-2.5">
-          <div className="hidden md:block">
-            <Link to="/add" className={buttonClass('primary', 'sm')}>
-              <Plus className="h-4 w-4" aria-hidden strokeWidth={2.75} />
-              Add result
-            </Link>
-          </div>
-          <AccountMenu />
+          {isMember && (
+            <div className="hidden md:block">
+              <Link to="/add" className={buttonClass('primary', 'sm')}>
+                <Plus className="h-4 w-4" aria-hidden strokeWidth={2.75} />
+                Add result
+              </Link>
+            </div>
+          )}
+          {isMember ? <AccountMenu /> : session ? <GuestMenu /> : null}
         </div>
       </div>
       <div aria-hidden className="glow-line h-px opacity-70" />
@@ -276,7 +289,7 @@ function BottomNav() {
   return (
     <nav aria-label="Main" className="pb-safe fixed inset-x-0 bottom-0 z-40 bg-[#060b1d]/95 md:hidden">
       <div aria-hidden className="glow-line h-px opacity-60" />
-      <div className="mx-auto grid h-16 max-w-lg grid-cols-5 items-center">
+      <div className="mx-auto grid h-16 max-w-lg grid-cols-6 items-center">
         {NAV.map((n) => {
           const active = n.match(pathname)
           return (
@@ -341,11 +354,19 @@ function useAuthErrorFromUrl() {
 
 export function Layout() {
   const { pathname } = useLocation()
-  useLiveUpdates()
+  const { ready, session, meLoading, isMember } = useAuth()
+  useLiveUpdates(isMember)
   useAuthErrorFromUrl()
   useEffect(() => {
     window.scrollTo(0, 0)
   }, [pathname])
+
+  // Only approved squad members see the app; everyone else gets the sign-in or waiting screen.
+  let page: ReactNode
+  if (!ready || (session && meLoading)) page = <PageSkeleton />
+  else if (!session) page = pathname === '/login' ? <Outlet /> : <Navigate to="/login" replace state={{ from: pathname }} />
+  else if (!isMember) page = <WaitingForApproval />
+  else page = <Outlet />
 
   return (
     <div className="min-h-dvh">
@@ -354,11 +375,11 @@ export function Layout() {
       {isDemo && <DemoBanner />}
       <main className="mx-auto w-full max-w-5xl px-4 pt-6 pb-[calc(8rem+env(safe-area-inset-bottom))] md:pt-9 md:pb-16">
         <div key={pathname} className="animate-page">
-          <Outlet />
+          {page}
         </div>
       </main>
-      <AddButton />
-      <BottomNav />
+      {isMember && <AddButton />}
+      {isMember && <BottomNav />}
     </div>
   )
 }

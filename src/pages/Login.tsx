@@ -1,11 +1,11 @@
 import { Info } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
 import { WaitingForApproval } from '../components/Guards'
 import { BallLogo, Button, PageSkeleton, Wordmark } from '../components/ui'
 import { friendlyError } from '../lib/api'
 import { api, isDemo } from '../lib/backend'
-import { useAuth, useAuthOptions, useSettings } from '../lib/queries'
+import { useAuth, useAuthOptions } from '../lib/queries'
 import { DEFAULT_SETTINGS } from '../lib/types'
 
 function GoogleIcon() {
@@ -21,7 +21,6 @@ function GoogleIcon() {
 
 export default function Login() {
   const { ready, session, isMember, meLoading } = useAuth()
-  const { data: settings } = useSettings()
   const { data: authOptions } = useAuthOptions()
   const googleEnabled = !!authOptions?.google
   const location = useLocation()
@@ -81,9 +80,11 @@ export default function Login() {
           <BallLogo className="relative h-16 w-16 animate-float" />
         </div>
         <h1 className="mt-5 text-[2.6rem] leading-none">
-          <Wordmark name={settings?.group_name ?? DEFAULT_SETTINGS.group_name} />
+          <Wordmark name={DEFAULT_SETTINGS.group_name} />
         </h1>
-        <p className="mt-3 text-sm text-ink-2">Sign in to log results. Anyone with the link can view the table.</p>
+        <p className="mt-3 text-sm text-ink-2">
+          The squad's results are private. Sign in to see them, or create an account and the admin will let you in.
+        </p>
       </div>
 
       <div className="card mt-7 p-5">
@@ -154,11 +155,6 @@ export default function Login() {
             : 'Opened this from WhatsApp or Instagram? Google blocks sign-in inside those apps. Open the link in Chrome or Safari, or use email.'}
         </p>
       )}
-      <p className="mt-3 text-center text-xs">
-        <Link to="/" className="text-ink-2 hover:text-ink">
-          Just looking? Back to the table
-        </Link>
-      </p>
     </div>
   )
 }

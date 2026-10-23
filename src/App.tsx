@@ -12,9 +12,12 @@ import Login from './pages/Login'
 import MatchDetail from './pages/MatchDetail'
 import Matches from './pages/Matches'
 import News from './pages/News'
+import NewTournament from './pages/NewTournament'
 import PlayerProfile from './pages/PlayerProfile'
 import Players from './pages/Players'
 import Table from './pages/Table'
+import TournamentPage from './pages/Tournament'
+import Tournaments from './pages/Tournaments'
 
 function NotFound() {
   return (
@@ -39,6 +42,9 @@ export default function App() {
         <Route path="players" element={<Players />} />
         <Route path="players/:id" element={<PlayerProfile />} />
         <Route path="h2h" element={<HeadToHeadPage />} />
+        <Route path="tournaments" element={<Tournaments />} />
+        <Route path="tournaments/new" element={<NewTournament />} />
+        <Route path="tournaments/:id" element={<TournamentPage />} />
         <Route path="hall-of-fame" element={<HallOfFame />} />
         <Route path="achievements" element={<Achievements />} />
         <Route path="news" element={<News />} />

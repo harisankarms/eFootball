@@ -6,7 +6,8 @@ import { weekKey as toWeekKey } from './time'
 
 export type Outcome = 'W' | 'D' | 'L'
 
-export const isCounted = (m: Match) => m.status === 'ok'
+/** Whether a result counts in the main table and stats: not disputed, and not from a tournament kept apart. */
+export const isCounted = (m: Match) => m.status === 'ok' && m.in_stats !== false
 
 export const involves = (m: Match, id: string) => m.home_id === id || m.away_id === id
 

@@ -1,6 +1,6 @@
 import type { Api } from './api'
 import { DEMO_EMAIL, DEMO_USER_ID, makeDemoData } from './demo-data'
-import type { LiveTable, Match, MatchInput, Player, Session, Shot } from './types'
+import type { LiveTable, Match, MatchInput, Player, Session, Shot, Tournament } from './types'
 
 /** In-memory backend with sample data. Changes last until the page is reloaded. */
 export function createDemoApi(): Api {
@@ -46,6 +46,24 @@ export function createDemoApi(): Api {
     if (input.home_id === input.away_id) throw new Error('different_players')
     if (input.pens_winner_id && (input.home_goals !== input.away_goals || ![input.home_id, input.away_id].includes(input.pens_winner_id)))
       throw new Error('pens_only_after_a_draw')
+  }
+  /** The same checks the database makes on tournament results, and whether the result counts in the main stats. */
+  const tournamentRules = (input: MatchInput): Pick<Match, 'tournament_id' | 'stage' | 'in_stats'> => {
+    if (!input.tournament_id) return { tournament_id: null, stage: null, in_stats: true }
+    const t = db.tournaments.find((x) => x.id === input.tournament_id)
+    if (!t) throw new Error('That tournament no longer exists')
+    if (!input.stage) throw new Error('Pick the tournament stage')
+    if (!t.players.includes(input.home_id) || !t.players.includes(input.away_id)) throw new Error('Both players have to be in the tournament')
+    if (input.stage !== 'league' && input.home_goals === input.away_goals && !input.pens_winner_id)
+      throw new Error('A knockout match needs a winner, so add the penalty shootout')
+    return { tournament_id: t.id, stage: input.stage, in_stats: t.counts_in_stats }
+  }
+  const ownTournament = (id: string) => {
+    const p = requireMe()
+    const t = db.tournaments.find((x) => x.id === id)
+    if (!t) throw new Error('Tournament not found.')
+    if (!p.is_admin && t.created_by !== p.id) throw deny()
+    return t
   }
   const checkBody = (body: string) => {
     const trimmed = body.trim()
@@ -105,6 +123,7 @@ export function createDemoApi(): Api {
       const match: Match = {
         id: crypto.randomUUID(),
         ...input,
+        ...tournamentRules(input),
         ...shotPaths(shot),
         submitted_by: submittedBy,
         status: 'ok',
@@ -121,7 +140,7 @@ export function createDemoApi(): Api {
       requireAdmin()
       validate(input)
       const m = findMatch(match.id)
-      Object.assign(m, input, shot ? shotPaths(shot) : {})
+      Object.assign(m, input, tournamentRules(input), shot ? shotPaths(shot) : {})
       changed('matches')
     },
     async deleteMatch(match) {
@@ -252,6 +271,50 @@ export function createDemoApi(): Api {
       if (!p.is_admin && c.player_id !== p.id) throw deny()
       db.comments = db.comments.filter((x) => x.id !== id)
       changed('match_comments')
+    },
+
+    async getTournaments() {
+      await pause(80)
+      return copy(db.tournaments).sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
+    },
+    async createTournament(input) {
+      await pause(400)
+      const p = requireMe()
+      const name = input.name.trim()
+      if (!name) throw new Error('Give the tournament a name')
+      const ids = [...new Set(input.players)]
+      if (ids.length !== input.players.length || ids.some((id) => !db.players.some((x) => x.id === id && x.active)))
+        throw new Error('Pick each player once, from the active squad')
+      if (ids.length < 2 || ids.length > 16) throw new Error('A tournament needs 2 to 16 players')
+      if (input.knockout_size > ids.length) throw new Error('Not enough players for those knockouts')
+      const t: Tournament = {
+        id: crypto.randomUUID(),
+        name: name.slice(0, 60),
+        league_rounds: input.league_rounds,
+        knockout_size: input.knockout_size,
+        counts_in_stats: input.counts_in_stats,
+        created_by: p.id,
+        created_at: new Date().toISOString(),
+        players: ids,
+      }
+      db.tournaments.push(t)
+      changed('tournaments')
+      return t.id
+    },
+    async renameTournament(id, name) {
+      await pause(250)
+      const t = ownTournament(id)
+      const trimmed = name.trim()
+      if (trimmed.length < 1 || trimmed.length > 60) throw new Error('Names are 1 to 60 characters')
+      t.name = trimmed
+      changed('tournaments')
+    },
+    async deleteTournament(id) {
+      await pause(250)
+      ownTournament(id)
+      if (db.matches.some((m) => m.tournament_id === id)) throw new Error("A tournament with results can't be deleted.")
+      db.tournaments = db.tournaments.filter((x) => x.id !== id)
+      changed('tournaments')
     },
 
     async getJoinRequests() {

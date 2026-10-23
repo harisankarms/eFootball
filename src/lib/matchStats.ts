@@ -80,8 +80,8 @@ export function summarise(sides: SideStats[]): StatSummary {
 }
 
 /** A player's averages over their counted matches that have stats. */
-export function playerStats(matches: Match[], playerId: string): StatSummary {
-  return summarise(matches.filter(isCounted).flatMap((m) => sidesOf(m, playerId)?.mine ?? []))
+export function playerStats(matches: Match[], playerId: string, counts: (m: Match) => boolean = isCounted): StatSummary {
+  return summarise(matches.filter(counts).flatMap((m) => sidesOf(m, playerId)?.mine ?? []))
 }
 
 /** Both players' averages over the counted meetings between them that have stats. */
@@ -108,10 +108,11 @@ const LEADER_BOARDS: { title: string; detail: string; percent: boolean; pick: (s
 /**
  * Who leads each stat over a set of matches. So that one lucky game can't top a board, a
  * player needs at least a quarter as many matches with stats as the busiest player.
+ * `counts` picks the results that count; a tournament counts all of its own.
  */
-export function statLeaders(matches: Match[]): StatLeader[] {
-  const ids = new Set(matches.flatMap((m) => (isCounted(m) && m.details?.stats ? [m.home_id, m.away_id] : [])))
-  const players = [...ids].map((id) => ({ id, s: playerStats(matches, id) })).filter((p) => p.s.matches > 0)
+export function statLeaders(matches: Match[], counts: (m: Match) => boolean = isCounted): StatLeader[] {
+  const ids = new Set(matches.flatMap((m) => (counts(m) && m.details?.stats ? [m.home_id, m.away_id] : [])))
+  const players = [...ids].map((id) => ({ id, s: playerStats(matches, id, counts) })).filter((p) => p.s.matches > 0)
   if (!players.length) return []
   const needed = Math.max(1, Math.ceil(Math.max(...players.map((p) => p.s.matches)) / 4))
   const eligible = players.filter((p) => p.s.matches >= needed)

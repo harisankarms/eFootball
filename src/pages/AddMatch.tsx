@@ -1,8 +1,8 @@
 import { useQueryClient } from '@tanstack/react-query'
 import confetti from 'canvas-confetti'
-import { ArrowLeftRight, Check, ChevronDown, CircleAlert, CircleCheck, Gamepad2, ImagePlus, LoaderCircle, Minus, Plus, SearchX } from 'lucide-react'
+import { ArrowLeftRight, Check, ChevronDown, CircleAlert, CircleCheck, Gamepad2, ImagePlus, LoaderCircle, Minus, Plus, SearchX, Trophy } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router'
 import { Avatar } from '../components/Avatar'
 import { SignInPrompt, WaitingForApproval } from '../components/Guards'
 import { useToast } from '../components/Toast'
@@ -12,12 +12,16 @@ import { api } from '../lib/backend'
 import { compressScreenshot, formatBytes } from '../lib/image'
 import { unlocksFrom } from '../lib/achievements'
 import { gameNameOwner, type MatchStats } from '../lib/matchStats'
-import { keys, useAchievements, useAuth, useAwards, useLeague, type League } from '../lib/queries'
+import { keys, useAchievements, useAuth, useAwards, useLeague, useTournaments, type League } from '../lib/queries'
 import { ReaderUnavailableError, readResultScreenshot, type ScreenshotReading } from '../lib/readResult'
 import { pastWeeks, winnerOf } from '../lib/stats'
 import { POPULAR_TEAMS, clubName } from '../lib/teams'
 import { toLocalInputValue, weekKey } from '../lib/time'
-import type { Match, MatchInput, Player, Shot } from '../lib/types'
+import { STAGE_LABELS, stageFor, tournamentState } from '../lib/tournaments'
+import type { Match, MatchInput, Player, Shot, Stage, Tournament } from '../lib/types'
+
+/** A tournament this result could count for, and the stage it would be. */
+type CupOption = { tournament: Tournament; stage: Stage }
 
 type ReadState = {
   status: 'reading' | 'done' | 'failed'
@@ -183,9 +187,17 @@ function MatchForm({ league, me, existing }: { league: League; me: Player; exist
   const achievements = useAchievements()
   const awards = useAwards()
 
-  const [homeId, setHomeId] = useState(existing?.home_id ?? me.id)
-  const [awayId, setAwayId] = useState(existing?.away_id ?? '')
-  const [picking, setPicking] = useState<'home' | 'away' | null>(existing ? null : 'away')
+  // Opened from a tournament fixture: ?tournament=…&stage=…&home=…&away=…
+  const [params] = useSearchParams()
+  const player = (id: string | null) => (id && league.players.some((p) => p.id === id && p.active) ? id : null)
+  const fromHome = existing ? null : player(params.get('home'))
+  const fromAway = existing ? null : player(params.get('away'))
+  const [homeId, setHomeId] = useState(existing?.home_id ?? fromHome ?? me.id)
+  const [awayId, setAwayId] = useState(existing?.away_id ?? fromAway ?? '')
+  const [picking, setPicking] = useState<'home' | 'away' | null>(existing || fromAway ? null : 'away')
+  // 'auto' picks the tournament when exactly one has these two players left to play each other.
+  const [cupChoice, setCupChoice] = useState<string>(existing ? (existing.tournament_id ?? 'none') : (params.get('tournament') ?? 'auto'))
+  const tournaments = useTournaments()
   const [hg, setHg] = useState(existing?.home_goals ?? 0)
   const [ag, setAg] = useState(existing?.away_goals ?? 0)
   const [pensOn, setPensOn] = useState(!!existing?.pens_winner_id)
@@ -212,6 +224,24 @@ function MatchForm({ league, me, existing }: { league: League; me: Player; exist
     const used = league.matches.flatMap((m) => [m.home_team, m.away_team]).filter((t): t is string => !!t)
     return [...new Set([...used, ...POPULAR_TEAMS])]
   }, [league.matches])
+
+  // Tournaments where these two still have a game to play (leaving out this result when editing it).
+  const cupOptions = useMemo<CupOption[]>(() => {
+    if (!homeId || !awayId || homeId === awayId || !tournaments.data) return []
+    const others = existing ? league.matches.filter((m) => m.id !== existing.id) : league.matches
+    return tournaments.data.flatMap((t) => {
+      const stage = stageFor(tournamentState(t, others), homeId, awayId)
+      return stage ? [{ tournament: t, stage }] : []
+    })
+  }, [tournaments.data, league.matches, existing, homeId, awayId])
+  const cup =
+    cupChoice === 'none'
+      ? null
+      : cupChoice === 'auto'
+        ? cupOptions.length === 1
+          ? cupOptions[0]
+          : null
+        : (cupOptions.find((o) => o.tournament.id === cupChoice) ?? null)
 
   useEffect(() => () => {
     if (shot) URL.revokeObjectURL(shot.preview)
@@ -335,6 +365,8 @@ function MatchForm({ league, me, existing }: { league: League; me: Player; exist
     if (!homeId || !awayId) return setFormError('Pick both players.')
     if (homeId === awayId) return setFormError('Pick two different players.')
     if (draw && pensOn && !pensWinner) return setFormError('Who won the penalty shootout?')
+    if (cup && cup.stage !== 'league' && draw && !pensOn)
+      return setFormError(`A ${STAGE_LABELS[cup.stage].toLowerCase()} needs a winner: turn on "Went to penalties" and pick who won.`)
     if (!existing && settings.require_screenshot && !shot) return setFormError('Add the full-time screenshot as proof.')
     const when = new Date(playedAt)
     if (Number.isNaN(when.getTime())) return setFormError('Pick a valid date and time.')
@@ -356,6 +388,8 @@ function MatchForm({ league, me, existing }: { league: League; me: Player; exist
         : shot
           ? null
           : (existing?.details ?? null),
+      tournament_id: cup?.tournament.id ?? null,
+      stage: cup?.stage ?? null,
     }
 
     setSaving(true)
@@ -515,6 +549,51 @@ function MatchForm({ league, me, existing }: { league: League; me: Player; exist
           </div>
         )}
       </section>
+
+      {cupOptions.length > 0 && (
+        <section className={`card p-4 ${cup ? 'border-gold/40' : ''}`}>
+          <div className="flex items-start gap-3">
+            <Trophy className={`mt-0.5 h-5 w-5 shrink-0 ${cup ? 'text-gold' : 'text-muted'}`} aria-hidden />
+            <div className="min-w-0 flex-1">
+              <div className="font-semibold">Tournament match</div>
+              <div className="text-xs text-muted">
+                {cup
+                  ? `Counts as the ${STAGE_LABELS[cup.stage].toLowerCase()} game in ${cup.tournament.name}. Tap it to log a normal result instead.`
+                  : 'These two still have a tournament game to play. Tap it if this was that game.'}
+              </div>
+            </div>
+          </div>
+          <div className="mt-3 grid gap-2">
+            {cupOptions.map((o) => {
+              const chosen = cup?.tournament.id === o.tournament.id
+              return (
+                <button
+                  type="button"
+                  key={o.tournament.id}
+                  onClick={() => setCupChoice(chosen ? 'none' : o.tournament.id)}
+                  aria-pressed={chosen}
+                  className={`flex items-center justify-between gap-3 rounded-xl border px-3 py-2.5 text-left text-sm transition ${
+                    chosen ? 'border-gold bg-gold/[0.08]' : 'border-line-strong bg-surface-2 hover:border-gold/50'
+                  }`}
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate font-semibold">{o.tournament.name}</span>
+                    <span className="block text-xs text-muted">
+                      {STAGE_LABELS[o.stage]}
+                      {o.tournament.counts_in_stats ? '' : ' · not in the main stats'}
+                    </span>
+                  </span>
+                  <span
+                    className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border ${chosen ? 'border-gold bg-gold text-[#2b1d00]' : 'border-line-strong'}`}
+                  >
+                    {chosen && <Check className="h-3.5 w-3.5" strokeWidth={3} aria-hidden />}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </section>
+      )}
 
       <section className="card p-4">
         <h2 className="mb-4 text-sm font-semibold text-ink-2">Score</h2>

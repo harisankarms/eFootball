@@ -22,7 +22,12 @@ export const keys = {
   awards: ['awards'] as const,
   announcements: ['announcements'] as const,
   comments: ['comments'] as const,
+  tournaments: ['tournaments'] as const,
   me: (userId: string | null) => ['me', userId] as const,
+}
+
+export function useTournaments() {
+  return useQuery({ queryKey: keys.tournaments, queryFn: () => api.getTournaments() })
 }
 
 export function useAchievements() {
@@ -49,8 +54,8 @@ export function useMatches() {
   return useQuery({ queryKey: keys.matches, queryFn: () => api.getMatches() })
 }
 
-export function useSettings() {
-  return useQuery({ queryKey: keys.settings, queryFn: () => api.getSettings() })
+export function useSettings(enabled = true) {
+  return useQuery({ queryKey: keys.settings, queryFn: () => api.getSettings(), enabled })
 }
 
 export function useJoinRequests(enabled: boolean) {
@@ -65,12 +70,16 @@ const liveKeys: Record<LiveTable, readonly string[]> = {
   matches: keys.matches,
   match_comments: keys.comments,
   announcements: keys.announcements,
+  tournaments: keys.tournaments,
 }
 
-/** Refresh everyone's screen when a friend adds a result, comment or announcement. */
-export function useLiveUpdates() {
+/** Refresh everyone's screen when a friend adds a result, comment, announcement or tournament. */
+export function useLiveUpdates(enabled: boolean) {
   const qc = useQueryClient()
-  useEffect(() => api.subscribe((table) => void qc.invalidateQueries({ queryKey: liveKeys[table] })), [qc])
+  useEffect(() => {
+    if (!enabled) return
+    return api.subscribe((table) => void qc.invalidateQueries({ queryKey: liveKeys[table] }))
+  }, [qc, enabled])
 }
 
 export type League = {

@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { ArrowLeftRight, CalendarDays, ChevronRight, CircleCheck, Flag, Gamepad2, ImageOff, Maximize2, Pencil, SearchX, Trash, TriangleAlert } from 'lucide-react'
+import { ArrowLeftRight, CalendarDays, ChevronRight, CircleCheck, Flag, Gamepad2, ImageOff, Maximize2, Pencil, SearchX, Trash, TriangleAlert, Trophy } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { Avatar } from '../components/Avatar'
@@ -10,9 +10,10 @@ import { useToast } from '../components/Toast'
 import { BackButton, Button, EmptyState, ErrorState, PageSkeleton, Sheet, buttonClass } from '../components/ui'
 import { friendlyError } from '../lib/api'
 import { api } from '../lib/backend'
-import { keys, useAuth, useLeague, useNow, type League } from '../lib/queries'
+import { keys, useAuth, useLeague, useNow, useTournaments, type League } from '../lib/queries'
 import { involves, winnerOf } from '../lib/stats'
 import { clockTime, longDate, relativeTime } from '../lib/time'
+import { STAGE_LABELS } from '../lib/tournaments'
 
 function Side({ league, id, team, gameName, won }: { league: League; id: string; team: string | null; gameName?: string | null; won: boolean }) {
   return (
@@ -47,6 +48,7 @@ export default function MatchDetail() {
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
   const [zoom, setZoom] = useState(false)
+  const { data: tournaments } = useTournaments()
 
   if (error) return <ErrorState error={error} onRetry={refetch} />
   if (!league) return <PageSkeleton />
@@ -64,6 +66,7 @@ export default function MatchDetail() {
   }
 
   const { settings, tz, nameOf } = league
+  const cup = m.tournament_id ? tournaments?.find((t) => t.id === m.tournament_id) : null
   const winner = winnerOf(m)
   const full = api.imageUrl(m.screenshot_path)
   const windowEnds = Date.parse(m.created_at) + settings.dispute_hours * 3600_000
@@ -129,6 +132,15 @@ export default function MatchDetail() {
             </span>
           )}
         </div>
+        {cup && (
+          <div className="mt-3 text-center">
+            <Link to={`/tournaments/${cup.id}`} className="inline-flex items-center gap-1.5 text-sm font-semibold text-gold hover:underline">
+              <Trophy className="h-4 w-4" aria-hidden />
+              {cup.name} · {STAGE_LABELS[m.stage ?? 'league']}
+            </Link>
+            {m.in_stats === false && <p className="mt-0.5 text-[11px] text-muted">Counts in the tournament only, not the main table and stats.</p>}
+          </div>
+        )}
       </section>
 
       {m.status === 'disputed' && (

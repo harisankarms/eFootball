@@ -14,6 +14,26 @@ export type Player = {
 
 export type MatchStatus = 'ok' | 'disputed'
 
+/** Which part of a tournament a result belongs to. */
+export type Stage = 'league' | 'qf' | 'sf' | 'final'
+
+export type Tournament = {
+  id: string
+  name: string
+  /** How many times everyone plays everyone in the league stage. */
+  league_rounds: 1 | 2
+  /** Players going through to the knockouts: none, a final, semi-finals or quarter-finals. */
+  knockout_size: 0 | 2 | 4 | 8
+  /** Whether its results also count in the main table and stats. Fixed when it's created. */
+  counts_in_stats: boolean
+  created_by: string | null
+  created_at: string
+  /** Player ids, in the order they were picked. */
+  players: string[]
+}
+
+export type TournamentInput = Pick<Tournament, 'name' | 'league_rounds' | 'knockout_size' | 'counts_in_stats' | 'players'>
+
 export type Match = {
   id: string
   played_at: string
@@ -33,6 +53,10 @@ export type Match = {
   disputed_by: string | null
   created_at: string
   details?: MatchDetails | null
+  tournament_id?: string | null
+  stage?: Stage | null
+  /** False for results of a tournament that is kept out of the main table and stats. Set by the database. */
+  in_stats?: boolean
 }
 
 /** What was read from the full-time screenshot: the in-game names (home, away) and the stats table. */
@@ -69,6 +93,8 @@ export type MatchInput = {
   away_team: string | null
   notes: string | null
   details?: MatchDetails | null
+  tournament_id?: string | null
+  stage?: Stage | null
 }
 
 /** A compressed screenshot ready to upload: full size plus a small thumbnail. */
@@ -118,7 +144,7 @@ export type Comment = {
   created_at: string
 }
 
-export type LiveTable = 'matches' | 'match_comments' | 'announcements'
+export type LiveTable = 'matches' | 'match_comments' | 'announcements' | 'tournaments'
 
 export type Session = { userId: string; email: string | null }
 

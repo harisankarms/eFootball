@@ -12,6 +12,8 @@ import type {
   Session,
   Settings,
   Shot,
+  Tournament,
+  TournamentInput,
 } from './types'
 
 /** Everything the screens need from the backend. Implemented by Supabase (live) and by the in-memory demo. */
@@ -61,6 +63,13 @@ export interface Api {
   addComment(matchId: string, body: string, playerId: string): Promise<void>
   deleteComment(id: string): Promise<void>
 
+  getTournaments(): Promise<Tournament[]>
+  /** Creates a tournament and returns its id. */
+  createTournament(input: TournamentInput): Promise<string>
+  renameTournament(id: string, name: string): Promise<void>
+  /** Only works while the tournament has no results. */
+  deleteTournament(id: string): Promise<void>
+
   getJoinRequests(): Promise<JoinRequest[]>
   approveJoin(userId: string, playerId: string | null): Promise<void>
   rejectJoin(userId: string): Promise<void>
@@ -81,5 +90,6 @@ export function friendlyError(e: unknown): string {
   if (/pens_only_after_a_draw/.test(message)) return 'Penalties only happen after a draw.'
   if (/invalid login credentials/i.test(message)) return 'Wrong email or password.'
   if (/body_check/.test(message)) return 'Write something first (up to 500 characters).'
+  if (/matches_tournament_id_fkey/.test(message)) return "A tournament with results can't be deleted."
   return message
 }

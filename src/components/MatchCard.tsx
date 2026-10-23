@@ -1,9 +1,10 @@
-import { ImageOff, MessageCircle } from 'lucide-react'
+import { ImageOff, MessageCircle, Trophy } from 'lucide-react'
 import { Link } from 'react-router'
 import { api } from '../lib/backend'
-import type { League } from '../lib/queries'
+import { useTournaments, type League } from '../lib/queries'
 import { winnerOf } from '../lib/stats'
 import { clockTime, shortDate } from '../lib/time'
+import { STAGE_LABELS } from '../lib/tournaments'
 import type { Match } from '../lib/types'
 import { Avatar } from './Avatar'
 import { useCommentCounts } from './Comments'
@@ -11,6 +12,8 @@ import { Badge } from './ui'
 
 export function MatchCard({ match, league, showDate = false }: { match: Match; league: League; showDate?: boolean }) {
   const comments = useCommentCounts().get(match.id) ?? 0
+  const { data: tournaments } = useTournaments()
+  const cup = match.tournament_id ? tournaments?.find((t) => t.id === match.tournament_id) : null
   const winner = winnerOf(match)
   const thumb = api.imageUrl(match.thumb_path ?? match.screenshot_path)
   const sides = [
@@ -45,6 +48,15 @@ export function MatchCard({ match, league, showDate = false }: { match: Match; l
             {clockTime(match.played_at, league.tz)}
           </span>
           {match.status === 'disputed' && <Badge tone="warn">Disputed</Badge>}
+          {cup && (
+            <span className="flex min-w-0 items-center gap-1 text-gold">
+              <Trophy className="h-3 w-3 shrink-0" aria-hidden />
+              <span className="truncate">
+                {cup.name}
+                {match.stage && match.stage !== 'league' ? ` · ${STAGE_LABELS[match.stage]}` : ''}
+              </span>
+            </span>
+          )}
           {comments > 0 && (
             <span className="ml-auto flex items-center gap-1 text-cyan" aria-label={`${comments} comments`}>
               <MessageCircle className="h-3.5 w-3.5" aria-hidden />

@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Api } from './api'
-import type { Achievement, Announcement, Award, Comment, JoinRequest, LiveTable, Match, Player, Session, Settings, Shot } from './types'
+import type { Achievement, Announcement, Award, Comment, JoinRequest, LiveTable, Match, Player, Session, Settings, Shot, Tournament } from './types'
+
+type TournamentRow = Omit<Tournament, 'players'> & { tournament_players: { player_id: string; position: number }[] }
 
 const BUCKET = 'screenshots'
 const AVATARS = 'avatars'
@@ -170,7 +172,7 @@ export function createSupabaseApi(url: string, key: string): Api {
     },
     subscribe(onChange) {
       const channel = sb.channel('live-changes')
-      for (const table of ['matches', 'match_comments', 'announcements'] as LiveTable[]) {
+      for (const table of ['matches', 'match_comments', 'announcements', 'tournaments'] as LiveTable[]) {
         channel.on('postgres_changes', { event: '*', schema: 'public', table }, () => onChange(table))
       }
       channel.subscribe()
@@ -281,6 +283,37 @@ export function createSupabaseApi(url: string, key: string): Api {
       if (res.error) throw new Error(res.error.message)
       if (res.count === 0) throw denied()
       await removeFiles(a.image_path, a.thumb_path)
+    },
+
+    async getTournaments() {
+      const rows = must(
+        await sb.from('tournaments').select('*, tournament_players(player_id, position)').order('created_at', { ascending: false }),
+      ) as TournamentRow[]
+      return rows.map(({ tournament_players, ...t }) => ({
+        ...t,
+        players: [...tournament_players].sort((a, b) => a.position - b.position).map((p) => p.player_id),
+      }))
+    },
+    async createTournament(input) {
+      return must(
+        await sb.rpc('create_tournament', {
+          p_name: input.name,
+          p_players: input.players,
+          p_league_rounds: input.league_rounds,
+          p_knockout_size: input.knockout_size,
+          p_counts_in_stats: input.counts_in_stats,
+        }),
+      ) as string
+    },
+    async renameTournament(id, name) {
+      const res = await sb.from('tournaments').update({ name: name.trim() }, { count: 'exact' }).eq('id', id)
+      if (res.error) throw new Error(res.error.message)
+      if (res.count === 0) throw denied()
+    },
+    async deleteTournament(id) {
+      const res = await sb.from('tournaments').delete({ count: 'exact' }).eq('id', id)
+      if (res.error) throw new Error(res.error.message)
+      if (res.count === 0) throw denied()
     },
 
     getComments: () => fetchAll<Comment>('match_comments', 'created_at', true),
