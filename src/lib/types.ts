@@ -68,7 +68,7 @@ export type Shot = { full: Blob; thumb: Blob }
 export type Session = { userId: string; email: string | null }
 
 export const DEFAULT_SETTINGS: Settings = {
-  group_name: 'Squad League',
+  group_name: 'eFootball Tracker',
   timezone: 'Asia/Kolkata',
   potw_win: 3,
   potw_draw: 1,

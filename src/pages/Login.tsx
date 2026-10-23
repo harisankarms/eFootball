@@ -2,10 +2,11 @@ import { Info } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { WaitingForApproval } from '../components/Guards'
-import { BallLogo, Button, PageSkeleton } from '../components/ui'
+import { BallLogo, Button, PageSkeleton, Wordmark } from '../components/ui'
 import { friendlyError } from '../lib/api'
 import { api, isDemo } from '../lib/backend'
 import { useAuth, useAuthOptions, useSettings } from '../lib/queries'
+import { DEFAULT_SETTINGS } from '../lib/types'
 
 function GoogleIcon() {
   return (
@@ -75,9 +76,14 @@ export default function Login() {
   return (
     <div className="mx-auto max-w-sm pt-4">
       <div className="text-center">
-        <BallLogo className="mx-auto h-16 w-16" />
-        <h1 className="mt-4 font-display text-4xl leading-none font-bold uppercase">{settings?.group_name ?? 'Squad League'}</h1>
-        <p className="mt-2 text-sm text-ink-2">Sign in to log results. Anyone with the link can view the table.</p>
+        <div className="relative mx-auto h-16 w-16">
+          <span aria-hidden className="absolute inset-1 rounded-2xl bg-accent/40 blur-xl" />
+          <BallLogo className="relative h-16 w-16 animate-float" />
+        </div>
+        <h1 className="mt-5 text-[2.6rem] leading-none">
+          <Wordmark name={settings?.group_name ?? DEFAULT_SETTINGS.group_name} />
+        </h1>
+        <p className="mt-3 text-sm text-ink-2">Sign in to log results. Anyone with the link can view the table.</p>
       </div>
 
       <div className="card mt-7 p-5">

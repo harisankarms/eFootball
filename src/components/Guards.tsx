@@ -12,7 +12,7 @@ export function SignInPrompt({ reason }: { reason: string }) {
       <div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-accent/12 text-accent">
         <Lock className="h-6 w-6" aria-hidden />
       </div>
-      <h2 className="mt-4 font-display text-2xl font-bold uppercase">Sign in first</h2>
+      <h2 className="mt-4 font-display text-2xl font-bold uppercase italic">Sign in first</h2>
       <p className="mt-2 text-sm text-ink-2">You need to sign in {reason}.</p>
       <Link to="/login" state={{ from: location.pathname }} className={buttonClass('primary', 'lg', 'mt-6 w-full')}>
         <LogIn className="h-5 w-5" aria-hidden />
@@ -32,7 +32,7 @@ export function WaitingForApproval() {
       <div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-warn/15 text-warn">
         <Hourglass className="h-6 w-6" aria-hidden />
       </div>
-      <h2 className="mt-4 font-display text-2xl font-bold uppercase">
+      <h2 className="mt-4 font-display text-2xl font-bold uppercase italic">
         {deactivated ? 'Your player is inactive' : 'Waiting for approval'}
       </h2>
       <p className="mt-2 text-sm text-ink-2">

@@ -5,6 +5,7 @@ import {
   outcomeFor,
   pastWeeks,
   playerSummary,
+  rivalries,
   trophyCounts,
   weekResult,
   winnerOf,
@@ -189,5 +190,45 @@ describe('head to head', () => {
     expect(h.matches).toHaveLength(4)
     expect(h.matches[0].id).toBe(ms[3].id)
     expect(h.aBiggestWin?.id).toBe(ms[0].id)
+  })
+
+  it('tracks streaks, form, the highest-scoring game and the first meeting', () => {
+    const ms = [
+      mk('a', 'b', 1, 0),
+      mk('b', 'a', 4, 3),
+      mk('a', 'b', 0, 2),
+      mk('a', 'b', 1, 3),
+      mk('a', 'c', 9, 9),
+      mk('b', 'a', 1, 1),
+      mk('b', 'a', 2, 2),
+    ]
+    const h = headToHead(ms, 'a', 'b')
+    expect(h.played).toBe(6)
+    expect(h.bLongestWinStreak).toBe(3)
+    expect(h.aLongestWinStreak).toBe(1)
+    expect(h.streak).toEqual({ side: 'draw', count: 2 })
+    expect(h.aForm).toEqual(['L', 'L', 'L', 'D', 'D'])
+    expect(h.bForm).toEqual(['W', 'W', 'W', 'D', 'D'])
+    expect(h.highestScoring?.id).toBe(ms[1].id)
+    expect(h.firstMeeting?.id).toBe(ms[0].id)
+  })
+
+  it('reports who is on a winning run', () => {
+    const h = headToHead([mk('a', 'b', 0, 1), mk('a', 'b', 2, 0), mk('b', 'a', 0, 3)], 'a', 'b')
+    expect(h.streak).toEqual({ side: 'a', count: 2 })
+  })
+
+  it('lists rivalries with the leader first, most-played first', () => {
+    const ms = [
+      mk('a', 'b', 0, 1),
+      mk('b', 'a', 2, 0),
+      mk('a', 'b', 1, 1),
+      mk('c', 'a', 3, 0),
+      mk('b', 'c', 1, 1, { status: 'disputed' }),
+    ]
+    const list = rivalries(ms)
+    expect(list).toHaveLength(2)
+    expect(list[0]).toMatchObject({ a: 'b', b: 'a', played: 3, aWins: 2, bWins: 0, draws: 1 })
+    expect(list[1]).toMatchObject({ a: 'c', b: 'a', played: 1, aWins: 1, bWins: 0 })
   })
 })

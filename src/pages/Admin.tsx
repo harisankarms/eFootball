@@ -407,7 +407,7 @@ export default function Admin() {
   if (!session) return <SignInPrompt reason="as an admin" />
   if (!isAdmin || !me) {
     return (
-      <EmptyState icon={<ShieldCheck className="h-6 w-6" />} title="Admins only">
+      <EmptyState icon={ShieldCheck} title="Admins only">
         Ask an admin if you need something changed.
       </EmptyState>
     )

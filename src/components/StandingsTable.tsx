@@ -19,6 +19,12 @@ const COLUMNS: { key: SortKey; label: string; title: string; wide?: boolean }[] 
   { key: 'winPct', label: 'Win %', title: 'Win percentage', wide: true },
 ]
 
+const MEDALS = [
+  'bg-[linear-gradient(135deg,#ffe9a8,#ffb020)] text-[#2a1d00] shadow-[0_0_14px_-2px_rgb(255_190_60/0.7)]',
+  'bg-[linear-gradient(135deg,#f8fafc,#94a3b8)] text-[#0f172a]',
+  'bg-[linear-gradient(135deg,#f7c39b,#c0703f)] text-[#2a1206]',
+]
+
 function display(r: Row, key: SortKey) {
   if (key === 'gd') return signed(r.gd)
   if (key === 'winPct') return formatPct(r.winPct)
@@ -99,10 +105,16 @@ export function StandingsTable({ league, rows, crownId, showQualification, compa
             const isMe = me?.id === r.playerId
             const dim = showQualification && !r.qualified
             const crowned = crownId === r.playerId
+            const medal = sort.key === 'points' && sort.dir === -1 ? MEDALS[i] : undefined
             return (
-              <tr key={r.playerId} className={`border-t border-line/60 ${isMe ? 'bg-accent/[0.05]' : ''}`}>
-                <td className={`py-2.5 pr-2 pl-3 text-center text-xs font-semibold tabular-nums ${i === 0 && sort.key === 'points' ? 'text-gold' : 'text-muted'}`}>
-                  {i + 1}
+              <tr
+                key={r.playerId}
+                className={`border-t border-line/60 transition-colors hover:bg-white/[0.03] ${
+                  isMe ? 'bg-accent/[0.06]' : medal && i === 0 ? 'bg-gold/[0.04]' : ''
+                }`}
+              >
+                <td className="py-2.5 pr-2 pl-3 text-center text-xs font-semibold text-muted tabular-nums">
+                  {medal ? <span className={`mx-auto grid h-6 w-6 place-items-center rounded-full text-[11px] font-bold ${medal}`}>{i + 1}</span> : i + 1}
                 </td>
                 <td className="w-full max-w-0 py-2 pr-2">
                   <Link to={`/players/${r.playerId}`} className="flex min-w-0 items-center gap-2.5">

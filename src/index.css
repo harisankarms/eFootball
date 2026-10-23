@@ -4,20 +4,22 @@
   --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
   --font-display: 'Barlow Condensed', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
 
-  --color-bg: #070b14;
-  --color-surface: #0d1422;
-  --color-surface-2: #131c2f;
-  --color-surface-3: #1a2540;
-  --color-line: #1f2b45;
-  --color-line-strong: #2d3c5e;
-  --color-ink: #eef2fb;
-  --color-ink-2: #b6c1d9;
-  --color-muted: #8090ad;
+  --color-bg: #050816;
+  --color-surface: #0b1229;
+  --color-surface-2: #121b37;
+  --color-surface-3: #1a2548;
+  --color-line: #1d2950;
+  --color-line-strong: #2c3c6e;
+  --color-ink: #f2f5ff;
+  --color-ink-2: #b9c3e4;
+  --color-muted: #8090b8;
   --color-accent: #3dff8f;
   --color-accent-2: #1fd171;
   --color-accent-ink: #03140a;
-  --color-gold: #ffc94d;
-  --color-gold-2: #f5a524;
+  --color-cyan: #22d3ee;
+  --color-violet: #8b5cf6;
+  --color-gold: #ffcf4d;
+  --color-gold-2: #ff9f1c;
   --color-win: #0ca30c;
   --color-loss: #d03b3b;
   --color-draw: #5d6a85;
@@ -25,6 +27,12 @@
 
   --animate-pop: pop 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.3);
   --animate-rise: rise 0.4s ease-out both;
+  --animate-page: rise 0.35s ease-out backwards;
+  --animate-float: float 3.2s ease-in-out infinite;
+  --animate-spin-slow: turn 14s linear infinite;
+  --animate-twinkle: twinkle 2.6s ease-in-out infinite;
+  --animate-pulse-ring: pulse-ring 2.4s cubic-bezier(0.2, 0.6, 0.4, 1) infinite;
+  --animate-grow-x: grow-x 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
 
   @keyframes pop {
     from {
@@ -38,12 +46,50 @@
   }
   @keyframes rise {
     from {
-      transform: translateY(8px);
+      transform: translateY(10px);
       opacity: 0;
     }
     to {
       transform: translateY(0);
       opacity: 1;
+    }
+  }
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0) rotate(var(--float-rotate, 0deg));
+    }
+    50% {
+      transform: translateY(-6px) rotate(var(--float-rotate, 0deg));
+    }
+  }
+  @keyframes twinkle {
+    0%,
+    100% {
+      opacity: 0.15;
+      transform: scale(0.6);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  @keyframes pulse-ring {
+    0% {
+      transform: scale(1);
+      opacity: 0.55;
+    }
+    100% {
+      transform: scale(1.55);
+      opacity: 0;
+    }
+  }
+  @keyframes grow-x {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
     }
   }
 }
@@ -86,19 +132,120 @@
   }
 }
 
+@layer components {
+  /* Slow-moving glows behind every page. Only transforms animate, so it stays smooth on phones. */
+  .aurora {
+    position: absolute;
+    width: 70vmax;
+    height: 70vmax;
+    border-radius: 9999px;
+    will-change: transform;
+  }
+  .aurora-green {
+    top: -32vmax;
+    left: -28vmax;
+    background: radial-gradient(circle at center, rgb(61 255 143 / 0.15), transparent 62%);
+    animation: drift-a 26s ease-in-out infinite alternate;
+  }
+  .aurora-violet {
+    top: -30vmax;
+    right: -32vmax;
+    background: radial-gradient(circle at center, rgb(139 92 246 / 0.2), transparent 62%);
+    animation: drift-b 32s ease-in-out infinite alternate;
+  }
+  .aurora-cyan {
+    bottom: -42vmax;
+    left: 10vw;
+    background: radial-gradient(circle at center, rgb(34 211 238 / 0.11), transparent 62%);
+    animation: drift-a 38s ease-in-out infinite alternate-reverse;
+  }
+  .bg-grid {
+    background-image:
+      linear-gradient(rgb(148 163 255 / 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(148 163 255 / 0.05) 1px, transparent 1px);
+    background-size: 46px 46px;
+    mask-image: radial-gradient(ellipse 85% 60% at 50% 0%, #000 25%, transparent 75%);
+  }
+  @keyframes drift-a {
+    from {
+      transform: translate3d(0, 0, 0) scale(1);
+    }
+    to {
+      transform: translate3d(9vmax, 7vmax, 0) scale(1.15);
+    }
+  }
+  @keyframes drift-b {
+    from {
+      transform: translate3d(0, 0, 0) scale(1.1);
+    }
+    to {
+      transform: translate3d(-11vmax, 9vmax, 0) scale(0.95);
+    }
+  }
+
+  /* Rotating gold highlight around the Player of the Week card. */
+  .potw-frame {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    padding: 1px;
+    border-radius: 1.75rem;
+    background: linear-gradient(135deg, rgb(255 207 77 / 0.5), rgb(255 159 28 / 0.12) 45%, rgb(139 92 246 / 0.35));
+    box-shadow: 0 24px 60px -30px rgb(255 190 60 / 0.45);
+  }
+  .potw-frame::before {
+    content: '';
+    position: absolute;
+    inset: -75%;
+    z-index: -1;
+    background: conic-gradient(from 0deg, transparent 0 70%, rgb(255 224 140 / 0.95) 80%, transparent 90% 100%);
+    animation: turn 6s linear infinite;
+  }
+}
+
+@keyframes turn {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 @utility card {
-  background-color: var(--color-surface);
-  border: 1px solid var(--color-line);
+  position: relative;
   border-radius: 1.25rem;
+  background: linear-gradient(180deg, rgb(24 34 68 / 0.78), rgb(11 17 38 / 0.82));
+  border: 1px solid rgb(129 146 224 / 0.14);
+  box-shadow:
+    inset 0 1px 0 0 rgb(255 255 255 / 0.05),
+    0 18px 40px -26px rgb(0 0 0 / 0.9);
+}
+
+@utility card-hover {
+  transition:
+    transform 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+  &:hover {
+    transform: translateY(-2px);
+    border-color: rgb(61 255 143 / 0.35);
+    box-shadow:
+      inset 0 1px 0 0 rgb(255 255 255 / 0.06),
+      0 22px 44px -24px rgb(61 255 143 / 0.35);
+  }
+  &:active {
+    transform: translateY(0) scale(0.995);
+  }
 }
 
 @utility field {
   width: 100%;
   border-radius: 0.875rem;
   border: 1px solid var(--color-line-strong);
-  background-color: var(--color-surface-2);
+  background-color: rgb(18 27 55 / 0.85);
   padding: 0.7rem 0.9rem;
   color: var(--color-ink);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
   &::placeholder {
     color: var(--color-muted);
   }
@@ -107,6 +254,44 @@
     border-color: var(--color-accent);
     box-shadow: 0 0 0 3px rgb(61 255 143 / 0.18);
   }
+}
+
+@utility text-gradient {
+  background-image: linear-gradient(100deg, #3dff8f 0%, #22d3ee 55%, #a78bfa 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  padding-right: 0.08em;
+}
+
+@utility text-gradient-gold {
+  background-image: linear-gradient(100deg, #fff4c2 0%, #ffcf4d 45%, #ff9f1c 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  padding-right: 0.08em;
+}
+
+@utility btn-shine {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / 0.5) 50%, transparent 70%);
+    transform: translateX(-120%);
+    transition: transform 0.7s ease;
+    pointer-events: none;
+  }
+  &:hover::after {
+    transform: translateX(120%);
+  }
+}
+
+@utility glow-line {
+  background-image: linear-gradient(90deg, transparent, rgb(61 255 143 / 0.55), rgb(34 211 238 / 0.55), rgb(139 92 246 / 0.55), transparent);
 }
 
 @utility no-scrollbar {
@@ -129,6 +314,7 @@
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
 }

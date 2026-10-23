@@ -17,7 +17,7 @@ function Side({ league, id, team, won }: { league: League; id: string; team: str
     <Link to={`/players/${id}`} className="flex min-w-0 flex-col items-center gap-2 text-center">
       <Avatar league={league} id={id} size={64} ring={won ? 'accent' : undefined} />
       <div className="w-full min-w-0">
-        <div className={`truncate font-display text-2xl leading-tight font-bold uppercase ${won ? 'text-ink' : 'text-ink-2'}`}>
+        <div className={`truncate font-display text-2xl leading-tight font-bold uppercase italic ${won ? 'text-ink' : 'text-ink-2'}`}>
           {league.nameOf(id)}
         </div>
         {team && <div className="truncate text-xs text-muted">{team}</div>}
@@ -66,7 +66,7 @@ export default function MatchDetail() {
   const m = league.matches.find((x) => x.id === id)
   if (!m) {
     return (
-      <EmptyState icon={<SearchX className="h-6 w-6" />} title="Match not found">
+      <EmptyState icon={SearchX} title="Match not found">
         <p>It may have been deleted.</p>
         <Link to="/matches" className={buttonClass('secondary', 'md', 'mt-5')}>
           Back to matches

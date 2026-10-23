@@ -38,7 +38,7 @@ export default function Players() {
       <PageTitle title="Players" subtitle={`${squad.filter((s) => s.player.active).length} in the squad`} />
       <PlayersTabs />
       {squad.length === 0 ? (
-        <EmptyState icon={<Users className="h-6 w-6" />} title="No players yet">
+        <EmptyState icon={Users} title="No players yet">
           The first person to sign in becomes the admin and can add everyone else.
         </EmptyState>
       ) : (
@@ -53,7 +53,7 @@ export default function Players() {
             >
               <Avatar league={league} id={player.id} size={60} ring={trophies?.potw ? 'gold' : undefined} />
               <div className="mt-3 flex max-w-full items-center gap-1.5">
-                <span className="truncate font-display text-xl leading-tight font-bold uppercase">{player.name}</span>
+                <span className="truncate font-display text-xl leading-tight font-bold uppercase italic">{player.name}</span>
               </div>
               <div className="mt-1 flex flex-wrap justify-center gap-1">
                 {me?.id === player.id && <Badge tone="accent">You</Badge>}

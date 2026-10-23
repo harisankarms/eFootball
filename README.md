@@ -1,4 +1,4 @@
-# Squad League
+# eFootball Tracker
 
 A small, free website for a group of friends who play eFootball. Log every result with a screenshot, keep a live league table, and crown a **Player of the Week** automatically.
 
@@ -6,7 +6,8 @@ A small, free website for a group of friends who play eFootball. Log every resul
 - **Tables** for this week, this month and all time, with form, goal difference and win %.
 - **Player of the Week**, decided by points: 3 per win, 1 per draw, 0.5 per goal, 1 per clean sheet, minimum 3 games. Ties go to win %, then goal difference, then goals, then head-to-head. The admin can change all of this.
 - **Weekly awards**: Golden Boot, The Wall, Biggest Win and the Wooden Spoon.
-- **Player profiles**, **head-to-head** records and a **Hall of Fame** of every past winner.
+- **Head to Head**: pick any two players to see every result between them, their record, goals, streaks and form, plus a list of every rivalry in the group.
+- **Player profiles** and a **Hall of Fame** of every past winner.
 - **Disputes**: the other player can flag a wrong result within 24 hours. It stops counting until the admin sorts it out.
 - **Live updates**: when a friend logs a result, everyone's screen refreshes.
 - Works on phones and can be **installed to the home screen** like an app.
@@ -57,7 +58,7 @@ The "Continue with Google" button only appears on the site once Google is switch
 
 1. Go to [console.cloud.google.com](https://console.cloud.google.com) and create a project (any name).
 2. Open **Google Auth Platform** (it may still be labelled **APIs & Services → OAuth consent screen**):
-   - **Branding**: app name (for example "Squad League") and your email.
+   - **Branding**: app name (for example "eFootball Tracker") and your email.
    - **Audience**: choose **External**, then click **Publish app**. Google doesn't need to verify an app that only asks for name and email.
 3. Go to **Clients → Create client**, and choose **Web application**.
    - Under **Authorized redirect URIs**, add the **Callback URL** shown in Supabase under **Authentication → Sign In / Providers → Google**. It looks like `https://abcdefgh.supabase.co/auth/v1/callback`.
@@ -70,7 +71,7 @@ Create an empty repository on [github.com](https://github.com/new). Private is f
 ```bash
 git init
 git add .
-git commit -m "Squad League"
+git commit -m "eFootball Tracker"
 git branch -M main
 git remote add origin https://github.com/YOUR-USERNAME/YOUR-REPO.git
 git push -u origin main
@@ -88,13 +89,13 @@ git push -u origin main
    | `VITE_SUPABASE_KEY` | The **Publishable** key (`sb_publishable_…`), or the legacy **anon** key |
 
    Never use the **secret** or **service_role** key here. Those keys are for servers only.
-4. Click **Deploy**. After a minute you get a link like `https://squad-league.vercel.app`.
+4. Click **Deploy**. After a minute you get a link like `https://efootball-tracker.vercel.app`.
 
 ### 6. Tell Supabase where the site lives
 
 In Supabase, go to **Authentication → URL Configuration**:
 
-- **Site URL**: your Vercel link, for example `https://squad-league.vercel.app`.
+- **Site URL**: your Vercel link, for example `https://efootball-tracker.vercel.app`.
 - **Redirect URLs**: add the same link. Also add `http://localhost:5173` if you want to sign in while developing locally.
 
 Without this step, Google sign-in sends people back to the wrong place.

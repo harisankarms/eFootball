@@ -370,6 +370,7 @@ export function playerSummary(matches: Match[], id: string): PlayerSummary {
 export type HeadToHead = {
   /** Newest first. */
   matches: Match[]
+  played: number
   aWins: number
   bWins: number
   draws: number
@@ -381,12 +382,24 @@ export type HeadToHead = {
   bPensWins: number
   aBiggestWin: Match | null
   bBiggestWin: Match | null
+  aLongestWinStreak: number
+  bLongestWinStreak: number
+  /** The run the most recent meetings are on: one side winning in a row, or draws. */
+  streak: { side: 'a' | 'b' | 'draw'; count: number } | null
+  /** Last five meetings, oldest first, from each player's point of view. */
+  aForm: Outcome[]
+  bForm: Outcome[]
+  highestScoring: Match | null
+  firstMeeting: Match | null
 }
 
+const flip: Record<Outcome, Outcome> = { W: 'L', D: 'D', L: 'W' }
+
 export function headToHead(matches: Match[], a: string, b: string): HeadToHead {
-  const mutual = matches.filter((m) => isCounted(m) && involves(m, a) && involves(m, b))
+  const mutual = chronological(matches.filter((m) => isCounted(m) && involves(m, a) && involves(m, b)))
   const h: HeadToHead = {
-    matches: newestFirst(mutual),
+    matches: [...mutual].reverse(),
+    played: mutual.length,
     aWins: 0,
     bWins: 0,
     draws: 0,
@@ -398,9 +411,19 @@ export function headToHead(matches: Match[], a: string, b: string): HeadToHead {
     bPensWins: 0,
     aBiggestWin: null,
     bBiggestWin: null,
+    aLongestWinStreak: 0,
+    bLongestWinStreak: 0,
+    streak: null,
+    aForm: [],
+    bForm: [],
+    highestScoring: null,
+    firstMeeting: mutual[0] ?? null,
   }
   const aWinsList: Match[] = []
   const bWinsList: Match[] = []
+  const outcomes: Outcome[] = []
+  let aRun = 0
+  let bRun = 0
   for (const m of mutual) {
     const { gf, ga } = sideOf(m, a)
     h.aGoals += gf
@@ -408,6 +431,11 @@ export function headToHead(matches: Match[], a: string, b: string): HeadToHead {
     if (ga === 0) h.aCleanSheets++
     if (gf === 0) h.bCleanSheets++
     const o = outcomeFor(m, a)
+    outcomes.push(o)
+    aRun = o === 'W' ? aRun + 1 : 0
+    bRun = o === 'L' ? bRun + 1 : 0
+    h.aLongestWinStreak = Math.max(h.aLongestWinStreak, aRun)
+    h.bLongestWinStreak = Math.max(h.bLongestWinStreak, bRun)
     if (o === 'W') {
       h.aWins++
       aWinsList.push(m)
@@ -417,10 +445,52 @@ export function headToHead(matches: Match[], a: string, b: string): HeadToHead {
       bWinsList.push(m)
       if (m.pens_winner_id) h.bPensWins++
     } else h.draws++
+    const total = m.home_goals + m.away_goals
+    if (!h.highestScoring || total >= h.highestScoring.home_goals + h.highestScoring.away_goals) h.highestScoring = m
   }
   h.aBiggestWin = biggestWinIn(aWinsList)
   h.bBiggestWin = biggestWinIn(bWinsList)
+  h.aForm = outcomes.slice(-5)
+  h.bForm = h.aForm.map((o) => flip[o])
+  if (outcomes.length) {
+    const last = outcomes[outcomes.length - 1]
+    let count = 0
+    for (let i = outcomes.length - 1; i >= 0 && outcomes[i] === last; i--) count++
+    h.streak = { side: last === 'W' ? 'a' : last === 'L' ? 'b' : 'draw', count }
+  }
   return h
+}
+
+export type Rivalry = {
+  /** The player leading the rivalry (or either one when level). */
+  a: string
+  b: string
+  played: number
+  aWins: number
+  bWins: number
+  draws: number
+  lastPlayed: string
+}
+
+/** Every pair of players who have met, most-played first. */
+export function rivalries(matches: Match[]): Rivalry[] {
+  const pairs = new Map<string, Rivalry>()
+  for (const m of matches) {
+    if (!isCounted(m)) continue
+    const [a, b] = [m.home_id, m.away_id].sort()
+    const key = `${a}|${b}`
+    const r = pairs.get(key) ?? { a, b, played: 0, aWins: 0, bWins: 0, draws: 0, lastPlayed: m.played_at }
+    r.played++
+    const o = outcomeFor(m, a)
+    if (o === 'W') r.aWins++
+    else if (o === 'L') r.bWins++
+    else r.draws++
+    if (Date.parse(m.played_at) > Date.parse(r.lastPlayed)) r.lastPlayed = m.played_at
+    pairs.set(key, r)
+  }
+  return [...pairs.values()]
+    .map((r) => (r.bWins > r.aWins ? { ...r, a: r.b, b: r.a, aWins: r.bWins, bWins: r.aWins } : r))
+    .sort((x, y) => y.played - x.played || Date.parse(y.lastPlayed) - Date.parse(x.lastPlayed))
 }
 
 export function formatPoints(n: number): string {

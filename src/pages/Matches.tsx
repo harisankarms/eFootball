@@ -79,7 +79,7 @@ export default function Matches() {
       </div>
 
       {groups.length === 0 ? (
-        <EmptyState icon={<Swords className="h-6 w-6" />} title="No matches here">
+        <EmptyState icon={Swords} title="No matches here">
           Try a different filter.
         </EmptyState>
       ) : (

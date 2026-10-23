@@ -1,6 +1,7 @@
 import '@fontsource-variable/inter/wght.css'
 import '@fontsource/barlow-condensed/latin-600.css'
 import '@fontsource/barlow-condensed/latin-700.css'
+import '@fontsource/barlow-condensed/latin-700-italic.css'
 import './index.css'
 
 import { QueryClientProvider } from '@tanstack/react-query'

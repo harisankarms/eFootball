@@ -463,14 +463,14 @@ export default function AddMatch() {
     const existing = league.matches.find((m) => m.id === id)
     if (!isAdmin) {
       return (
-        <EmptyState icon={<SearchX className="h-6 w-6" />} title="Admins only">
+        <EmptyState icon={SearchX} title="Admins only">
           Only an admin can edit results. If a score is wrong, dispute it from the match page.
         </EmptyState>
       )
     }
     if (!existing) {
       return (
-        <EmptyState icon={<SearchX className="h-6 w-6" />} title="Match not found">
+        <EmptyState icon={SearchX} title="Match not found">
           <Link to="/matches" className={buttonClass('secondary', 'md', 'mt-4')}>
             Back to matches
           </Link>

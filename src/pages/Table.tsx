@@ -116,7 +116,7 @@ export default function Table() {
             <ChevronLeft className="h-5 w-5" />
           </button>
           <div className="text-center">
-            <div className="font-display text-2xl leading-tight font-bold uppercase">{period.title}</div>
+            <div className="font-display text-2xl leading-tight font-bold uppercase italic">{period.title}</div>
             {period.note && <div className="text-xs text-muted">{period.note}</div>}
           </div>
           <button className={arrow} disabled={!period.next} onClick={() => go({ at: period.next })} aria-label="Next">
@@ -151,7 +151,7 @@ export default function Table() {
           sortable
         />
       ) : (
-        <EmptyState icon={<ListOrdered className="h-6 w-6" />} title="No games">
+        <EmptyState icon={ListOrdered} title="No games">
           Nobody played in this period.
         </EmptyState>
       )}

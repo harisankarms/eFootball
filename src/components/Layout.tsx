@@ -1,33 +1,33 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { House, Info, ListOrdered, LogIn, LogOut, Pencil, Plus, Settings, Swords, UserRound, Users, type LucideIcon } from 'lucide-react'
+import { Gamepad2, House, Info, ListOrdered, LogIn, LogOut, Pencil, Plus, Settings, Swords, UserRound, Users, type LucideIcon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { friendlyError } from '../lib/api'
 import { api, isDemo } from '../lib/backend'
 import { keys, useAuth, useLeague, useLiveUpdates, useSettings } from '../lib/queries'
+import { DEFAULT_SETTINGS } from '../lib/types'
 import { Avatar } from './Avatar'
 import { useToast } from './Toast'
-import { BallLogo, Button, Sheet, buttonClass } from './ui'
+import { BallLogo, Button, Sheet, Wordmark, buttonClass } from './ui'
 
 type NavItem = { to: string; label: string; icon: LucideIcon; match: (path: string) => boolean }
 
 const NAV: NavItem[] = [
   { to: '/', label: 'Home', icon: House, match: (p) => p === '/' },
-  { to: '/matches', label: 'Matches', icon: Swords, match: (p) => p.startsWith('/match') },
+  { to: '/matches', label: 'Matches', icon: Gamepad2, match: (p) => p.startsWith('/match') },
   { to: '/table', label: 'Table', icon: ListOrdered, match: (p) => p.startsWith('/table') },
-  {
-    to: '/players',
-    label: 'Players',
-    icon: Users,
-    match: (p) => p.startsWith('/players') || p.startsWith('/h2h') || p.startsWith('/hall-of-fame'),
-  },
+  { to: '/h2h', label: 'H2H', icon: Swords, match: (p) => p.startsWith('/h2h') },
+  { to: '/players', label: 'Players', icon: Users, match: (p) => p.startsWith('/players') || p.startsWith('/hall-of-fame') },
 ]
 
 function Backdrop() {
   return (
-    <div aria-hidden className="pointer-events-none fixed inset-0 -z-10">
-      <div className="absolute -top-40 -left-40 h-[28rem] w-[28rem] rounded-full bg-accent/[0.07] blur-3xl" />
-      <div className="absolute top-1/3 -right-48 h-[30rem] w-[30rem] rounded-full bg-[#38bdf8]/[0.06] blur-3xl" />
+    <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,#0e1a40_0%,#050816_62%)]" />
+      <div className="bg-grid absolute inset-0" />
+      <div className="aurora aurora-green" />
+      <div className="aurora aurora-violet" />
+      <div className="aurora aurora-cyan" />
     </div>
   )
 }
@@ -104,19 +104,19 @@ function AccountMenu() {
     )
   }
 
-  const item = 'flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-ink-2 hover:bg-surface-3 hover:text-ink'
+  const item = 'flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-ink-2 transition hover:bg-white/[0.06] hover:text-ink'
   return (
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label="Account menu"
         aria-expanded={open}
-        className="grid h-9 w-9 place-items-center rounded-full ring-1 ring-line-strong transition hover:ring-accent"
+        className="grid place-items-center rounded-full transition hover:scale-105"
       >
-        {me && league ? <Avatar league={league} id={me.id} size={34} /> : <UserRound className="h-5 w-5 text-ink-2" />}
+        {me && league ? <Avatar league={league} id={me.id} size={34} ring="gradient" /> : <UserRound className="h-6 w-6 text-ink-2" />}
       </button>
       {open && (
-        <div className="absolute top-12 right-0 z-50 w-60 animate-rise rounded-2xl border border-line bg-surface-2 p-1.5 shadow-2xl">
+        <div className="absolute top-12 right-0 z-50 w-60 animate-rise rounded-2xl border border-line-strong bg-[linear-gradient(180deg,#151f40,#0d1530)] p-1.5 shadow-[0_24px_60px_-20px_rgb(0_0_0/0.9)]">
           <div className="border-b border-line px-3 pt-2 pb-2.5">
             <div className="truncate text-sm font-semibold">{me?.name ?? 'Waiting for approval'}</div>
             <div className="truncate text-xs text-muted">{session.email}</div>
@@ -167,81 +167,98 @@ function AccountMenu() {
 
 function Header() {
   const { data: settings } = useSettings()
-  const { isMember } = useAuth()
   const { pathname } = useLocation()
+  const name = settings?.group_name ?? DEFAULT_SETTINGS.group_name
   useEffect(() => {
-    if (settings?.group_name) document.title = settings.group_name
-  }, [settings?.group_name])
+    document.title = name
+  }, [name])
   return (
-    <header className="pt-safe sticky top-0 z-40 border-b border-line/70 bg-bg/95">
-      <div className="mx-auto flex h-14 max-w-5xl items-center gap-3 px-4">
-        <Link to="/" className="flex min-w-0 items-center gap-2.5">
-          <BallLogo className="h-8 w-8 shrink-0" />
-          <span className="truncate font-display text-[1.4rem] font-bold tracking-wide uppercase">
-            {settings?.group_name ?? 'Squad League'}
-          </span>
+    <header className="pt-safe sticky top-0 z-40 bg-bg/90">
+      <div className="mx-auto flex h-15 max-w-5xl items-center gap-3 px-4">
+        <Link to="/" className="group flex min-w-0 items-center gap-2.5">
+          <BallLogo className="h-9 w-9 shrink-0 drop-shadow-[0_0_12px_rgb(61_255_143/0.45)] transition duration-500 group-hover:rotate-[72deg]" />
+          <Wordmark name={name} className="truncate text-[1.6rem] leading-none" />
         </Link>
-        <nav className="ml-4 hidden items-center gap-1 md:flex" aria-label="Main">
-          {NAV.map((n) => (
-            <NavLink
-              key={n.to}
-              to={n.to}
-              className={`rounded-lg px-3 py-2 text-sm font-semibold transition ${
-                n.match(pathname) ? 'bg-surface-2 text-ink' : 'text-muted hover:text-ink'
-              }`}
-            >
-              {n.label}
-            </NavLink>
-          ))}
+        <nav className="ml-5 hidden items-center gap-1 md:flex" aria-label="Main">
+          {NAV.map((n) => {
+            const active = n.match(pathname)
+            return (
+              <NavLink
+                key={n.to}
+                to={n.to}
+                className={`relative rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                  active ? 'bg-white/[0.06] text-ink' : 'text-muted hover:bg-white/[0.04] hover:text-ink'
+                }`}
+              >
+                {n.label === 'H2H' ? 'Head to Head' : n.label}
+                {active && (
+                  <span
+                    aria-hidden
+                    className="absolute inset-x-3 -bottom-[9px] h-0.5 rounded-full bg-[linear-gradient(90deg,#3dff8f,#22d3ee)] shadow-[0_0_10px_rgb(61_255_143/0.8)]"
+                  />
+                )}
+              </NavLink>
+            )
+          })}
         </nav>
-        <div className="ml-auto flex shrink-0 items-center gap-2">
-          {isMember && (
-            <div className="hidden md:block">
-              <Link to="/add" className={buttonClass('primary', 'sm')}>
-                <Plus className="h-4 w-4" aria-hidden strokeWidth={2.75} />
-                Add result
-              </Link>
-            </div>
-          )}
+        <div className="ml-auto flex shrink-0 items-center gap-2.5">
+          <div className="hidden md:block">
+            <Link to="/add" className={buttonClass('primary', 'sm')}>
+              <Plus className="h-4 w-4" aria-hidden strokeWidth={2.75} />
+              Add result
+            </Link>
+          </div>
           <AccountMenu />
         </div>
       </div>
+      <div aria-hidden className="glow-line h-px opacity-70" />
     </header>
   )
 }
 
 function BottomNav() {
   const { pathname } = useLocation()
-  const tab = (n: NavItem) => {
-    const active = n.match(pathname)
-    return (
-      <Link
-        key={n.to}
-        to={n.to}
-        aria-current={active ? 'page' : undefined}
-        className={`flex flex-col items-center gap-1 py-1 text-[11px] font-semibold transition ${active ? 'text-accent' : 'text-muted'}`}
-      >
-        <n.icon className="h-[22px] w-[22px]" strokeWidth={active ? 2.4 : 2} aria-hidden />
-        {n.label}
-      </Link>
-    )
-  }
   return (
-    <nav aria-label="Main" className="pb-safe fixed inset-x-0 bottom-0 z-40 border-t border-line/70 bg-surface/[0.97] md:hidden">
-      <div className="mx-auto grid h-16 max-w-md grid-cols-5 items-center">
-        {tab(NAV[0])}
-        {tab(NAV[1])}
-        <Link
-          to="/add"
-          aria-label="Add result"
-          className="mx-auto -mt-8 grid h-15 w-15 place-items-center rounded-full bg-accent text-accent-ink shadow-[0_10px_30px_-6px_rgb(61_255_143/0.65)] ring-[5px] ring-bg transition active:scale-95"
-        >
-          <Plus className="h-7 w-7" strokeWidth={2.75} aria-hidden />
-        </Link>
-        {tab(NAV[2])}
-        {tab(NAV[3])}
+    <nav aria-label="Main" className="pb-safe fixed inset-x-0 bottom-0 z-40 bg-[#060b1d]/95 md:hidden">
+      <div aria-hidden className="glow-line h-px opacity-60" />
+      <div className="mx-auto grid h-16 max-w-lg grid-cols-5 items-center">
+        {NAV.map((n) => {
+          const active = n.match(pathname)
+          return (
+            <Link
+              key={n.to}
+              to={n.to}
+              aria-current={active ? 'page' : undefined}
+              className={`flex flex-col items-center gap-1 text-[11px] font-semibold transition ${active ? 'text-accent' : 'text-muted'}`}
+            >
+              <span
+                className={`grid h-7 w-12 place-items-center rounded-full transition ${
+                  active ? 'bg-accent/15 shadow-[0_0_18px_-4px_rgb(61_255_143/0.7)]' : ''
+                }`}
+              >
+                <n.icon className="h-[21px] w-[21px]" strokeWidth={active ? 2.4 : 2} aria-hidden />
+              </span>
+              {n.label}
+            </Link>
+          )
+        })}
       </div>
     </nav>
+  )
+}
+
+function AddButton() {
+  const { pathname } = useLocation()
+  if (pathname === '/add' || pathname.endsWith('/edit') || pathname === '/login') return null
+  return (
+    <Link
+      to="/add"
+      aria-label="Add result"
+      className="fixed right-4 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-40 grid h-14 w-14 place-items-center rounded-2xl bg-[linear-gradient(135deg,#3dff8f,#22d3ee)] text-accent-ink shadow-[0_14px_34px_-8px_rgb(61_255_143/0.8)] transition active:scale-95 md:hidden"
+    >
+      <span aria-hidden className="absolute inset-0 animate-pulse-ring rounded-2xl bg-accent/50" />
+      <Plus className="relative h-7 w-7" strokeWidth={2.75} />
+    </Link>
   )
 }
 
@@ -280,9 +297,12 @@ export function Layout() {
       <Backdrop />
       <Header />
       {isDemo && <DemoBanner />}
-      <main className="mx-auto w-full max-w-5xl px-4 pt-5 pb-[calc(7rem+env(safe-area-inset-bottom))] md:pt-8 md:pb-16">
-        <Outlet />
+      <main className="mx-auto w-full max-w-5xl px-4 pt-6 pb-[calc(8rem+env(safe-area-inset-bottom))] md:pt-9 md:pb-16">
+        <div key={pathname} className="animate-page">
+          <Outlet />
+        </div>
       </main>
+      <AddButton />
       <BottomNav />
     </div>
   )

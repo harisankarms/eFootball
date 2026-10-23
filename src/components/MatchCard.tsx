@@ -16,10 +16,7 @@ export function MatchCard({ match, league, showDate = false }: { match: Match; l
     { id: match.away_id, goals: match.away_goals },
   ]
   return (
-    <Link
-      to={`/match/${match.id}`}
-      className="card flex items-center gap-3 p-3 transition hover:border-line-strong hover:bg-surface-2/40"
-    >
+    <Link to={`/match/${match.id}`} className="group card card-hover flex items-center gap-3 p-3">
       <div className="min-w-0 flex-1 space-y-1.5">
         {sides.map((s) => {
           const won = winner === s.id
@@ -30,7 +27,11 @@ export function MatchCard({ match, league, showDate = false }: { match: Match; l
                 {league.nameOf(s.id)}
               </span>
               {match.pens_winner_id === s.id && <Badge tone="gold">Pens</Badge>}
-              <span className={`ml-auto pl-2 text-lg leading-none font-bold tabular-nums ${won ? 'text-ink' : 'text-ink-2'}`}>
+              <span
+                className={`ml-auto grid h-7 min-w-7 place-items-center rounded-lg px-1.5 text-lg leading-none font-bold tabular-nums ${
+                  won ? 'bg-accent/15 text-accent shadow-[inset_0_0_0_1px_rgb(61_255_143/0.3)]' : winner ? 'text-ink-2' : 'text-ink'
+                }`}
+              >
                 {s.goals}
               </span>
             </div>
@@ -44,18 +45,16 @@ export function MatchCard({ match, league, showDate = false }: { match: Match; l
           {match.status === 'disputed' && <Badge tone="warn">Disputed</Badge>}
         </div>
       </div>
-      {thumb ? (
-        <img
-          src={thumb}
-          alt=""
-          loading="lazy"
-          className="h-16 w-24 shrink-0 rounded-xl border border-line object-cover"
-        />
-      ) : (
-        <div className="grid h-16 w-24 shrink-0 place-items-center rounded-xl border border-line bg-surface-2 text-muted">
-          <ImageOff className="h-5 w-5" aria-label="No screenshot" />
-        </div>
-      )}
+      <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-xl border border-line bg-surface-2">
+        {thumb ? (
+          <img src={thumb} alt="" loading="lazy" className="h-full w-full object-cover transition duration-500 group-hover:scale-110" />
+        ) : (
+          <div className="grid h-full w-full place-items-center text-muted">
+            <ImageOff className="h-5 w-5" aria-label="No screenshot" />
+          </div>
+        )}
+        <span aria-hidden className="pointer-events-none absolute inset-0 rounded-xl shadow-[inset_0_0_0_1px_rgb(255_255_255/0.06)]" />
+      </div>
     </Link>
   )
 }

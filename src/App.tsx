@@ -16,7 +16,7 @@ import Table from './pages/Table'
 
 function NotFound() {
   return (
-    <EmptyState icon={<SearchX className="h-6 w-6" />} title="Page not found">
+    <EmptyState icon={SearchX} title="Page not found">
       <Link to="/" className={buttonClass('secondary', 'md', 'mt-4')}>
         Go home
       </Link>

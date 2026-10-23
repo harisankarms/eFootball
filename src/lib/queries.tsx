@@ -31,6 +31,10 @@ export function useSettings() {
   return useQuery({ queryKey: keys.settings, queryFn: () => api.getSettings() })
 }
 
+export function useJoinRequests(enabled: boolean) {
+  return useQuery({ queryKey: keys.joinRequests, queryFn: () => api.getJoinRequests(), enabled })
+}
+
 export function useAuthOptions() {
   return useQuery({ queryKey: ['auth-options'], queryFn: () => api.getAuthOptions(), staleTime: Infinity })
 }

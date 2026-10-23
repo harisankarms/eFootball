@@ -1,4 +1,4 @@
-import { BrickWall, ChevronRight, Crown, Footprints, SearchX, Utensils } from 'lucide-react'
+import { BrickWall, ChevronRight, Crown, Flame, Footprints, Gamepad2, Goal, Percent, SearchX, Shield, TrendingUp, Utensils } from 'lucide-react'
 import { useMemo } from 'react'
 import { Link, useParams } from 'react-router'
 import { Avatar } from '../components/Avatar'
@@ -41,7 +41,7 @@ export default function PlayerProfile() {
   const player = league.byId.get(id)
   if (!player || !data) {
     return (
-      <EmptyState icon={<SearchX className="h-6 w-6" />} title="Player not found">
+      <EmptyState icon={SearchX} title="Player not found">
         <Link to="/players" className={buttonClass('secondary', 'md', 'mt-4')}>
           All players
         </Link>
@@ -71,7 +71,7 @@ export default function PlayerProfile() {
         <div className="relative flex items-center gap-4">
           <Avatar league={league} id={id} size={88} ring={trophies.potw ? 'gold' : undefined} />
           <div className="min-w-0">
-            <h1 className="truncate font-display text-4xl leading-none font-bold uppercase">{player.name}</h1>
+            <h1 className="truncate font-display text-[2.6rem] leading-none font-bold uppercase italic">{player.name}</h1>
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
               {me?.id === id && <Badge tone="accent">You</Badge>}
               {player.is_admin && <Badge>Admin</Badge>}
@@ -97,12 +97,14 @@ export default function PlayerProfile() {
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-            <StatTile label="Played" value={s.played} sub={`${s.won}W · ${s.drawn}D · ${s.lost}L`} />
-            <StatTile label="Win rate" value={formatPct(s.winPct)} sub={`${signed(s.gf - s.ga)} goal difference`} />
-            <StatTile label="Goals" value={s.gf} sub={`${s.goalsPerGame.toFixed(1)} per game`} />
-            <StatTile label="Clean sheets" value={s.cleanSheets} sub={`${s.ga} conceded`} />
-            <StatTile label="Best win streak" value={s.bestWinStreak} sub={`Longest unbeaten run: ${s.bestUnbeatenRun}`} />
+            <StatTile label="Played" value={s.played} sub={`${s.won}W · ${s.drawn}D · ${s.lost}L`} icon={Gamepad2} tint="cyan" />
+            <StatTile label="Win rate" value={formatPct(s.winPct)} sub={`${signed(s.gf - s.ga)} goal difference`} icon={Percent} />
+            <StatTile label="Goals" value={s.gf} sub={`${s.goalsPerGame.toFixed(1)} per game`} icon={Goal} tint="gold" />
+            <StatTile label="Clean sheets" value={s.cleanSheets} sub={`${s.ga} conceded`} icon={Shield} tint="cyan" />
+            <StatTile label="Best win streak" value={s.bestWinStreak} sub={`Longest unbeaten run: ${s.bestUnbeatenRun}`} icon={Flame} tint="gold" />
             <StatTile
+              icon={TrendingUp}
+              tint="violet"
               label="Current run"
               value={streak ? `${streak.count} ${streakWords[streak.outcome][streak.count === 1 ? 0 : 1]}` : '–'}
               sub="in a row"

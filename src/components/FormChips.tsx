@@ -13,7 +13,7 @@ export function FormChips({ form, size = 'sm' }: { form: Outcome[]; size?: 'xs' 
   return (
     <span className="inline-flex gap-1" role="img" aria-label={`Form, oldest to newest: ${form.map((o) => words[o]).join(', ')}`}>
       {form.map((o, i) => (
-        <span key={i} className={`grid place-items-center font-bold ${dims} ${styles[o]}`}>
+        <span key={i} className={`grid place-items-center font-bold shadow-[inset_0_1px_0_rgb(255_255_255/0.28)] ${dims} ${styles[o]}`}>
           {o}
         </span>
       ))}

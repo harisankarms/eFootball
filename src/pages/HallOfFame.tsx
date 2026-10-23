@@ -37,7 +37,7 @@ export default function HallOfFame() {
       <PlayersTabs />
 
       {data.weeks.length === 0 ? (
-        <EmptyState icon={<Trophy className="h-6 w-6" />} title="No trophies yet">
+        <EmptyState icon={Trophy} title="No trophies yet">
           The first Player of the Week is crowned when this week ends on Sunday at midnight.
         </EmptyState>
       ) : (
@@ -91,7 +91,7 @@ export default function HallOfFame() {
                       <Avatar league={league} id={w.winner.playerId} size={44} ring="gold" />
                       <div className="min-w-0">
                         <div className="flex items-center gap-1.5">
-                          <span className="truncate font-display text-2xl leading-none font-bold uppercase">
+                          <span className="truncate font-display text-2xl leading-none font-bold uppercase italic">
                             {league.nameOf(w.winner.playerId)}
                           </span>
                           <Crown className="h-4 w-4 shrink-0 text-gold" aria-label="Player of the Week" />

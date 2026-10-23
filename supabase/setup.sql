@@ -1,5 +1,5 @@
 -- =====================================================================
---  Squad League - database setup
+--  eFootball Tracker - database setup
 --
 --  Paste this whole file into Supabase -> SQL Editor -> New query -> Run.
 --  It is safe to run again later (for example after an update):
@@ -53,7 +53,7 @@ create index if not exists matches_away_id_idx on public.matches (away_id);
 -- One row of group-wide settings. The admin edits these from the Admin page.
 create table if not exists public.settings (
   id                  int primary key default 1 check (id = 1),
-  group_name          text not null default 'Squad League' check (char_length(group_name) between 1 and 40),
+  group_name          text not null default 'eFootball Tracker' check (char_length(group_name) between 1 and 40),
   timezone            text not null default 'Asia/Kolkata',
   potw_win            numeric not null default 3 check (potw_win >= 0),
   potw_draw           numeric not null default 1 check (potw_draw >= 0),
