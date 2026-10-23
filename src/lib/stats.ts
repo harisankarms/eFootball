@@ -493,6 +493,16 @@ export function rivalries(matches: Match[]): Rivalry[] {
     .sort((x, y) => y.played - x.played || Date.parse(y.lastPlayed) - Date.parse(x.lastPlayed))
 }
 
+/** An eFootball-style 60-99 card rating from a week's numbers, for the Player of the Week cards. */
+export function cardRating(r: Row): number {
+  if (!r.played) return 60
+  const winRate = r.won / r.played
+  const goalsPerGame = r.gf / r.played
+  const cleanSheetRate = r.cleanSheets / r.played
+  const raw = 64 + 20 * winRate + 3 * Math.min(goalsPerGame, 4) + 6 * cleanSheetRate + 0.6 * Math.min(r.played, 10)
+  return Math.max(60, Math.min(99, Math.round(raw)))
+}
+
 export function formatPoints(n: number): string {
   return String(Math.round(n * 100) / 100)
 }

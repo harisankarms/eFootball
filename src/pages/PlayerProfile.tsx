@@ -7,6 +7,7 @@ import { AvatarEditor } from '../components/AvatarEditor'
 import { FormChips } from '../components/FormChips'
 import { LevelBadge, XpBar } from '../components/Level'
 import { MatchCard } from '../components/MatchCard'
+import { CollectibleCard } from '../components/Potw'
 import { BackButton, Badge, EmptyState, ErrorState, PageSkeleton, SectionTitle, StatTile, buttonClass } from '../components/ui'
 import { api } from '../lib/backend'
 import { useAuth, useLeague, useNow, useProgress } from '../lib/queries'
@@ -35,7 +36,7 @@ export default function PlayerProfile() {
     return {
       summary: playerSummary(matches, id),
       trophies: trophyCounts(weeks).get(id) ?? { potw: 0, goldenBoots: 0, walls: 0, spoons: 0 },
-      potwWeeks: weeks.filter((w) => w.winner?.playerId === id).map((w) => w.weekKey),
+      potwWeeks: weeks.filter((w) => w.winner?.playerId === id),
       recent: mine.slice(0, 5),
       gallery: mine.filter((m) => m.thumb_path || m.screenshot_path).slice(0, 9),
     }
@@ -211,16 +212,12 @@ export default function PlayerProfile() {
 
       {potwWeeks.length > 0 && (
         <section>
-          <SectionTitle title="Player of the Week" />
-          <div className="flex flex-wrap gap-2">
+          <SectionTitle title={`Player of the Week · ${potwWeeks.length}`} />
+          <div className="no-scrollbar -mx-4 flex snap-x gap-3 overflow-x-auto px-4 pt-1 pb-3">
             {potwWeeks.map((w) => (
-              <Link
-                key={w}
-                to={`/table?at=${w}`}
-                className="flex items-center gap-1.5 rounded-full border border-gold/30 bg-gold/[0.07] px-3 py-1.5 text-xs font-semibold text-gold"
-              >
-                <Crown className="h-3.5 w-3.5" aria-hidden /> {weekLabel(w)}
-              </Link>
+              <div key={w.weekKey} className="w-[150px] shrink-0 snap-start sm:w-[170px]">
+                <CollectibleCard league={league} row={w.winner} caption={weekLabel(w.weekKey)} mini to={`/table?at=${w.weekKey}`} />
+              </div>
             ))}
           </div>
         </section>

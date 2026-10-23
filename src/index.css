@@ -30,7 +30,6 @@
   --animate-page: rise 0.35s ease-out backwards;
   --animate-float: float 3.2s ease-in-out infinite;
   --animate-spin-slow: turn 14s linear infinite;
-  --animate-twinkle: twinkle 2.6s ease-in-out infinite;
   --animate-pulse-ring: pulse-ring 2.4s cubic-bezier(0.2, 0.6, 0.4, 1) infinite;
   --animate-grow-x: grow-x 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
 
@@ -61,17 +60,6 @@
     }
     50% {
       transform: translateY(-6px) rotate(var(--float-rotate, 0deg));
-    }
-  }
-  @keyframes twinkle {
-    0%,
-    100% {
-      opacity: 0.15;
-      transform: scale(0.6);
-    }
-    50% {
-      opacity: 1;
-      transform: scale(1);
     }
   }
   @keyframes pulse-ring {
@@ -181,25 +169,6 @@
     to {
       transform: translate3d(-11vmax, 9vmax, 0) scale(0.95);
     }
-  }
-
-  /* Rotating gold highlight around the Player of the Week card. */
-  .potw-frame {
-    position: relative;
-    isolation: isolate;
-    overflow: hidden;
-    padding: 1px;
-    border-radius: 1.75rem;
-    background: linear-gradient(135deg, rgb(255 207 77 / 0.5), rgb(255 159 28 / 0.12) 45%, rgb(139 92 246 / 0.35));
-    box-shadow: 0 24px 60px -30px rgb(255 190 60 / 0.45);
-  }
-  .potw-frame::before {
-    content: '';
-    position: absolute;
-    inset: -75%;
-    z-index: -1;
-    background: conic-gradient(from 0deg, transparent 0 70%, rgb(255 224 140 / 0.95) 80%, transparent 90% 100%);
-    animation: turn 6s linear infinite;
   }
 }
 

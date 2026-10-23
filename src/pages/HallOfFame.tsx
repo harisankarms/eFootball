@@ -3,7 +3,7 @@ import { useMemo } from 'react'
 import { Link } from 'react-router'
 import { Avatar } from '../components/Avatar'
 import { PlayersTabs } from '../components/PlayersTabs'
-import { awardItems } from '../components/Potw'
+import { CollectibleCard, awardItems } from '../components/Potw'
 import { EmptyState, ErrorState, PageSkeleton, PageTitle, SectionTitle } from '../components/ui'
 import { useLeague, useNow } from '../lib/queries'
 import { formatPoints, pastWeeks, trophyCounts } from '../lib/stats'
@@ -72,6 +72,19 @@ export default function HallOfFame() {
               ))}
             </div>
           </section>
+
+          {data.weeks.some((w) => w.winner) && (
+            <section>
+              <SectionTitle title="Card collection" />
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                {data.weeks
+                  .filter((w) => w.winner)
+                  .map((w) => (
+                    <CollectibleCard key={w.weekKey} league={league} row={w.winner} caption={weekLabel(w.weekKey)} mini to={`/table?at=${w.weekKey}`} />
+                  ))}
+              </div>
+            </section>
+          )}
 
           <section>
             <SectionTitle title="Week by week" />

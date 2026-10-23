@@ -1,131 +1,233 @@
-import { BrickWall, ChevronRight, Clock, Crown, Footprints, Utensils, Zap, type LucideIcon } from 'lucide-react'
+import { BrickWall, ChevronRight, Clock, Crown, Footprints, Plus, Utensils, Zap, type LucideIcon } from 'lucide-react'
+import { useRef, useState, type PointerEvent } from 'react'
 import { Link } from 'react-router'
-import type { League } from '../lib/queries'
-import { formatPoints, sideOf, winnerOf, type Awards, type WeekResult } from '../lib/stats'
+import { inkOn } from '../lib/colors'
+import { useAuth, type League } from '../lib/queries'
+import { cardRating, formatPoints, sideOf, winnerOf, type Awards, type Row, type WeekResult } from '../lib/stats'
 import { addDays, durationLabel, startOfDay, weekLabel } from '../lib/time'
 import { roundLike, useCountUp } from '../lib/useCountUp'
-import { Avatar } from './Avatar'
+import { Avatar, initials } from './Avatar'
 import { FormChips } from './FormChips'
-import { GlowIcon, type Tint } from './ui'
+import { GlowIcon, buttonClass, type Tint } from './ui'
+import './potw.css'
 
-function Sparkle({ className = '', delay = '0s' }: { className?: string; delay?: string }) {
+function CountUp({ value }: { value: number }) {
+  const shown = useCountUp(value)
+  return <>{roundLike(shown, value)}</>
+}
+
+/** Tilts the card towards the mouse pointer, like holding a real card. */
+function useTilt<T extends HTMLElement>() {
+  const ref = useRef<T>(null)
+  const onPointerMove = (e: PointerEvent<T>) => {
+    const el = ref.current
+    if (!el || e.pointerType !== 'mouse' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
+    const r = el.getBoundingClientRect()
+    const x = (e.clientX - r.left) / r.width - 0.5
+    const y = (e.clientY - r.top) / r.height - 0.5
+    el.dataset.tilting = ''
+    el.style.setProperty('--ry', `${(x * 14).toFixed(2)}deg`)
+    el.style.setProperty('--rx', `${(-y * 14).toFixed(2)}deg`)
+  }
+  const onPointerLeave = () => {
+    const el = ref.current
+    if (!el) return
+    delete el.dataset.tilting
+    el.style.setProperty('--rx', '0deg')
+    el.style.setProperty('--ry', '0deg')
+  }
+  return { ref, onPointerMove, onPointerLeave }
+}
+
+type CollectibleProps = {
+  league: League
+  /** The player's numbers for the week, or null for an empty "up for grabs" card. */
+  row: Row | null
+  caption: string
+  mini?: boolean
+  to?: string
+}
+
+/** A gold, eFootball-style player card with the player's photo (or initials), rating and weekly stats. */
+export function CollectibleCard({ league, row, caption, mini = false, to }: CollectibleProps) {
+  const tilt = useTilt<HTMLAnchorElement>()
+  const [broken, setBroken] = useState(false)
+  const id = row?.playerId
+  const player = id ? league.byId.get(id) : undefined
+  const color = id ? league.colorOf(id) : '#3b4566'
+  const photo = player?.avatar_url && !broken ? player.avatar_url : null
+  const name = player?.name ?? 'Up for grabs'
+  const rating = row ? cardRating(row) : null
+  const stats = [
+    { label: 'Goals', value: row?.gf },
+    { label: 'Wins', value: row?.won },
+    { label: mini ? 'CS' : 'Clean sheets', value: row?.cleanSheets },
+  ]
+
+  const inner = (
+    <div className="potw-card-inner" aria-hidden>
+      <div className="potw-card-top">
+        <div>
+          <div className="potw-rating">{rating ?? '??'}</div>
+          <div className="potw-position">POTW</div>
+        </div>
+        <Crown className="potw-award-icon" />
+      </div>
+      <div className="potw-card-art">
+        <div className="potw-card-rays" />
+        <div className="potw-card-halo" />
+        <div
+          className="potw-portrait"
+          style={photo ? undefined : { background: `radial-gradient(circle at 30% 25%, rgb(255 255 255 / 0.3), transparent 55%), ${color}` }}
+        >
+          {photo ? (
+            <img src={photo} alt="" referrerPolicy="no-referrer" onError={() => setBroken(true)} />
+          ) : (
+            <span className="potw-portrait-initials" style={{ color: row ? inkOn(color) : '#d6deef' }}>
+              {row ? initials(name) : '?'}
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="potw-card-player-name">{name}</div>
+      <div className="potw-card-label">{caption}</div>
+      <div className="potw-card-divider" />
+      <div className="potw-card-stats">
+        {stats.map((s) => (
+          <div key={s.label} className="potw-card-stat">
+            <strong>{s.value ?? '–'}</strong>
+            <span>{s.label.toUpperCase()}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+
+  const className = `potw-card ${mini ? 'is-mini' : ''} ${row ? '' : 'is-empty'}`
+  const label = row ? `${name}: ${caption}, card rating ${rating}` : 'Player of the Week card: up for grabs'
+  if (!to) {
+    return (
+      <div className={className} role="img" aria-label={label}>
+        {inner}
+      </div>
+    )
+  }
   return (
-    <svg viewBox="0 0 24 24" className={`pointer-events-none absolute animate-twinkle text-gold ${className}`} style={{ animationDelay: delay }} aria-hidden>
-      <path fill="currentColor" d="M12 0c.6 5.6 6.4 11.4 12 12-5.6.6-11.4 6.4-12 12-.6-5.6-6.4-11.4-12-12C5.6 11.4 11.4 5.6 12 0z" />
-    </svg>
+    <Link to={to} ref={tilt.ref} className={className} aria-label={label} onPointerMove={tilt.onPointerMove} onPointerLeave={tilt.onPointerLeave}>
+      {inner}
+    </Link>
   )
 }
 
-function CountUp({ value, className = '' }: { value: number; className?: string }) {
-  const shown = useCountUp(value)
-  return <span className={className}>{roundLike(shown, value)}</span>
-}
+type HeroProps = { league: League; week: WeekResult; lastWeek: WeekResult | null; now: Date }
 
-type CardProps = { league: League; week: WeekResult; lastWeek: WeekResult | null; now: Date }
-
-export function PotwCard({ league, week, lastWeek, now }: CardProps) {
+/** The Player of the Week section on Home: the leader's card beside their weekly numbers. */
+export function PotwHero({ league, week, lastWeek, now }: HeroProps) {
+  const { isMember, session } = useAuth()
   const endsAt = startOfDay(addDays(week.weekKey, 7), league.tz)
   const featured = week.winner ?? week.rows[0] ?? null
   const qualified = !!week.winner
+  const rank = featured ? week.rows.findIndex((r) => r.playerId === featured.playerId) + 1 : null
   const min = league.settings.potw_min_matches
 
   return (
-    <section aria-label="Player of the Week" className="potw-frame">
-      <div className="relative overflow-hidden rounded-[calc(1.75rem-1px)] bg-[radial-gradient(120%_90%_at_0%_0%,rgb(255_207_77/0.2),transparent_55%),radial-gradient(90%_80%_at_100%_100%,rgb(139_92_246/0.2),transparent_60%),linear-gradient(180deg,#141c3a,#0a1128)] p-5">
-        <div aria-hidden className="pointer-events-none absolute -top-28 left-[18%] h-72 w-20 rotate-[24deg] bg-[linear-gradient(180deg,rgb(255_236_179/0.16),transparent_75%)]" />
-        <div aria-hidden className="pointer-events-none absolute -top-28 right-[22%] h-72 w-16 -rotate-[22deg] bg-[linear-gradient(180deg,rgb(167_139_250/0.14),transparent_75%)]" />
-
-        <div className="relative flex items-start justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Crown className="h-5 w-5 text-gold drop-shadow-[0_0_8px_rgb(255_207_77/0.7)]" aria-hidden />
-            <span className="font-display text-lg font-bold tracking-[0.12em] uppercase italic text-gradient-gold">Player of the Week</span>
-          </div>
-          <div className="shrink-0 text-right">
-            <div className="text-xs font-semibold text-ink-2">{weekLabel(week.weekKey)}</div>
-            <div className="mt-1 inline-flex items-center gap-1 rounded-full border border-gold/25 bg-gold/10 px-2 py-0.5 text-[11px] font-semibold text-gold">
-              <Clock className="h-3 w-3" aria-hidden />
-              {durationLabel(endsAt.getTime() - now.getTime())} left
-            </div>
-          </div>
+    <section aria-label="Player of the Week" className="potw-section">
+      <div className="potw-header">
+        <div>
+          <h2 className="potw-heading">
+            Player <span>of the week</span>
+          </h2>
+          <p className="potw-subheading">{weekLabel(week.weekKey)} · Live race</p>
         </div>
-
-        {featured ? (
-          <>
-            <Link to={`/players/${featured.playerId}`} className="relative mt-6 flex items-center gap-4">
-              <div className="relative shrink-0">
-                <Avatar league={league} id={featured.playerId} size={84} ring={qualified ? 'gold' : undefined} />
-                {qualified && (
-                  <>
-                    <Crown
-                      className="absolute -top-5 -right-2 h-8 w-8 animate-float fill-gold/40 text-gold drop-shadow-[0_0_10px_rgb(255_207_77/0.8)] [--float-rotate:14deg]"
-                      aria-hidden
-                    />
-                    <Sparkle className="-top-2 -left-3 h-3.5 w-3.5" />
-                    <Sparkle className="top-9 -left-5 h-2.5 w-2.5" delay="0.9s" />
-                    <Sparkle className="-bottom-2 left-1 h-3 w-3" delay="1.7s" />
-                  </>
-                )}
-              </div>
-              <div className="min-w-0">
-                <div className="truncate font-display text-[2.8rem] leading-none font-bold tracking-wide uppercase italic">
-                  {league.nameOf(featured.playerId)}
-                </div>
-                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-ink-2">
-                  <span>
-                    {featured.won}W · {featured.drawn}D · {featured.lost}L
-                  </span>
-                  <FormChips form={featured.form} size="xs" />
-                </div>
-              </div>
-            </Link>
-
-            <dl className="relative mt-6 grid grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)] items-end gap-3 border-t border-white/10 pt-4">
-              <div>
-                <dd className="text-[3.4rem] leading-none font-semibold tracking-tight drop-shadow-[0_0_18px_rgb(255_207_77/0.35)]">
-                  <CountUp value={featured.points} />
-                </dd>
-                <dt className="mt-1.5 text-xs text-muted">points</dt>
-              </div>
-              <div>
-                <dd className="text-2xl leading-none font-semibold">
-                  <CountUp value={featured.gf} />
-                </dd>
-                <dt className="mt-1.5 text-xs text-muted">goals</dt>
-              </div>
-              <div>
-                <dd className="text-2xl leading-none font-semibold">
-                  <CountUp value={featured.cleanSheets} />
-                </dd>
-                <dt className="mt-1.5 text-xs text-muted">clean sheets</dt>
-              </div>
-            </dl>
-
-            {!qualified && (
-              <p className="relative mt-4 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-ink-2">
-                Leading the race, but needs {featured.gamesNeeded} more game{featured.gamesNeeded === 1 ? '' : 's'} to qualify (minimum {min} a
-                week).
-              </p>
-            )}
-          </>
-        ) : (
-          <p className="relative mt-6 mb-2 text-ink-2">
-            No games yet this week. The race is wide open: play at least {min} games to qualify.
-          </p>
-        )}
-
-        {lastWeek?.winner && (
-          <Link
-            to="/hall-of-fame"
-            className="relative mt-4 flex items-center gap-2.5 border-t border-white/10 pt-3.5 text-sm text-ink-2 transition hover:text-ink"
-          >
-            <span className="text-muted">Last week</span>
-            <Avatar league={league} id={lastWeek.winner.playerId} size={22} />
-            <span className="truncate font-semibold text-ink">{league.nameOf(lastWeek.winner.playerId)}</span>
-            <span className="shrink-0 text-muted">· {formatPoints(lastWeek.winner.points)} pts</span>
-            <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-muted" aria-hidden />
-          </Link>
-        )}
+        <div className="potw-countdown">
+          <Clock className="h-3.5 w-3.5" aria-hidden />
+          {durationLabel(endsAt.getTime() - now.getTime())} left
+        </div>
       </div>
+
+      <div className="potw-content">
+        <CollectibleCard
+          league={league}
+          row={featured}
+          caption={featured ? (qualified ? 'Player of the week' : 'Race leader') : 'Up for grabs'}
+          to={featured ? `/players/${featured.playerId}` : undefined}
+        />
+
+        <div className="potw-details">
+          {featured ? (
+            <>
+              <div className={`potw-winner-badge ${qualified ? '' : 'is-muted'}`}>
+                <Crown className="h-3.5 w-3.5" aria-hidden />
+                {qualified ? 'Leading this week' : 'Leading, not qualified yet'}
+              </div>
+              <h3 className="potw-player-name">{league.nameOf(featured.playerId)}</h3>
+              <div className="potw-player-caption">
+                <span>
+                  {featured.won}W · {featured.drawn}D · {featured.lost}L this week
+                </span>
+                <FormChips form={featured.form} size="xs" />
+              </div>
+              <div className="potw-stats-grid">
+                <div className="potw-stat-box">
+                  <span>GOALS</span>
+                  <strong>{featured.gf}</strong>
+                </div>
+                <div className="potw-stat-box">
+                  <span>WINS</span>
+                  <strong>{featured.won}</strong>
+                </div>
+                <div className="potw-stat-box">
+                  <span>CLEAN SHEETS</span>
+                  <strong>{featured.cleanSheets}</strong>
+                </div>
+              </div>
+              <div className="potw-points-panel">
+                <div className="potw-points-info">
+                  <span>TOTAL WEEKLY POINTS</span>
+                  <strong>
+                    <CountUp value={featured.points} />
+                  </strong>
+                </div>
+                <div className="potw-rank">
+                  <span>WEEKLY RANK</span>
+                  <strong>#{rank}</strong>
+                </div>
+              </div>
+              {!qualified && (
+                <p className="potw-footnote">
+                  Needs {featured.gamesNeeded} more game{featured.gamesNeeded === 1 ? '' : 's'} to qualify (minimum {min} a week).
+                </p>
+              )}
+            </>
+          ) : (
+            <>
+              <div className="potw-winner-badge is-muted">
+                <Crown className="h-3.5 w-3.5" aria-hidden />
+                The race is open
+              </div>
+              <h3 className="potw-player-name">No leader yet</h3>
+              <p className="potw-player-caption">
+                Play at least {min} games this week to qualify. Most points by Sunday midnight takes the crown.
+              </p>
+              {(isMember || !session) && (
+                <Link to="/add" className={buttonClass('primary', 'lg')}>
+                  <Plus className="h-5 w-5" aria-hidden strokeWidth={2.75} /> Log a result
+                </Link>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      {lastWeek?.winner && (
+        <Link to="/hall-of-fame" className="potw-last-week">
+          <span className="text-muted">Last week</span>
+          <Avatar league={league} id={lastWeek.winner.playerId} size={24} />
+          <span className="truncate font-semibold text-ink">{league.nameOf(lastWeek.winner.playerId)}</span>
+          <span className="shrink-0 text-muted">· {formatPoints(lastWeek.winner.points)} pts</span>
+          <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-muted" aria-hidden />
+        </Link>
+      )}
     </section>
   )
 }

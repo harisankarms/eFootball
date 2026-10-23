@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { AnnouncementCard, ComposerSheet } from '../components/Announcements'
 import { MatchCard } from '../components/MatchCard'
-import { AwardsStrip, PotwCard } from '../components/Potw'
+import { AwardsStrip, PotwHero } from '../components/Potw'
 import { StandingsTable } from '../components/StandingsTable'
 import { useToast } from '../components/Toast'
 import { BallLogo, Button, ErrorState, GlowIcon, PageSkeleton, SectionTitle, Wordmark, buttonClass, type Tint } from '../components/ui'
@@ -221,9 +221,9 @@ export default function Home() {
   return (
     <div className="space-y-7">
       {isAdmin && <WaitingBanner />}
+      <PotwHero league={league} week={view.week} lastWeek={view.lastWeek} now={now} />
       <div className="grid grid-cols-1 gap-7 md:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] md:items-start">
         <div className="min-w-0 space-y-7">
-          <PotwCard league={league} week={view.week} lastWeek={view.lastWeek} now={now} />
           <section>
             <SectionTitle title="This week's awards" />
             <AwardsStrip league={league} awards={view.week.awards} />

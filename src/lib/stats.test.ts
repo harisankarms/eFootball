@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildTable,
+  cardRating,
   headToHead,
   outcomeFor,
   pastWeeks,
@@ -151,6 +152,23 @@ describe('Player of the Week', () => {
     expect(weeks[1].winner).toBeNull()
     expect(trophyCounts(weeks).get('a')?.potw).toBe(1)
     expect(trophyCounts(weeks).get('b')?.potw ?? 0).toBe(0)
+  })
+})
+
+describe('card rating', () => {
+  const row = (played: number, won: number, gf: number, cleanSheets: number) =>
+    ({ played, won, gf, cleanSheets }) as Parameters<typeof cardRating>[0]
+
+  it('rewards winning, scoring and clean sheets', () => {
+    expect(cardRating(row(4, 2, 6, 1))).toBe(82)
+    // 64 + 20 × 1/3 + 3 × 2/3 + 0 + 0.6 × 3 ≈ 74.47
+    expect(cardRating(row(3, 1, 2, 0))).toBe(74)
+  })
+
+  it('stays between 60 and 99', () => {
+    expect(cardRating(row(10, 10, 60, 10))).toBe(99)
+    expect(cardRating(row(1, 0, 0, 0))).toBe(65)
+    expect(cardRating(row(0, 0, 0, 0))).toBe(60)
   })
 })
 

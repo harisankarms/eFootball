@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { inkOn } from '../lib/colors'
 import type { League } from '../lib/queries'
 
-function initials(name: string) {
+export function initials(name: string) {
   const words = name.trim().split(/\s+/).filter(Boolean)
   if (words.length === 0) return '?'
   if (words.length === 1) return words[0][0].toUpperCase()

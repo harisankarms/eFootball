@@ -1,0 +1,589 @@
+/* Player of the Week: a collectible card inspired by eFootball's Big Time cards.
+   Sizes inside the card use container units, so the same card works as the
+   big hero and as small cards in collections. */
+
+.potw-section {
+  --gold: #f6d77a;
+  --gold-bright: #fff0b0;
+  --neon: #3dff8f;
+  --muted: #91a2c4;
+  position: relative;
+  container-type: inline-size;
+  color: #f5f7ff;
+  padding: 24px;
+  overflow: hidden;
+  border: 1px solid rgb(246 215 122 / 0.22);
+  border-radius: 24px;
+  background:
+    radial-gradient(ellipse at 15% 45%, rgb(36 245 165 / 0.08), transparent 38%),
+    radial-gradient(ellipse at 80% 10%, rgb(246 215 122 / 0.1), transparent 40%),
+    linear-gradient(135deg, #080d1b, #0c1428 60%, #080d1b);
+  box-shadow: 0 30px 70px -40px rgb(246 215 122 / 0.4);
+}
+
+/* Heading */
+
+.potw-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.potw-heading {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(26px, 6cqi, 40px);
+  line-height: 1;
+  font-weight: 700;
+  font-style: italic;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.potw-heading span {
+  color: var(--gold);
+}
+
+.potw-subheading {
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.potw-countdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  color: var(--gold);
+  border: 1px solid rgb(246 215 122 / 0.35);
+  border-radius: 30px;
+  background: rgb(246 215 122 / 0.06);
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+/* Layout: stacked when narrow, card beside details when there is room */
+
+.potw-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  gap: 28px;
+}
+
+@container (min-width: 620px) {
+  .potw-content {
+    grid-template-columns: minmax(220px, 0.85fr) minmax(0, 1.15fr);
+    gap: clamp(24px, 4cqi, 44px);
+  }
+}
+
+/* The collectible card */
+
+.potw-card {
+  position: relative;
+  isolation: isolate;
+  display: block;
+  width: min(78%, 300px);
+  aspect-ratio: 0.7;
+  margin: 0 auto;
+  padding: 7px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #fff0b0 0%, #a7782b 12%, #fce7a0 25%, #60451b 43%, #f7d875 60%, #75501e 76%, #ffe9a1 100%);
+  box-shadow:
+    0 0 0 1px rgb(255 239 176 / 0.35),
+    0 18px 45px rgb(0 0 0 / 0.55),
+    0 0 35px rgb(246 215 122 / 0.12);
+  transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(var(--lift, 0px));
+  transition:
+    transform 350ms ease,
+    box-shadow 350ms ease;
+}
+
+@container (min-width: 620px) {
+  .potw-section .potw-card {
+    width: 100%;
+    max-width: 320px;
+  }
+}
+
+.potw-card:hover {
+  --lift: -5px;
+  box-shadow:
+    0 0 0 1px var(--gold-bright, #fff0b0),
+    0 22px 55px rgb(0 0 0 / 0.6),
+    0 0 42px rgb(246 215 122 / 0.26);
+}
+
+.potw-card[data-tilting] {
+  transition:
+    transform 80ms linear,
+    box-shadow 350ms ease;
+}
+
+.potw-card.is-mini {
+  width: 100%;
+  padding: 5px;
+  border-radius: 12px;
+}
+
+.potw-card.is-empty {
+  background: linear-gradient(135deg, #8b97b5 0%, #3b4566 30%, #a9b4cf 55%, #2b3350 80%, #7c88a6 100%);
+}
+
+.potw-card-inner {
+  position: relative;
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  padding: 7%;
+  border: 1px solid rgb(255 239 176 / 0.6);
+  border-radius: 10px;
+  background:
+    radial-gradient(ellipse at 50% 45%, rgb(189 135 39 / 0.25), transparent 58%),
+    linear-gradient(155deg, #20202a, #101728 48%, #15120c);
+}
+
+.potw-card.is-mini .potw-card-inner {
+  border-radius: 8px;
+}
+
+.potw-card.is-empty .potw-card-inner {
+  border-color: rgb(200 210 235 / 0.4);
+  background:
+    radial-gradient(ellipse at 50% 45%, rgb(120 140 190 / 0.2), transparent 58%),
+    linear-gradient(155deg, #1a1f2e, #101728 48%, #10131c);
+}
+
+/* Angular artwork */
+.potw-card-inner::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0.8;
+  background:
+    linear-gradient(130deg, transparent 20%, rgb(255 218 117 / 0.1) 20.5%, transparent 21.5%),
+    linear-gradient(40deg, transparent 55%, rgb(255 218 117 / 0.1) 55.5%, transparent 57%),
+    repeating-linear-gradient(125deg, transparent 0 25px, rgb(255 255 255 / 0.025) 26px 27px, transparent 28px 42px);
+}
+
+/* Holographic shine: sweeps on hover, and on its own on touch screens */
+.potw-card-inner::after {
+  content: '';
+  position: absolute;
+  inset: -100%;
+  z-index: 5;
+  pointer-events: none;
+  background: linear-gradient(
+    115deg,
+    transparent 43%,
+    rgb(255 255 255 / 0.02) 46%,
+    rgb(255 239 176 / 0.22) 49%,
+    rgb(255 255 255 / 0.04) 52%,
+    transparent 56%
+  );
+  transform: translateX(-55%);
+  transition: transform 800ms ease;
+}
+
+.potw-card:hover .potw-card-inner::after {
+  transform: translateX(55%);
+}
+
+@media (hover: none) {
+  .potw-card-inner::after {
+    animation: potw-shine 5s ease-in-out infinite;
+  }
+}
+
+@keyframes potw-shine {
+  0%,
+  55% {
+    transform: translateX(-55%);
+  }
+  100% {
+    transform: translateX(55%);
+  }
+}
+
+/* Rating and award */
+
+.potw-card-top {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.potw-rating {
+  color: var(--gold-bright, #fff0b0);
+  font-family: var(--font-display);
+  font-size: clamp(24px, 19cqi, 64px);
+  line-height: 0.9;
+  font-weight: 700;
+  font-style: italic;
+  text-shadow: 0 3px 12px #000;
+}
+
+.potw-position {
+  margin-top: 4px;
+  color: var(--gold, #f6d77a);
+  font-size: clamp(8px, 3.6cqi, 12px);
+  font-weight: 900;
+  letter-spacing: 2px;
+}
+
+.potw-award-icon {
+  width: clamp(16px, 10cqi, 30px);
+  height: clamp(16px, 10cqi, 30px);
+  color: var(--gold, #f6d77a);
+  filter: drop-shadow(0 0 8px rgb(246 215 122 / 0.6));
+}
+
+/* Portrait */
+
+.potw-card-art {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  margin-top: 1cqi;
+}
+
+.potw-card-rays {
+  position: absolute;
+  width: 120%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: repeating-conic-gradient(rgb(255 224 140 / 0.08) 0deg 6deg, transparent 6deg 30deg);
+  mask-image: radial-gradient(circle, #000 25%, transparent 68%);
+  animation: turn 40s linear infinite;
+}
+
+.potw-card-halo {
+  position: absolute;
+  width: 78%;
+  aspect-ratio: 1;
+  border: 1px solid rgb(246 215 122 / 0.4);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(246 215 122 / 0.16), transparent 68%);
+  box-shadow: 0 0 35px rgb(246 215 122 / 0.14);
+}
+
+.potw-portrait {
+  position: relative;
+  width: 62%;
+  max-height: 100%;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 2px var(--gold, #f6d77a),
+    0 0 0 5px rgb(8 13 27 / 0.85),
+    0 12px 30px rgb(0 0 0 / 0.6);
+}
+
+.potw-card.is-empty .potw-portrait {
+  box-shadow:
+    0 0 0 2px rgb(200 210 235 / 0.6),
+    0 0 0 5px rgb(8 13 27 / 0.85);
+}
+
+.potw-portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.potw-portrait-initials {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  font-family: var(--font-display);
+  font-size: clamp(20px, 22cqi, 72px);
+  font-weight: 700;
+  font-style: italic;
+  text-shadow: 0 2px 10px rgb(0 0 0 / 0.45);
+}
+
+/* Name, label and mini stats */
+
+.potw-card-player-name {
+  position: relative;
+  z-index: 3;
+  overflow: hidden;
+  margin-top: 3cqi;
+  color: #fff2c7;
+  font-family: var(--font-display);
+  font-size: clamp(14px, 10.5cqi, 34px);
+  line-height: 1.05;
+  font-weight: 700;
+  font-style: italic;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+  text-shadow: 0 2px 10px #000;
+}
+
+.potw-card-label {
+  position: relative;
+  z-index: 3;
+  margin-top: 1.5cqi;
+  overflow: hidden;
+  color: var(--gold, #f6d77a);
+  font-size: clamp(7px, 3.2cqi, 11px);
+  font-weight: 900;
+  letter-spacing: 2px;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.potw-card-divider {
+  position: relative;
+  z-index: 3;
+  height: 1px;
+  margin: 4cqi 0 3.5cqi;
+  background: linear-gradient(90deg, var(--gold, #f6d77a), rgb(246 215 122 / 0.05));
+}
+
+.potw-card-stats {
+  position: relative;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 3cqi;
+}
+
+.potw-card-stat {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1.5cqi;
+}
+
+.potw-card-stat strong {
+  color: #fff;
+  font-size: clamp(13px, 8cqi, 26px);
+  line-height: 1;
+  font-weight: 800;
+}
+
+.potw-card-stat span {
+  overflow: hidden;
+  color: #b9c0d1;
+  font-size: clamp(6.5px, 2.9cqi, 10px);
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Details panel */
+
+.potw-details {
+  min-width: 0;
+}
+
+.potw-winner-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  color: var(--gold);
+  border: 1px solid rgb(246 215 122 / 0.35);
+  border-radius: 8px;
+  background: rgb(246 215 122 / 0.06);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.potw-winner-badge.is-muted {
+  color: var(--muted);
+  border-color: rgb(145 162 196 / 0.3);
+  background: rgb(145 162 196 / 0.06);
+}
+
+.potw-player-name {
+  overflow-wrap: anywhere;
+  margin: 16px 0 8px;
+  font-family: var(--font-display);
+  font-size: clamp(34px, 8cqi, 56px);
+  line-height: 0.95;
+  font-weight: 700;
+  font-style: italic;
+  text-transform: uppercase;
+}
+
+.potw-player-caption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 0 0 20px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.potw-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid rgb(145 162 196 / 0.18);
+  border-radius: 12px;
+  background: rgb(145 162 196 / 0.15);
+}
+
+.potw-stat-box {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  min-width: 0;
+  padding: 16px;
+  background: rgb(9 16 32 / 0.96);
+}
+
+.potw-stat-box span {
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.potw-stat-box strong {
+  font-size: clamp(22px, 5cqi, 30px);
+  line-height: 1;
+  font-weight: 800;
+}
+
+.potw-points-panel {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  margin-top: 14px;
+  padding: 18px;
+  border: 1px solid rgb(145 162 196 / 0.18);
+  border-radius: 12px;
+  background: linear-gradient(110deg, #101e36, #0a1225);
+}
+
+.potw-points-info {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.potw-points-info span,
+.potw-rank span {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+.potw-points-info strong {
+  color: var(--neon);
+  font-size: clamp(36px, 8cqi, 52px);
+  line-height: 1;
+  font-weight: 800;
+  letter-spacing: -1px;
+  text-shadow: 0 0 24px rgb(61 255 143 / 0.35);
+}
+
+.potw-rank {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding-left: 20px;
+  border-left: 1px solid rgb(145 162 196 / 0.2);
+}
+
+.potw-rank strong {
+  color: var(--gold);
+  font-family: var(--font-display);
+  font-size: 38px;
+  line-height: 1;
+  font-weight: 700;
+  font-style: italic;
+}
+
+.potw-footnote {
+  margin-top: 12px;
+  padding: 10px 12px;
+  color: #c3cbe0;
+  border: 1px solid rgb(255 255 255 / 0.08);
+  border-radius: 10px;
+  background: rgb(255 255 255 / 0.03);
+  font-size: 12px;
+}
+
+.potw-last-week {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 22px;
+  padding-top: 14px;
+  color: #c3cbe0;
+  border-top: 1px solid rgb(255 255 255 / 0.08);
+  font-size: 14px;
+}
+
+.potw-last-week:hover {
+  color: #fff;
+}
+
+@container (max-width: 400px) {
+  .potw-section {
+    padding: 16px;
+  }
+  .potw-stats-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .potw-stat-box {
+    padding: 12px;
+  }
+  .potw-points-panel {
+    padding: 14px;
+  }
+}
+
+@media (max-width: 420px) {
+  .potw-section {
+    padding: 16px;
+    border-radius: 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .potw-card,
+  .potw-card-inner::after {
+    transition: none;
+    animation: none;
+  }
+  .potw-card-rays {
+    animation: none;
+  }
+}
