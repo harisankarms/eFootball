@@ -1,4 +1,18 @@
-import type { JoinRequest, Match, MatchInput, Player, Session, Settings, Shot } from './types'
+import type {
+  Achievement,
+  AchievementInput,
+  Announcement,
+  Award,
+  Comment,
+  JoinRequest,
+  LiveTable,
+  Match,
+  MatchInput,
+  Player,
+  Session,
+  Settings,
+  Shot,
+} from './types'
 
 /** Everything the screens need from the backend. Implemented by Supabase (live) and by the in-memory demo. */
 export interface Api {
@@ -18,8 +32,8 @@ export interface Api {
   getPlayers(): Promise<Player[]>
   getMatches(): Promise<Match[]>
   getSettings(): Promise<Settings>
-  /** Calls `onChange` whenever someone adds, edits or deletes a match. Returns an unsubscribe function. */
-  subscribe(onChange: () => void): () => void
+  /** Calls `onChange` whenever someone changes a match, comment or announcement. Returns an unsubscribe function. */
+  subscribe(onChange: (table: LiveTable) => void): () => void
 
   addMatch(input: MatchInput, shot: Shot | null, submittedBy: string): Promise<Match>
   updateMatch(match: Match, input: MatchInput, shot: Shot | null): Promise<void>
@@ -27,6 +41,23 @@ export interface Api {
   disputeMatch(matchId: string, reason: string): Promise<void>
   resolveDispute(matchId: string): Promise<void>
   updateMyName(name: string): Promise<void>
+  /** Uploads a new profile photo (or removes it with null). `self` uses the player's own permission, otherwise admin. */
+  setAvatar(player: Player, photo: Blob | null, self: boolean): Promise<void>
+
+  getAchievements(): Promise<Achievement[]>
+  /** Creates an achievement, or updates it when `id` is given. Admin only. */
+  saveAchievement(input: AchievementInput, id: string | null): Promise<void>
+  deleteAchievement(id: string): Promise<void>
+  getAwards(): Promise<Award[]>
+  setAward(playerId: string, achievementId: string, awarded: boolean, awardedBy: string): Promise<void>
+
+  getAnnouncements(): Promise<Announcement[]>
+  postAnnouncement(body: string, shot: Shot | null, playerId: string): Promise<void>
+  deleteAnnouncement(announcement: Announcement): Promise<void>
+
+  getComments(): Promise<Comment[]>
+  addComment(matchId: string, body: string, playerId: string): Promise<void>
+  deleteComment(id: string): Promise<void>
 
   getJoinRequests(): Promise<JoinRequest[]>
   approveJoin(userId: string, playerId: string | null): Promise<void>
@@ -47,5 +78,6 @@ export function friendlyError(e: unknown): string {
   if (/different_players/.test(message)) return 'Pick two different players.'
   if (/pens_only_after_a_draw/.test(message)) return 'Penalties only happen after a draw.'
   if (/invalid login credentials/i.test(message)) return 'Wrong email or password.'
+  if (/body_check/.test(message)) return 'Write something first (up to 500 characters).'
   return message
 }

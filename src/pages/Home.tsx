@@ -1,13 +1,14 @@
-import { Camera, ChevronRight, Copy, Crown, Plus, Share2, UserPlus, Users } from 'lucide-react'
-import { useMemo } from 'react'
+import { Camera, ChevronRight, Copy, Crown, Megaphone, PenLine, Plus, Share2, UserPlus, Users } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
+import { AnnouncementCard, ComposerSheet } from '../components/Announcements'
 import { MatchCard } from '../components/MatchCard'
 import { AwardsStrip, PotwCard } from '../components/Potw'
 import { StandingsTable } from '../components/StandingsTable'
 import { useToast } from '../components/Toast'
 import { BallLogo, Button, ErrorState, GlowIcon, PageSkeleton, SectionTitle, Wordmark, buttonClass, type Tint } from '../components/ui'
 import { formatPoints, groupByWeek, newestFirst, weekResult } from '../lib/stats'
-import { useAuth, useJoinRequests, useLeague, useNow, type League } from '../lib/queries'
+import { useAnnouncements, useAuth, useJoinRequests, useLeague, useNow, type League } from '../lib/queries'
 import { addDays, weekKey } from '../lib/time'
 
 function MoreLink({ to, children }: { to: string; children: string }) {
@@ -72,6 +73,48 @@ function InviteCard() {
   )
 }
 
+function SquadNews({ league }: { league: League }) {
+  const news = useAnnouncements()
+  const { isMember } = useAuth()
+  const [composing, setComposing] = useState(false)
+  if (!news.data) return null
+  const latest = news.data.slice(0, 3)
+  if (!latest.length && !isMember) return null
+  return (
+    <section>
+      <SectionTitle
+        title="Squad news"
+        action={
+          <div className="flex items-center gap-4">
+            {isMember && (
+              <button onClick={() => setComposing(true)} className="flex items-center gap-1 text-sm font-semibold text-accent transition hover:text-cyan">
+                <PenLine className="h-4 w-4" aria-hidden /> Post
+              </button>
+            )}
+            {news.data.length > 0 && <MoreLink to="/news">All news</MoreLink>}
+          </div>
+        }
+      />
+      {latest.length ? (
+        <div className="space-y-2.5">
+          {latest.map((a) => (
+            <AnnouncementCard key={a.id} announcement={a} league={league} />
+          ))}
+        </div>
+      ) : (
+        <button onClick={() => setComposing(true)} className="card card-hover flex w-full items-center gap-3 p-4 text-left">
+          <GlowIcon icon={Megaphone} tint="violet" />
+          <div>
+            <div className="font-semibold">Share some news</div>
+            <div className="text-xs text-muted">New signing? Tournament plans? Post it for the squad.</div>
+          </div>
+        </button>
+      )}
+      <ComposerSheet open={composing} onClose={() => setComposing(false)} />
+    </section>
+  )
+}
+
 function WaitingBanner() {
   const waiting = useJoinRequests(true)
   const count = waiting.data?.length ?? 0
@@ -127,6 +170,8 @@ function Welcome({ league }: { league: League }) {
       </section>
 
       {isAdmin && <InviteCard />}
+
+      <SquadNews league={league} />
 
       <section id="how-it-works" className="scroll-mt-24">
         <SectionTitle title="How it works" />
@@ -199,14 +244,17 @@ export default function Home() {
             )}
           </section>
         </div>
-        <section className="min-w-0">
-          <SectionTitle title="Latest results" action={<MoreLink to="/matches">All matches</MoreLink>} />
-          <div className="space-y-2.5">
-            {view.latest.map((m) => (
-              <MatchCard key={m.id} match={m} league={league} showDate />
-            ))}
-          </div>
-        </section>
+        <div className="min-w-0 space-y-7">
+          <SquadNews league={league} />
+          <section>
+            <SectionTitle title="Latest results" action={<MoreLink to="/matches">All matches</MoreLink>} />
+            <div className="space-y-2.5">
+              {view.latest.map((m) => (
+                <MatchCard key={m.id} match={m} league={league} showDate />
+              ))}
+            </div>
+          </section>
+        </div>
       </div>
     </div>
   )

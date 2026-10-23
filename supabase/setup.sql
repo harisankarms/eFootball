@@ -348,16 +348,216 @@ create policy "Admins or the uploader delete screenshots" on storage.objects
 
 
 -- ---------------------------------------------------------------------
---  Live updates: everyone's screen refreshes when a result is added
+--  Profile photos (public bucket, max 1 MB, one folder per player)
+-- ---------------------------------------------------------------------
+
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('avatars', 'avatars', true, 1048576, array['image/webp', 'image/jpeg', 'image/png'])
+on conflict (id) do update
+  set public = excluded.public,
+      file_size_limit = excluded.file_size_limit,
+      allowed_mime_types = excluded.allowed_mime_types;
+
+drop policy if exists "Anyone can view avatars" on storage.objects;
+create policy "Anyone can view avatars" on storage.objects
+  for select using (bucket_id = 'avatars');
+
+drop policy if exists "Players upload their own photo" on storage.objects;
+create policy "Players upload their own photo" on storage.objects
+  for insert to authenticated
+  with check (
+    bucket_id = 'avatars'
+    and (public.is_admin() or (storage.foldername(name))[1] = public.my_player_id()::text)
+  );
+
+drop policy if exists "Players remove their own photo" on storage.objects;
+create policy "Players remove their own photo" on storage.objects
+  for delete to authenticated
+  using (
+    bucket_id = 'avatars'
+    and (public.is_admin() or (storage.foldername(name))[1] = public.my_player_id()::text)
+  );
+
+-- A player can only point their photo at a file in their own folder.
+create or replace function public.update_my_avatar(p_url text)
+returns void
+language plpgsql security definer
+set search_path = public
+as $$
+declare
+  me uuid := public.my_player_id();
+begin
+  if me is null then
+    raise exception 'Only squad members can change their photo';
+  end if;
+  if p_url is not null and p_url not like '%/storage/v1/object/public/avatars/' || me::text || '/%' then
+    raise exception 'Upload the photo first';
+  end if;
+  update public.players set avatar_url = p_url where id = me;
+end;
+$$;
+
+
+-- ---------------------------------------------------------------------
+--  Achievements, XP and levels
+--  'auto' achievements unlock from match stats (metric >= threshold).
+--  'manual' ones are awarded by an admin. XP from unlocked achievements
+--  decides each player's level.
+-- ---------------------------------------------------------------------
+
+create table if not exists public.achievements (
+  id           uuid primary key default gen_random_uuid(),
+  slug         text unique,
+  name         text not null check (char_length(name) between 1 and 40),
+  description  text not null default '' check (char_length(description) <= 140),
+  emoji        text not null default '🏆' check (char_length(emoji) between 1 and 16),
+  xp           int not null check (xp between 1 and 10000),
+  kind         text not null check (kind in ('auto', 'manual')),
+  metric       text,
+  threshold    int check (threshold >= 1),
+  active       boolean not null default true,
+  sort_order   int not null default 1000,
+  created_at   timestamptz not null default now(),
+  constraint auto_needs_a_rule check (kind = 'manual' or (metric is not null and threshold is not null))
+);
+
+create table if not exists public.player_achievements (
+  player_id       uuid not null references public.players (id) on delete cascade,
+  achievement_id  uuid not null references public.achievements (id) on delete cascade,
+  awarded_at      timestamptz not null default now(),
+  awarded_by      uuid references public.players (id) on delete set null,
+  note            text check (char_length(note) <= 140),
+  primary key (player_id, achievement_id)
+);
+
+insert into public.achievements (slug, name, description, emoji, xp, kind, metric, threshold, sort_order) values
+  ('kick-off', 'Kick-off', 'Play your first match', '⚽', 25, 'auto', 'matches_played', 1, 10),
+  ('first-win', 'First Win', 'Win your first match', '🎉', 50, 'auto', 'wins', 1, 20),
+  ('regular', 'Regular', 'Play 25 matches', '🎮', 100, 'auto', 'matches_played', 25, 30),
+  ('seasoned-pro', 'Seasoned Pro', 'Play 100 matches', '🎖️', 250, 'auto', 'matches_played', 100, 40),
+  ('club-legend', 'Club Legend', 'Play 250 matches', '🏟️', 500, 'auto', 'matches_played', 250, 50),
+  ('winning-mentality', 'Winning Mentality', 'Win 10 matches', '💪', 100, 'auto', 'wins', 10, 60),
+  ('serial-winner', 'Serial Winner', 'Win 50 matches', '🏅', 300, 'auto', 'wins', 50, 70),
+  ('centurion', 'Centurion', 'Win 100 matches', '💯', 600, 'auto', 'wins', 100, 80),
+  ('hat-trick-hero', 'Hat-trick Hero', 'Score 3 goals in one match', '🎩', 75, 'auto', 'goals_in_match', 3, 90),
+  ('five-star-show', 'Five-Star Show', 'Score 5 goals in one match', '🖐️', 150, 'auto', 'goals_in_match', 5, 100),
+  ('goal-machine', 'Goal Machine', 'Score 50 goals', '🎯', 150, 'auto', 'goals', 50, 110),
+  ('golden-century', 'Golden Century', 'Score 100 goals', '🚀', 300, 'auto', 'goals', 100, 120),
+  ('shut-out', 'Shut Out', 'Keep a clean sheet', '🧤', 50, 'auto', 'clean_sheets', 1, 130),
+  ('brick-wall', 'Brick Wall', 'Keep 10 clean sheets', '🧱', 150, 'auto', 'clean_sheets', 10, 140),
+  ('thrashing', 'Thrashing', 'Win by 5 or more goals', '💥', 125, 'auto', 'win_margin', 5, 150),
+  ('on-fire', 'On Fire', 'Win 3 matches in a row', '🔥', 75, 'auto', 'win_streak', 3, 160),
+  ('unstoppable', 'Unstoppable', 'Win 7 matches in a row', '⚡', 200, 'auto', 'win_streak', 7, 170),
+  ('invincible', 'Invincible', 'Go 10 matches unbeaten', '🛡️', 200, 'auto', 'unbeaten_run', 10, 180),
+  ('ice-cold', 'Ice Cold', 'Win a penalty shootout', '🧊', 75, 'auto', 'pens_wins', 1, 190),
+  ('player-of-the-week', 'Player of the Week', 'Win Player of the Week', '👑', 200, 'auto', 'potw', 1, 200),
+  ('dynasty', 'Dynasty', 'Win Player of the Week 5 times', '🏆', 500, 'auto', 'potw', 5, 210),
+  ('golden-boot', 'Golden Boot', 'Finish a week as top scorer', '👟', 100, 'auto', 'golden_boots', 1, 220),
+  ('squad-conqueror', 'Squad Conqueror', 'Beat 5 different opponents', '⚔️', 150, 'auto', 'opponents_beaten', 5, 230),
+  ('all-nighter', 'All-Nighter', 'Play 10 matches in one day', '🌙', 100, 'auto', 'matches_in_day', 10, 240),
+  ('statistician', 'Statistician', 'Log 25 results', '📸', 75, 'auto', 'results_logged', 25, 250),
+  ('epic-pull', 'Epic Pull', 'Pack an Epic or Big Time card in eFootball', '💎', 100, 'manual', null, null, 260),
+  ('division-one', 'Division 1', 'Reach Division 1 in eFootball ranked matches', '🏔️', 300, 'manual', null, null, 270),
+  ('bicycle-kick', 'Bicycle Kick', 'Score a bicycle kick and post the clip', '🤸', 50, 'manual', null, null, 280),
+  ('tournament-winner', 'Tournament Winner', 'Win an eFootball online tournament or event', '🥇', 250, 'manual', null, null, 290)
+on conflict (slug) do nothing;
+
+alter table public.achievements enable row level security;
+alter table public.player_achievements enable row level security;
+
+drop policy if exists "Anyone can view achievements" on public.achievements;
+create policy "Anyone can view achievements" on public.achievements
+  for select using (true);
+
+drop policy if exists "Admins manage achievements" on public.achievements;
+create policy "Admins manage achievements" on public.achievements
+  for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+drop policy if exists "Anyone can view awarded achievements" on public.player_achievements;
+create policy "Anyone can view awarded achievements" on public.player_achievements
+  for select using (true);
+
+drop policy if exists "Admins award achievements" on public.player_achievements;
+create policy "Admins award achievements" on public.player_achievements
+  for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+
+-- ---------------------------------------------------------------------
+--  Squad news and match comments
+-- ---------------------------------------------------------------------
+
+create table if not exists public.announcements (
+  id          uuid primary key default gen_random_uuid(),
+  player_id   uuid not null references public.players (id) on delete cascade,
+  body        text not null check (char_length(body) between 1 and 500),
+  image_path  text,
+  thumb_path  text,
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists announcements_created_at_idx on public.announcements (created_at desc);
+
+create table if not exists public.match_comments (
+  id          uuid primary key default gen_random_uuid(),
+  match_id    uuid not null references public.matches (id) on delete cascade,
+  player_id   uuid not null references public.players (id) on delete cascade,
+  body        text not null check (char_length(body) between 1 and 500),
+  created_at  timestamptz not null default now()
+);
+
+create index if not exists match_comments_match_id_idx on public.match_comments (match_id, created_at);
+
+alter table public.announcements enable row level security;
+alter table public.match_comments enable row level security;
+
+drop policy if exists "Anyone can view announcements" on public.announcements;
+create policy "Anyone can view announcements" on public.announcements
+  for select using (true);
+
+drop policy if exists "Squad members post announcements" on public.announcements;
+create policy "Squad members post announcements" on public.announcements
+  for insert to authenticated with check (player_id = public.my_player_id());
+
+drop policy if exists "Authors and admins delete announcements" on public.announcements;
+create policy "Authors and admins delete announcements" on public.announcements
+  for delete to authenticated using (public.is_admin() or player_id = public.my_player_id());
+
+drop policy if exists "Anyone can view comments" on public.match_comments;
+create policy "Anyone can view comments" on public.match_comments
+  for select using (true);
+
+drop policy if exists "Squad members comment" on public.match_comments;
+create policy "Squad members comment" on public.match_comments
+  for insert to authenticated with check (player_id = public.my_player_id());
+
+drop policy if exists "Authors and admins delete comments" on public.match_comments;
+create policy "Authors and admins delete comments" on public.match_comments
+  for delete to authenticated using (public.is_admin() or player_id = public.my_player_id());
+
+grant select on public.achievements, public.player_achievements, public.announcements, public.match_comments to anon, authenticated;
+grant insert, update, delete on public.achievements, public.player_achievements to authenticated;
+grant insert, delete on public.announcements, public.match_comments to authenticated;
+grant execute on function public.update_my_avatar(text) to anon, authenticated;
+
+
+-- ---------------------------------------------------------------------
+--  Live updates: everyone's screen refreshes when a result, comment or
+--  announcement is added
 -- ---------------------------------------------------------------------
 
 do $$
+declare
+  t text;
 begin
-  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
-     and not exists (
-       select 1 from pg_publication_tables
-        where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'matches'
-     ) then
-    alter publication supabase_realtime add table public.matches;
+  if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    return;
   end if;
+  foreach t in array array['matches', 'match_comments', 'announcements'] loop
+    if not exists (
+      select 1 from pg_publication_tables
+       where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t
+    ) then
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    end if;
+  end loop;
 end $$;

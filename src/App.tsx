@@ -2,6 +2,7 @@ import { SearchX } from 'lucide-react'
 import { Link, Route, Routes } from 'react-router'
 import { Layout } from './components/Layout'
 import { EmptyState, buttonClass } from './components/ui'
+import Achievements from './pages/Achievements'
 import AddMatch from './pages/AddMatch'
 import Admin from './pages/Admin'
 import HallOfFame from './pages/HallOfFame'
@@ -10,6 +11,7 @@ import Home from './pages/Home'
 import Login from './pages/Login'
 import MatchDetail from './pages/MatchDetail'
 import Matches from './pages/Matches'
+import News from './pages/News'
 import PlayerProfile from './pages/PlayerProfile'
 import Players from './pages/Players'
 import Table from './pages/Table'
@@ -38,6 +40,8 @@ export default function App() {
         <Route path="players/:id" element={<PlayerProfile />} />
         <Route path="h2h" element={<HeadToHeadPage />} />
         <Route path="hall-of-fame" element={<HallOfFame />} />
+        <Route path="achievements" element={<Achievements />} />
+        <Route path="news" element={<News />} />
         <Route path="admin" element={<Admin />} />
         <Route path="login" element={<Login />} />
         <Route path="*" element={<NotFound />} />

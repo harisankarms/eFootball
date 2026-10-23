@@ -1,4 +1,4 @@
-import { ImageOff } from 'lucide-react'
+import { ImageOff, MessageCircle } from 'lucide-react'
 import { Link } from 'react-router'
 import { api } from '../lib/backend'
 import type { League } from '../lib/queries'
@@ -6,9 +6,11 @@ import { winnerOf } from '../lib/stats'
 import { clockTime, shortDate } from '../lib/time'
 import type { Match } from '../lib/types'
 import { Avatar } from './Avatar'
+import { useCommentCounts } from './Comments'
 import { Badge } from './ui'
 
 export function MatchCard({ match, league, showDate = false }: { match: Match; league: League; showDate?: boolean }) {
+  const comments = useCommentCounts().get(match.id) ?? 0
   const winner = winnerOf(match)
   const thumb = api.imageUrl(match.thumb_path ?? match.screenshot_path)
   const sides = [
@@ -43,6 +45,12 @@ export function MatchCard({ match, league, showDate = false }: { match: Match; l
             {clockTime(match.played_at, league.tz)}
           </span>
           {match.status === 'disputed' && <Badge tone="warn">Disputed</Badge>}
+          {comments > 0 && (
+            <span className="ml-auto flex items-center gap-1 text-cyan" aria-label={`${comments} comments`}>
+              <MessageCircle className="h-3.5 w-3.5" aria-hidden />
+              {comments}
+            </span>
+          )}
         </div>
       </div>
       <div className="relative h-16 w-24 shrink-0 overflow-hidden rounded-xl border border-line bg-surface-2">

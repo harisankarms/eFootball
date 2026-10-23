@@ -2,9 +2,10 @@ import { BrickWall, Crown, Footprints, Users } from 'lucide-react'
 import { useMemo } from 'react'
 import { Link } from 'react-router'
 import { Avatar } from '../components/Avatar'
+import { LevelBadge } from '../components/Level'
 import { PlayersTabs } from '../components/PlayersTabs'
 import { Badge, EmptyState, ErrorState, PageSkeleton, PageTitle } from '../components/ui'
-import { useAuth, useLeague, useNow } from '../lib/queries'
+import { useAuth, useLeague, useNow, useProgress } from '../lib/queries'
 import { buildTable, formatPct, pastWeeks, trophyCounts } from '../lib/stats'
 import { weekKey } from '../lib/time'
 
@@ -12,6 +13,7 @@ export default function Players() {
   const { league, error, refetch } = useLeague()
   const { me } = useAuth()
   const now = useNow()
+  const progress = useProgress(league)
 
   const squad = useMemo(() => {
     if (!league) return []
@@ -43,18 +45,26 @@ export default function Players() {
         </EmptyState>
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {squad.map(({ player, row, trophies }) => (
+          {squad.map(({ player, row, trophies }) => {
+            const level = progress?.levelOf(player.id)
+            return (
             <Link
               key={player.id}
               to={`/players/${player.id}`}
-              className={`card flex flex-col items-center px-3 pt-5 pb-4 text-center transition hover:border-line-strong ${
-                player.active ? '' : 'opacity-60'
-              }`}
+              className={`card card-hover flex flex-col items-center px-3 pt-5 pb-4 text-center ${player.active ? '' : 'opacity-60'}`}
             >
-              <Avatar league={league} id={player.id} size={60} ring={trophies?.potw ? 'gold' : undefined} />
+              <div className="relative">
+                <Avatar league={league} id={player.id} size={60} ring={trophies?.potw ? 'gold' : undefined} />
+                {level && (
+                  <span className="absolute -right-3 -bottom-2">
+                    <LevelBadge level={level.level} size={24} />
+                  </span>
+                )}
+              </div>
               <div className="mt-3 flex max-w-full items-center gap-1.5">
                 <span className="truncate font-display text-xl leading-tight font-bold uppercase italic">{player.name}</span>
               </div>
+              {level && <div className="text-[11px] font-semibold text-muted">{level.title}</div>}
               <div className="mt-1 flex flex-wrap justify-center gap-1">
                 {me?.id === player.id && <Badge tone="accent">You</Badge>}
                 {!player.active && <Badge>Inactive</Badge>}
@@ -82,7 +92,8 @@ export default function Players() {
                 </div>
               )}
             </Link>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

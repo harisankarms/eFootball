@@ -1,9 +1,10 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { ArrowLeftRight, CalendarDays, ChevronRight, CircleCheck, Flag, ImageOff, Maximize2, Pencil, SearchX, Trash, TriangleAlert, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
-import { createPortal } from 'react-dom'
+import { ArrowLeftRight, CalendarDays, ChevronRight, CircleCheck, Flag, ImageOff, Maximize2, Pencil, SearchX, Trash, TriangleAlert } from 'lucide-react'
+import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { Avatar } from '../components/Avatar'
+import { MatchComments } from '../components/Comments'
+import { Lightbox } from '../components/Lightbox'
 import { useToast } from '../components/Toast'
 import { BackButton, Button, EmptyState, ErrorState, PageSkeleton, Sheet, buttonClass } from '../components/ui'
 import { friendlyError } from '../lib/api'
@@ -23,27 +24,6 @@ function Side({ league, id, team, won }: { league: League; id: string; team: str
         {team && <div className="truncate text-xs text-muted">{team}</div>}
       </div>
     </Link>
-  )
-}
-
-function Lightbox({ src, onClose }: { src: string; onClose: () => void }) {
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-  return createPortal(
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/95 p-3" onClick={onClose} role="dialog" aria-label="Screenshot">
-      <img src={src} alt="Match screenshot" className="max-h-full max-w-full rounded-lg object-contain" />
-      <button
-        onClick={onClose}
-        aria-label="Close"
-        className="pt-safe absolute top-3 right-3 grid h-10 w-10 place-items-center rounded-full bg-white/10 text-white"
-      >
-        <X className="h-5 w-5" />
-      </button>
-    </div>,
-    document.body,
   )
 }
 
@@ -168,7 +148,7 @@ export default function MatchDetail() {
           <ImageOff className="h-5 w-5" aria-hidden /> No screenshot for this match.
         </div>
       )}
-      {zoom && full && <Lightbox src={full} onClose={() => setZoom(false)} />}
+      {zoom && full && <Lightbox src={full} alt="Match screenshot" onClose={() => setZoom(false)} />}
 
       {m.notes && <p className="card p-4 text-ink-2 italic">“{m.notes}”</p>}
 
@@ -215,6 +195,8 @@ export default function MatchDetail() {
         Head-to-head: {nameOf(m.home_id)} vs {nameOf(m.away_id)}
         <ChevronRight className="ml-auto h-4 w-4 text-muted" aria-hidden />
       </Link>
+
+      <MatchComments match={m} league={league} />
 
       <Sheet open={sheet === 'dispute'} onClose={() => setSheet(null)} title="Dispute result">
         <form

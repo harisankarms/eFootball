@@ -1,9 +1,11 @@
 import { QueryClient, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { achievementStatuses, levelFor, playerTimelines, totalXp, type AchievementStatus, type LevelInfo } from './achievements'
 import { api } from './backend'
 import { PLAYER_COLORS } from './colors'
-import { safeTimeZone } from './time'
-import type { Match, Player, Session, Settings } from './types'
+import { pastWeeks } from './stats'
+import { safeTimeZone, weekKey } from './time'
+import type { Achievement, LiveTable, Match, Player, Session, Settings } from './types'
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -16,7 +18,27 @@ export const keys = {
   matches: ['matches'] as const,
   settings: ['settings'] as const,
   joinRequests: ['join-requests'] as const,
+  achievements: ['achievements'] as const,
+  awards: ['awards'] as const,
+  announcements: ['announcements'] as const,
+  comments: ['comments'] as const,
   me: (userId: string | null) => ['me', userId] as const,
+}
+
+export function useAchievements() {
+  return useQuery({ queryKey: keys.achievements, queryFn: () => api.getAchievements() })
+}
+
+export function useAwards() {
+  return useQuery({ queryKey: keys.awards, queryFn: () => api.getAwards() })
+}
+
+export function useAnnouncements() {
+  return useQuery({ queryKey: keys.announcements, queryFn: () => api.getAnnouncements() })
+}
+
+export function useComments() {
+  return useQuery({ queryKey: keys.comments, queryFn: () => api.getComments() })
 }
 
 export function usePlayers() {
@@ -39,10 +61,16 @@ export function useAuthOptions() {
   return useQuery({ queryKey: ['auth-options'], queryFn: () => api.getAuthOptions(), staleTime: Infinity })
 }
 
-/** Refresh everyone's screen when a friend adds, edits or deletes a result. */
+const liveKeys: Record<LiveTable, readonly string[]> = {
+  matches: keys.matches,
+  match_comments: keys.comments,
+  announcements: keys.announcements,
+}
+
+/** Refresh everyone's screen when a friend adds a result, comment or announcement. */
 export function useLiveUpdates() {
   const qc = useQueryClient()
-  useEffect(() => api.subscribe(() => void qc.invalidateQueries({ queryKey: keys.matches })), [qc])
+  useEffect(() => api.subscribe((table) => void qc.invalidateQueries({ queryKey: liveKeys[table] })), [qc])
 }
 
 export type League = {
@@ -86,6 +114,36 @@ export function useLeague() {
       void settings.refetch()
     },
   }
+}
+
+export type Progress = {
+  achievements: Achievement[]
+  statusesOf: (playerId: string) => AchievementStatus[]
+  xpOf: (playerId: string) => number
+  levelOf: (playerId: string) => LevelInfo
+}
+
+/** Achievements, XP and level for any player, worked out on demand and cached until the data changes. */
+export function useProgress(league: League | null): Progress | null {
+  const achievements = useAchievements()
+  const awards = useAwards()
+  return useMemo(() => {
+    if (!league || !achievements.data || !awards.data) return null
+    const list = achievements.data
+    const awarded = awards.data
+    const weeks = pastWeeks(league.matches, league.settings, weekKey(new Date(), league.tz), league.nameOf)
+    const cache = new Map<string, AchievementStatus[]>()
+    const statusesOf = (id: string) => {
+      let s = cache.get(id)
+      if (!s) {
+        s = achievementStatuses(list, awarded, playerTimelines(league.matches, id, weeks, league.tz), id)
+        cache.set(id, s)
+      }
+      return s
+    }
+    const xpOf = (id: string) => totalXp(statusesOf(id))
+    return { achievements: list, statusesOf, xpOf, levelOf: (id: string) => levelFor(xpOf(id)) }
+  }, [league, achievements.data, awards.data])
 }
 
 /** Re-renders every `ms` so countdowns and "5m ago" labels stay fresh. */

@@ -1,7 +1,17 @@
 // Sample squad and six weeks of results so the site can be explored before a
 // database is connected. Seeded, so the demo looks the same on every load.
 import { addDays, dayKey, startOfDay } from './time'
-import { DEFAULT_SETTINGS, type JoinRequest, type Match, type Player, type Settings } from './types'
+import {
+  DEFAULT_SETTINGS,
+  type Achievement,
+  type Announcement,
+  type Award,
+  type Comment,
+  type JoinRequest,
+  type Match,
+  type Player,
+  type Settings,
+} from './types'
 
 export const DEMO_USER_ID = 'demo-user-1'
 export const DEMO_EMAIL = 'hari@example.com'
@@ -59,11 +69,66 @@ ${pensWinner ? t(480, 330, 26, `${pensWinner} wins on penalties`, 'font-weight="
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
 }
 
+// Same built-in list as supabase/setup.sql.
+const PRESETS: [string, string, string, string, number, 'auto' | 'manual', string | null, number | null][] = [
+  ['kick-off', 'Kick-off', 'Play your first match', '⚽', 25, 'auto', 'matches_played', 1],
+  ['first-win', 'First Win', 'Win your first match', '🎉', 50, 'auto', 'wins', 1],
+  ['regular', 'Regular', 'Play 25 matches', '🎮', 100, 'auto', 'matches_played', 25],
+  ['seasoned-pro', 'Seasoned Pro', 'Play 100 matches', '🎖️', 250, 'auto', 'matches_played', 100],
+  ['club-legend', 'Club Legend', 'Play 250 matches', '🏟️', 500, 'auto', 'matches_played', 250],
+  ['winning-mentality', 'Winning Mentality', 'Win 10 matches', '💪', 100, 'auto', 'wins', 10],
+  ['serial-winner', 'Serial Winner', 'Win 50 matches', '🏅', 300, 'auto', 'wins', 50],
+  ['centurion', 'Centurion', 'Win 100 matches', '💯', 600, 'auto', 'wins', 100],
+  ['hat-trick-hero', 'Hat-trick Hero', 'Score 3 goals in one match', '🎩', 75, 'auto', 'goals_in_match', 3],
+  ['five-star-show', 'Five-Star Show', 'Score 5 goals in one match', '🖐️', 150, 'auto', 'goals_in_match', 5],
+  ['goal-machine', 'Goal Machine', 'Score 50 goals', '🎯', 150, 'auto', 'goals', 50],
+  ['golden-century', 'Golden Century', 'Score 100 goals', '🚀', 300, 'auto', 'goals', 100],
+  ['shut-out', 'Shut Out', 'Keep a clean sheet', '🧤', 50, 'auto', 'clean_sheets', 1],
+  ['brick-wall', 'Brick Wall', 'Keep 10 clean sheets', '🧱', 150, 'auto', 'clean_sheets', 10],
+  ['thrashing', 'Thrashing', 'Win by 5 or more goals', '💥', 125, 'auto', 'win_margin', 5],
+  ['on-fire', 'On Fire', 'Win 3 matches in a row', '🔥', 75, 'auto', 'win_streak', 3],
+  ['unstoppable', 'Unstoppable', 'Win 7 matches in a row', '⚡', 200, 'auto', 'win_streak', 7],
+  ['invincible', 'Invincible', 'Go 10 matches unbeaten', '🛡️', 200, 'auto', 'unbeaten_run', 10],
+  ['ice-cold', 'Ice Cold', 'Win a penalty shootout', '🧊', 75, 'auto', 'pens_wins', 1],
+  ['player-of-the-week', 'Player of the Week', 'Win Player of the Week', '👑', 200, 'auto', 'potw', 1],
+  ['dynasty', 'Dynasty', 'Win Player of the Week 5 times', '🏆', 500, 'auto', 'potw', 5],
+  ['golden-boot', 'Golden Boot', 'Finish a week as top scorer', '👟', 100, 'auto', 'golden_boots', 1],
+  ['squad-conqueror', 'Squad Conqueror', 'Beat 5 different opponents', '⚔️', 150, 'auto', 'opponents_beaten', 5],
+  ['all-nighter', 'All-Nighter', 'Play 10 matches in one day', '🌙', 100, 'auto', 'matches_in_day', 10],
+  ['statistician', 'Statistician', 'Log 25 results', '📸', 75, 'auto', 'results_logged', 25],
+  ['epic-pull', 'Epic Pull', 'Pack an Epic or Big Time card in eFootball', '💎', 100, 'manual', null, null],
+  ['division-one', 'Division 1', 'Reach Division 1 in eFootball ranked matches', '🏔️', 300, 'manual', null, null],
+  ['bicycle-kick', 'Bicycle Kick', 'Score a bicycle kick and post the clip', '🤸', 50, 'manual', null, null],
+  ['tournament-winner', 'Tournament Winner', 'Win an eFootball online tournament or event', '🥇', 250, 'manual', null, null],
+]
+
+function demoCardImage(): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540">
+<defs>
+<radialGradient id="bg" cx="50%" cy="40%" r="75%"><stop offset="0" stop-color="#3b1d6e"/><stop offset="1" stop-color="#0b0820"/></radialGradient>
+<linearGradient id="card" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff1b8"/><stop offset=".45" stop-color="#ffcf4d"/><stop offset="1" stop-color="#d97706"/></linearGradient>
+</defs>
+<rect width="960" height="540" fill="url(#bg)"/>
+<g opacity=".35" stroke="#ffd36b" stroke-width="3">${Array.from({ length: 14 }, (_, i) => `<line x1="480" y1="270" x2="${480 + Math.cos(i / 2.2) * 700}" y2="${270 + Math.sin(i / 2.2) * 700}"/>`).join('')}</g>
+<rect x="370" y="70" width="220" height="320" rx="22" fill="url(#card)"/>
+<text x="400" y="130" font-family="Arial,sans-serif" font-size="54" font-weight="800" fill="#3b2300">97</text>
+<text x="402" y="160" font-family="Arial,sans-serif" font-size="20" font-weight="700" fill="#3b2300">AMF</text>
+<circle cx="480" cy="250" r="62" fill="#3b2300" fill-opacity=".18"/>
+<text x="480" y="352" font-family="Arial,sans-serif" font-size="24" font-weight="800" fill="#3b2300" text-anchor="middle">BIG TIME</text>
+<text x="480" y="460" font-family="Arial,sans-serif" font-size="34" font-weight="800" fill="#fff" text-anchor="middle" letter-spacing="3">NEW SIGNING!</text>
+</svg>`
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+}
+
 export type DemoDb = {
   players: Player[]
   matches: Match[]
   settings: Settings
   joinRequests: JoinRequest[]
+  achievements: Achievement[]
+  awards: Award[]
+  announcements: Announcement[]
+  comments: Comment[]
 }
 
 export function makeDemoData(now = new Date()): DemoDb {
@@ -134,10 +199,55 @@ export function makeDemoData(now = new Date()): DemoDb {
     disputed.dispute_reason = `It was ${Math.max(0, disputed.home_goals - 1)}-${disputed.away_goals}, not ${disputed.home_goals}-${disputed.away_goals}.`
   }
 
+  const created = new Date(founded).toISOString()
+  const achievements: Achievement[] = PRESETS.map(([slug, name, description, emoji, xp, kind, metric, threshold], i) => ({
+    id: `ach-${slug}`,
+    slug,
+    name,
+    description,
+    emoji,
+    xp,
+    kind,
+    metric,
+    threshold,
+    active: true,
+    sort_order: (i + 1) * 10,
+    created_at: created,
+  }))
+  const ago = (hours: number) => new Date(now.getTime() - hours * 3600_000).toISOString()
+  const awards: Award[] = [
+    { player_id: players[1].id, achievement_id: 'ach-epic-pull', awarded_at: ago(40), awarded_by: players[0].id, note: null },
+    { player_id: players[0].id, achievement_id: 'ach-division-one', awarded_at: ago(200), awarded_by: players[0].id, note: null },
+  ]
+  const card = demoCardImage()
+  const announcements: Announcement[] = [
+    { id: 'demo-news-1', player_id: players[0].id, body: 'Squad tournament this Sunday, 8 pm. Winner gets bragging rights for a month 🏆', image_path: null, thumb_path: null, created_at: ago(5) },
+    { id: 'demo-news-2', player_id: players[3].id, body: 'New formation: 4-2-1-3 with quick counters. Don’t cry when you concede 😏', image_path: null, thumb_path: null, created_at: ago(26) },
+    { id: 'demo-news-3', player_id: players[1].id, body: 'Packed a Big Time AMF on my 4th try 🤯 Who wants to test him tonight?', image_path: card, thumb_path: card, created_at: ago(41) },
+    { id: 'demo-news-4', player_id: players[4].id, body: 'Finally made Division 2 in ranked. Division 1 next!', image_path: null, thumb_path: null, created_at: ago(75) },
+  ]
+  const lines = ['GG 🤝', 'That last-minute goal 🔥', 'Lag was unreal 😤', 'Rematch tomorrow, same time.', 'Keeper was asleep on the second one', 'Lucky deflection, no way that counts 😂']
+  const comments: Comment[] = [...matches]
+    .sort((x, y) => Date.parse(y.played_at) - Date.parse(x.played_at))
+    .slice(0, 4)
+    .flatMap((m, i) =>
+      [m.away_id, m.home_id, players[(i + 2) % players.length].id].slice(0, 2 + (i % 2)).map((pid, j) => ({
+        id: `demo-comment-${m.id}-${j}`,
+        match_id: m.id,
+        player_id: pid,
+        body: lines[(i * 2 + j) % lines.length],
+        created_at: new Date(Date.parse(m.created_at) + (j + 1) * 7 * 60_000).toISOString(),
+      })),
+    )
+
   return {
     players,
     matches,
     settings: { ...DEFAULT_SETTINGS },
+    achievements,
+    awards,
+    announcements,
+    comments,
     joinRequests: [
       {
         user_id: 'demo-request-1',

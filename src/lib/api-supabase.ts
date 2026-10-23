@@ -1,8 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Api } from './api'
-import type { JoinRequest, Match, Player, Session, Settings, Shot } from './types'
+import type { Achievement, Announcement, Award, Comment, JoinRequest, LiveTable, Match, Player, Session, Settings, Shot } from './types'
 
 const BUCKET = 'screenshots'
+const AVATARS = 'avatars'
 const PAGE = 1000
 
 type Result<T> = { data: T | null; error: { message: string } | null }
@@ -26,6 +27,8 @@ function toSettings(row: Record<string, unknown>): Settings {
   }
 }
 
+const denied = () => new Error("You don't have permission to do that.")
+
 export function createSupabaseApi(url: string, key: string): Api {
   const sb = createClient(url, key, {
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, flowType: 'pkce' },
@@ -35,9 +38,9 @@ export function createSupabaseApi(url: string, key: string): Api {
   const toSession = (s: { user: { id: string; email?: string | null } } | null): Session | null =>
     s ? { userId: s.user.id, email: s.user.email ?? null } : null
 
-  async function uploadShot(shot: Shot) {
+  async function uploadShot(shot: Shot, prefix = '') {
     const id = crypto.randomUUID()
-    const folder = new Date().toISOString().slice(0, 7)
+    const folder = `${prefix}${new Date().toISOString().slice(0, 7)}`
     const ext = shot.full.type === 'image/webp' ? 'webp' : 'jpg'
     const paths = { screenshot_path: `${folder}/${id}.${ext}`, thumb_path: `${folder}/${id}-thumb.${ext}` }
     const opts = { cacheControl: '31536000', contentType: shot.full.type, upsert: false }
@@ -54,6 +57,24 @@ export function createSupabaseApi(url: string, key: string): Api {
   async function removeFiles(...paths: (string | null)[]) {
     const list = paths.filter((p): p is string => !!p)
     if (list.length) await bucket().remove(list).catch(() => undefined)
+  }
+
+  /** The API returns at most 1000 rows per request, so page until an empty page comes back. */
+  async function fetchAll<T>(table: string, order: string, ascending: boolean): Promise<T[]> {
+    const all: T[] = []
+    for (let from = 0; ; ) {
+      const rows = must(
+        await sb
+          .from(table)
+          .select('*')
+          .order(order, { ascending })
+          .order('id')
+          .range(from, from + PAGE - 1),
+      ) as T[]
+      all.push(...rows)
+      if (rows.length === 0) return all
+      from += rows.length
+    }
   }
 
   return {
@@ -107,31 +128,16 @@ export function createSupabaseApi(url: string, key: string): Api {
     async getPlayers() {
       return must(await sb.from('players').select('*').order('created_at').order('id')) as Player[]
     },
-    async getMatches() {
-      // The API returns at most 1000 rows per request, so page until a short page comes back.
-      const all: Match[] = []
-      for (let from = 0; ; ) {
-        const rows = must(
-          await sb
-            .from('matches')
-            .select('*')
-            .order('played_at', { ascending: false })
-            .order('id')
-            .range(from, from + PAGE - 1),
-        ) as Match[]
-        all.push(...rows)
-        if (rows.length === 0) return all
-        from += rows.length
-      }
-    },
+    getMatches: () => fetchAll<Match>('matches', 'played_at', false),
     async getSettings() {
       return toSettings(must(await sb.from('settings').select('*').eq('id', 1).single()))
     },
     subscribe(onChange) {
-      const channel = sb
-        .channel('matches-changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'matches' }, () => onChange())
-        .subscribe()
+      const channel = sb.channel('live-changes')
+      for (const table of ['matches', 'match_comments', 'announcements'] as LiveTable[]) {
+        channel.on('postgres_changes', { event: '*', schema: 'public', table }, () => onChange(table))
+      }
+      channel.subscribe()
       return () => {
         void sb.removeChannel(channel)
       }
@@ -176,10 +182,100 @@ export function createSupabaseApi(url: string, key: string): Api {
         .update({ status: 'ok', dispute_reason: null, disputed_by: null }, { count: 'exact' })
         .eq('id', matchId)
       if (res.error) throw new Error(res.error.message)
-      if (res.count === 0) throw new Error("You don't have permission to do that.")
+      if (res.count === 0) throw denied()
     },
     async updateMyName(name) {
       must(await sb.rpc('update_my_name', { p_name: name }))
+    },
+    async setAvatar(player, photo, self) {
+      let newPath: string | null = null
+      let newUrl: string | null = null
+      if (photo) {
+        newPath = `${player.id}/${crypto.randomUUID()}.${photo.type === 'image/webp' ? 'webp' : 'jpg'}`
+        must(await sb.storage.from(AVATARS).upload(newPath, photo, { cacheControl: '31536000', contentType: photo.type, upsert: false }))
+        newUrl = sb.storage.from(AVATARS).getPublicUrl(newPath).data.publicUrl
+      }
+      try {
+        if (self) {
+          must(await sb.rpc('update_my_avatar', { p_url: newUrl }))
+        } else {
+          const res = await sb.from('players').update({ avatar_url: newUrl }, { count: 'exact' }).eq('id', player.id)
+          if (res.error) throw new Error(res.error.message)
+          if (res.count === 0) throw denied()
+        }
+      } catch (e) {
+        if (newPath) await sb.storage.from(AVATARS).remove([newPath]).catch(() => undefined)
+        throw e
+      }
+      const oldPath = player.avatar_url?.split(`/storage/v1/object/public/${AVATARS}/`)[1]
+      if (oldPath) await sb.storage.from(AVATARS).remove([decodeURIComponent(oldPath)]).catch(() => undefined)
+    },
+
+    async getAchievements() {
+      return must(await sb.from('achievements').select('*').order('sort_order').order('created_at')) as Achievement[]
+    },
+    async saveAchievement(input, id) {
+      const row = {
+        ...input,
+        name: input.name.trim(),
+        description: input.description.trim(),
+        metric: input.kind === 'auto' ? input.metric : null,
+        threshold: input.kind === 'auto' ? input.threshold : null,
+      }
+      if (id) {
+        const res = await sb.from('achievements').update(row, { count: 'exact' }).eq('id', id)
+        if (res.error) throw new Error(res.error.message)
+        if (res.count === 0) throw denied()
+      } else {
+        must(await sb.from('achievements').insert(row))
+      }
+    },
+    async deleteAchievement(id) {
+      const res = await sb.from('achievements').delete({ count: 'exact' }).eq('id', id)
+      if (res.error) throw new Error(res.error.message)
+      if (res.count === 0) throw denied()
+    },
+    async getAwards() {
+      return must(await sb.from('player_achievements').select('*')) as Award[]
+    },
+    async setAward(playerId, achievementId, awarded, awardedBy) {
+      if (awarded) {
+        must(
+          await sb
+            .from('player_achievements')
+            .upsert({ player_id: playerId, achievement_id: achievementId, awarded_by: awardedBy }, { onConflict: 'player_id,achievement_id', ignoreDuplicates: true }),
+        )
+      } else {
+        must(await sb.from('player_achievements').delete().eq('player_id', playerId).eq('achievement_id', achievementId))
+      }
+    },
+
+    getAnnouncements: () => fetchAll<Announcement>('announcements', 'created_at', false),
+    async postAnnouncement(body, shot, playerId) {
+      const paths = shot ? await uploadShot(shot, 'news/') : { screenshot_path: null, thumb_path: null }
+      const res = await sb
+        .from('announcements')
+        .insert({ player_id: playerId, body: body.trim(), image_path: paths.screenshot_path, thumb_path: paths.thumb_path })
+      if (res.error) {
+        await removeFiles(paths.screenshot_path, paths.thumb_path)
+        throw new Error(res.error.message)
+      }
+    },
+    async deleteAnnouncement(a) {
+      const res = await sb.from('announcements').delete({ count: 'exact' }).eq('id', a.id)
+      if (res.error) throw new Error(res.error.message)
+      if (res.count === 0) throw denied()
+      await removeFiles(a.image_path, a.thumb_path)
+    },
+
+    getComments: () => fetchAll<Comment>('match_comments', 'created_at', true),
+    async addComment(matchId, body, playerId) {
+      must(await sb.from('match_comments').insert({ match_id: matchId, player_id: playerId, body: body.trim() }))
+    },
+    async deleteComment(id) {
+      const res = await sb.from('match_comments').delete({ count: 'exact' }).eq('id', id)
+      if (res.error) throw new Error(res.error.message)
+      if (res.count === 0) throw denied()
     },
 
     async getJoinRequests() {
@@ -197,12 +293,12 @@ export function createSupabaseApi(url: string, key: string): Api {
     async updatePlayer(id, patch) {
       const res = await sb.from('players').update(patch, { count: 'exact' }).eq('id', id)
       if (res.error) throw new Error(res.error.message)
-      if (res.count === 0) throw new Error("You don't have permission to do that.")
+      if (res.count === 0) throw denied()
     },
     async updateSettings(patch) {
       const res = await sb.from('settings').update(patch, { count: 'exact' }).eq('id', 1)
       if (res.error) throw new Error(res.error.message)
-      if (res.count === 0) throw new Error("You don't have permission to do that.")
+      if (res.count === 0) throw denied()
     },
 
     imageUrl(path) {

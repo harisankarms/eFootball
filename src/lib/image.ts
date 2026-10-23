@@ -43,6 +43,34 @@ export async function compressScreenshot(file: File): Promise<Shot> {
   }
 }
 
+/** A square, centre-cropped 256px profile photo (about 15-30 KB). */
+export async function compressAvatar(file: File): Promise<Blob> {
+  if (!file.type.startsWith('image/')) throw new Error('That file is not an image.')
+  const url = URL.createObjectURL(file)
+  try {
+    const img = new Image()
+    img.src = url
+    await img.decode().catch(() => {
+      throw new Error('Could not read that image. Try a PNG or JPG.')
+    })
+    const side = Math.min(img.naturalWidth, img.naturalHeight)
+    const canvas = document.createElement('canvas')
+    canvas.width = 256
+    canvas.height = 256
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('Your browser could not process the image.')
+    ctx.imageSmoothingQuality = 'high'
+    ctx.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, 256, 256)
+    const webp = await toBlob(canvas, 'image/webp', 0.85)
+    if (webp && webp.type === 'image/webp') return webp
+    const jpeg = await toBlob(canvas, 'image/jpeg', 0.85)
+    if (!jpeg) throw new Error('Your browser could not process the image.')
+    return jpeg
+  } finally {
+    URL.revokeObjectURL(url)
+  }
+}
+
 export function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`
   if (n < 1024 * 1024) return `${Math.round(n / 1024)} KB`

@@ -1,12 +1,31 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { Gamepad2, House, Info, ListOrdered, LogIn, LogOut, Pencil, Plus, Settings, Swords, UserRound, Users, type LucideIcon } from 'lucide-react'
+import {
+  Camera,
+  Gamepad2,
+  House,
+  Info,
+  ListOrdered,
+  LogIn,
+  LogOut,
+  Megaphone,
+  Pencil,
+  Plus,
+  Settings,
+  Swords,
+  Trophy,
+  UserRound,
+  Users,
+  type LucideIcon,
+} from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { friendlyError } from '../lib/api'
 import { api, isDemo } from '../lib/backend'
-import { keys, useAuth, useLeague, useLiveUpdates, useSettings } from '../lib/queries'
+import { keys, useAuth, useLeague, useLiveUpdates, useProgress, useSettings } from '../lib/queries'
 import { DEFAULT_SETTINGS } from '../lib/types'
 import { Avatar } from './Avatar'
+import { AvatarEditor } from './AvatarEditor'
+import { LevelBadge } from './Level'
 import { useToast } from './Toast'
 import { BallLogo, Button, Sheet, Wordmark, buttonClass } from './ui'
 
@@ -19,6 +38,9 @@ const NAV: NavItem[] = [
   { to: '/h2h', label: 'H2H', icon: Swords, match: (p) => p.startsWith('/h2h') },
   { to: '/players', label: 'Players', icon: Users, match: (p) => p.startsWith('/players') || p.startsWith('/hall-of-fame') },
 ]
+
+/** Extra links that fit in the desktop header but not the phone's bottom bar. */
+const DESKTOP_EXTRA: NavItem[] = [{ to: '/news', label: 'News', icon: Megaphone, match: (p) => p.startsWith('/news') }]
 
 function Backdrop() {
   return (
@@ -79,11 +101,14 @@ function EditNameSheet({ open, onClose, current }: { open: boolean; onClose: () 
 function AccountMenu() {
   const { ready, session, me, isAdmin } = useAuth()
   const { league } = useLeague()
+  const progress = useProgress(league)
   const toast = useToast()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState(false)
+  const [editingPhoto, setEditingPhoto] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
+  const level = me && progress ? progress.levelOf(me.id) : null
 
   useEffect(() => {
     if (!open) return
@@ -117,9 +142,12 @@ function AccountMenu() {
       </button>
       {open && (
         <div className="absolute top-12 right-0 z-50 w-60 animate-rise rounded-2xl border border-line-strong bg-[linear-gradient(180deg,#151f40,#0d1530)] p-1.5 shadow-[0_24px_60px_-20px_rgb(0_0_0/0.9)]">
-          <div className="border-b border-line px-3 pt-2 pb-2.5">
-            <div className="truncate text-sm font-semibold">{me?.name ?? 'Waiting for approval'}</div>
-            <div className="truncate text-xs text-muted">{session.email}</div>
+          <div className="flex items-center gap-3 border-b border-line px-3 pt-2 pb-2.5">
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-sm font-semibold">{me?.name ?? 'Waiting for approval'}</div>
+              <div className="truncate text-xs text-muted">{level ? `Level ${level.level} · ${level.title}` : session.email}</div>
+            </div>
+            {level && <LevelBadge level={level.level} size={30} />}
           </div>
           <div className="pt-1.5">
             {me && (
@@ -127,6 +155,19 @@ function AccountMenu() {
                 <Link to={`/players/${me.id}`} onClick={() => setOpen(false)} className={item}>
                   <UserRound className="h-4 w-4" aria-hidden /> My profile
                 </Link>
+                <Link to="/achievements" onClick={() => setOpen(false)} className={item}>
+                  <Trophy className="h-4 w-4" aria-hidden /> Achievements
+                  {level && <span className="ml-auto text-xs font-semibold text-gold">{level.xp.toLocaleString()} XP</span>}
+                </Link>
+                <button
+                  onClick={() => {
+                    setOpen(false)
+                    setEditingPhoto(true)
+                  }}
+                  className={item}
+                >
+                  <Camera className="h-4 w-4" aria-hidden /> Change photo
+                </button>
                 <button
                   onClick={() => {
                     setOpen(false)
@@ -161,6 +202,7 @@ function AccountMenu() {
         </div>
       )}
       {me && <EditNameSheet open={editing} onClose={() => setEditing(false)} current={me.name} />}
+      {me && league && <AvatarEditor open={editingPhoto} onClose={() => setEditingPhoto(false)} league={league} player={me} self />}
     </div>
   )
 }
@@ -180,7 +222,7 @@ function Header() {
           <Wordmark name={name} className="truncate text-[1.6rem] leading-none" />
         </Link>
         <nav className="ml-5 hidden items-center gap-1 md:flex" aria-label="Main">
-          {NAV.map((n) => {
+          {[...NAV, ...DESKTOP_EXTRA].map((n) => {
             const active = n.match(pathname)
             return (
               <NavLink

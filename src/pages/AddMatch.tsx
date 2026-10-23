@@ -10,9 +10,10 @@ import { Badge, Button, EmptyState, ErrorState, PageSkeleton, PageTitle, Toggle,
 import { friendlyError } from '../lib/api'
 import { api } from '../lib/backend'
 import { compressScreenshot, formatBytes } from '../lib/image'
-import { keys, useAuth, useLeague, type League } from '../lib/queries'
-import { winnerOf } from '../lib/stats'
-import { toLocalInputValue } from '../lib/time'
+import { unlocksFrom } from '../lib/achievements'
+import { keys, useAchievements, useAuth, useAwards, useLeague, type League } from '../lib/queries'
+import { pastWeeks, winnerOf } from '../lib/stats'
+import { toLocalInputValue, weekKey } from '../lib/time'
 import type { Match, MatchInput, Player, Shot } from '../lib/types'
 
 const POPULAR_TEAMS = [
@@ -120,6 +121,8 @@ function MatchForm({ league, me, existing }: { league: League; me: Player; exist
   const toast = useToast()
   const navigate = useNavigate()
   const { nameOf, settings } = league
+  const achievements = useAchievements()
+  const awards = useAwards()
 
   const [homeId, setHomeId] = useState(existing?.home_id ?? me.id)
   const [awayId, setAwayId] = useState(existing?.away_id ?? '')
@@ -229,11 +232,19 @@ function MatchForm({ league, me, existing }: { league: League; me: Player; exist
         toast.success('Result updated')
         navigate(`/match/${existing.id}`, { replace: true })
       } else {
+        const matchesBefore = league.matches
         const created = await api.addMatch(input, shot?.data ?? null, me.id)
         await qc.invalidateQueries({ queryKey: keys.matches })
         const winner = winnerOf(created)
         if (winner) celebrate()
         toast.success(winner ? `${nameOf(winner)} takes the win!` : 'Draw saved')
+        if (achievements.data && awards.data && (created.home_id === me.id || created.away_id === me.id || created.submitted_by === me.id)) {
+          const weeks = pastWeeks(matchesBefore, settings, weekKey(new Date(), league.tz), nameOf)
+          const { unlocked, levelUp } = unlocksFrom(achievements.data, awards.data, matchesBefore, created, me.id, weeks, league.tz)
+          for (const a of unlocked.slice(0, 2)) toast.success(`${a.emoji} Achievement unlocked: ${a.name} · +${a.xp} XP`)
+          if (levelUp) toast.success(`⬆️ Level ${levelUp.level}! You're now ${levelUp.title}`)
+          if ((unlocked.length || levelUp) && !winner) celebrate()
+        }
         navigate(`/match/${created.id}`, { replace: true })
       }
     } catch (e) {

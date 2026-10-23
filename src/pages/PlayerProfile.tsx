@@ -1,12 +1,15 @@
-import { BrickWall, ChevronRight, Crown, Flame, Footprints, Gamepad2, Goal, Percent, SearchX, Shield, TrendingUp, Utensils } from 'lucide-react'
-import { useMemo } from 'react'
+import { BrickWall, Camera, ChevronRight, Crown, Flame, Footprints, Gamepad2, Goal, Percent, SearchX, Shield, TrendingUp, Utensils } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router'
+import { AchievementBadge } from '../components/AchievementCard'
 import { Avatar } from '../components/Avatar'
+import { AvatarEditor } from '../components/AvatarEditor'
 import { FormChips } from '../components/FormChips'
+import { LevelBadge, XpBar } from '../components/Level'
 import { MatchCard } from '../components/MatchCard'
 import { BackButton, Badge, EmptyState, ErrorState, PageSkeleton, SectionTitle, StatTile, buttonClass } from '../components/ui'
 import { api } from '../lib/backend'
-import { useAuth, useLeague, useNow } from '../lib/queries'
+import { useAuth, useLeague, useNow, useProgress } from '../lib/queries'
 import { formatPct, involves, newestFirst, pastWeeks, playerSummary, signed, trophyCounts, type Outcome } from '../lib/stats'
 import { longDate, weekKey, weekLabel } from '../lib/time'
 
@@ -19,8 +22,10 @@ const streakWords: Record<Outcome, [string, string]> = {
 export default function PlayerProfile() {
   const { id = '' } = useParams()
   const { league, error, refetch } = useLeague()
-  const { me } = useAuth()
+  const { me, isAdmin } = useAuth()
   const now = useNow()
+  const progress = useProgress(league)
+  const [editingPhoto, setEditingPhoto] = useState(false)
 
   const data = useMemo(() => {
     if (!league || !league.byId.has(id)) return null
@@ -51,6 +56,12 @@ export default function PlayerProfile() {
 
   const { summary: s, trophies, potwWeeks } = data
   const streak = s.currentStreak
+  const canEditPhoto = me?.id === id || isAdmin
+  const statuses = progress?.statusesOf(id) ?? []
+  const level = progress?.levelOf(id)
+  const recentUnlocks = statuses
+    .filter((x) => x.unlocked)
+    .sort((a, b) => Date.parse(b.unlockedAt ?? '') - Date.parse(a.unlockedAt ?? ''))
   const trophyChips = [
     { n: trophies.potw, icon: Crown, label: 'Player of the Week', cls: 'border-gold/40 bg-gold/10 text-gold' },
     { n: trophies.goldenBoots, icon: Footprints, label: 'Golden Boot', cls: 'border-line-strong bg-surface-2 text-ink-2' },
@@ -69,7 +80,18 @@ export default function PlayerProfile() {
           aria-hidden
         />
         <div className="relative flex items-center gap-4">
-          <Avatar league={league} id={id} size={88} ring={trophies.potw ? 'gold' : undefined} />
+          <div className="relative shrink-0">
+            <Avatar league={league} id={id} size={88} ring={trophies.potw ? 'gold' : undefined} />
+            {canEditPhoto && (
+              <button
+                onClick={() => setEditingPhoto(true)}
+                aria-label="Change photo"
+                className="absolute -right-1 -bottom-1 grid h-9 w-9 place-items-center rounded-full bg-[linear-gradient(135deg,#3dff8f,#22d3ee)] text-accent-ink shadow-[0_6px_18px_-4px_rgb(61_255_143/0.7)] ring-[3px] ring-bg transition hover:scale-105"
+              >
+                <Camera className="h-4 w-4" />
+              </button>
+            )}
+          </div>
           <div className="min-w-0">
             <h1 className="truncate font-display text-[2.6rem] leading-none font-bold uppercase italic">{player.name}</h1>
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
@@ -91,6 +113,32 @@ export default function PlayerProfile() {
           </div>
         )}
       </section>
+
+      {level && (
+        <section className="card overflow-hidden p-4">
+          <div aria-hidden className="pointer-events-none absolute -top-14 -right-10 h-40 w-40 rounded-full bg-[radial-gradient(circle,rgb(139_92_246/0.22),transparent_70%)]" />
+          <Link to={`/achievements${me?.id === id ? '' : `?player=${id}`}`} className="relative flex items-center gap-3">
+            <LevelBadge level={level.level} size={48} />
+            <div className="min-w-0 flex-1">
+              <div className="truncate font-display text-2xl leading-tight font-bold uppercase italic">{level.title}</div>
+              <div className="text-xs text-muted">
+                Level {level.level} · {level.xp.toLocaleString()} XP · {recentUnlocks.length} of {statuses.length} achievements
+              </div>
+            </div>
+            <ChevronRight className="h-5 w-5 shrink-0 text-muted" aria-hidden />
+          </Link>
+          <div className="relative mt-3">
+            <XpBar info={level} compact />
+          </div>
+          {recentUnlocks.length > 0 && (
+            <div className="relative mt-4 flex flex-wrap gap-2">
+              {recentUnlocks.slice(0, 8).map((x) => (
+                <AchievementBadge key={x.achievement.id} achievement={x.achievement} unlocked size={42} />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       {s.played === 0 ? (
         <p className="card p-5 text-sm text-ink-2">No games yet. Stats appear after the first result.</p>
@@ -212,6 +260,10 @@ export default function PlayerProfile() {
             ))}
           </div>
         </section>
+      )}
+
+      {canEditPhoto && (
+        <AvatarEditor open={editingPhoto} onClose={() => setEditingPhoto(false)} league={league} player={player} self={me?.id === id} />
       )}
     </div>
   )

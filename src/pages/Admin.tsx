@@ -1,11 +1,13 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Download, Pencil, ShieldCheck, UserPlus, X } from 'lucide-react'
+import { Camera, Check, ChevronRight, Download, Pencil, ShieldCheck, Trophy, UserPlus, X } from 'lucide-react'
 import { useState } from 'react'
+import { Link } from 'react-router'
 import { Avatar } from '../components/Avatar'
+import { AvatarEditor } from '../components/AvatarEditor'
 import { SignInPrompt } from '../components/Guards'
 import { MatchCard } from '../components/MatchCard'
 import { useToast } from '../components/Toast'
-import { Badge, Button, EmptyState, ErrorState, PageSkeleton, PageTitle, SectionTitle, Toggle } from '../components/ui'
+import { Badge, Button, EmptyState, ErrorState, GlowIcon, PageSkeleton, PageTitle, SectionTitle, Toggle } from '../components/ui'
 import { friendlyError } from '../lib/api'
 import { api } from '../lib/backend'
 import { downloadFile, matchesToCsv } from '../lib/csv'
@@ -134,6 +136,7 @@ function PlayersAdmin({ league, me }: { league: League; me: Player }) {
   const { busy, run } = useAction()
   const [newName, setNewName] = useState('')
   const [editing, setEditing] = useState<{ id: string; name: string } | null>(null)
+  const [photoFor, setPhotoFor] = useState<Player | null>(null)
   const admins = league.players.filter((p) => p.is_admin && p.active)
 
   const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: keys.players }), qc.invalidateQueries({ queryKey: ['me'] })])
@@ -220,6 +223,9 @@ function PlayersAdmin({ league, me }: { league: League; me: Player }) {
                       {!p.active && <Badge tone="warn">Inactive</Badge>}
                     </div>
                     <div className="-ml-3 mt-1 flex flex-wrap">
+                      <Button size="sm" variant="ghost" icon={<Camera className="h-4 w-4" />} onClick={() => setPhotoFor(p)}>
+                        Photo
+                      </Button>
                       {p.user_id && p.active && (
                         <Button
                           size="sm"
@@ -253,6 +259,9 @@ function PlayersAdmin({ league, me }: { league: League; me: Player }) {
       <p className="mt-2 text-xs text-muted">
         Deactivated players keep their stats but can't log results and are hidden from the player picker.
       </p>
+      {photoFor && (
+        <AvatarEditor open onClose={() => setPhotoFor(null)} league={league} player={photoFor} self={photoFor.id === me.id} />
+      )}
     </section>
   )
 }
@@ -432,6 +441,17 @@ export default function Admin() {
         )}
       </section>
       <PlayersAdmin league={league} me={me} />
+      <section>
+        <SectionTitle title="Achievements" />
+        <Link to="/achievements" className="card card-hover flex items-center gap-3 p-4">
+          <GlowIcon icon={Trophy} tint="gold" />
+          <div className="min-w-0 flex-1">
+            <div className="font-semibold">Manage achievements</div>
+            <div className="text-xs text-muted">Create new ones, change XP, hide them, or award the hand-given ones.</div>
+          </div>
+          <ChevronRight className="h-5 w-5 text-muted" aria-hidden />
+        </Link>
+      </section>
       <SettingsForm key={JSON.stringify(league.settings)} league={league} />
       <Backup league={league} />
     </div>

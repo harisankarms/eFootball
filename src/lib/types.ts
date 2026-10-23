@@ -65,6 +65,52 @@ export type MatchInput = {
 /** A compressed screenshot ready to upload: full size plus a small thumbnail. */
 export type Shot = { full: Blob; thumb: Blob }
 
+export type Achievement = {
+  id: string
+  /** Set for the built-in achievements. */
+  slug: string | null
+  name: string
+  description: string
+  emoji: string
+  xp: number
+  /** 'auto' unlocks when a stat reaches the threshold; 'manual' is awarded by an admin. */
+  kind: 'auto' | 'manual'
+  metric: string | null
+  threshold: number | null
+  active: boolean
+  sort_order: number
+  created_at: string
+}
+
+export type AchievementInput = Pick<Achievement, 'name' | 'description' | 'emoji' | 'xp' | 'kind' | 'metric' | 'threshold' | 'active'>
+
+export type Award = {
+  player_id: string
+  achievement_id: string
+  awarded_at: string
+  awarded_by: string | null
+  note: string | null
+}
+
+export type Announcement = {
+  id: string
+  player_id: string
+  body: string
+  image_path: string | null
+  thumb_path: string | null
+  created_at: string
+}
+
+export type Comment = {
+  id: string
+  match_id: string
+  player_id: string
+  body: string
+  created_at: string
+}
+
+export type LiveTable = 'matches' | 'match_comments' | 'announcements'
+
 export type Session = { userId: string; email: string | null }
 
 export const DEFAULT_SETTINGS: Settings = {

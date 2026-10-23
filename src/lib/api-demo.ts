@@ -1,13 +1,13 @@
 import type { Api } from './api'
 import { DEMO_EMAIL, DEMO_USER_ID, makeDemoData } from './demo-data'
-import type { Match, MatchInput, Player, Session, Shot } from './types'
+import type { LiveTable, Match, MatchInput, Player, Session, Shot } from './types'
 
 /** In-memory backend with sample data. Changes last until the page is reloaded. */
 export function createDemoApi(): Api {
   const db = makeDemoData()
   let session: Session | null = { userId: DEMO_USER_ID, email: DEMO_EMAIL }
   const authListeners = new Set<(s: Session | null) => void>()
-  const changeListeners = new Set<() => void>()
+  const changeListeners = new Set<(table: LiveTable) => void>()
 
   const pause = (ms = 120) => new Promise((r) => setTimeout(r, ms))
   const copy = <T>(v: T): T => structuredClone(v)
@@ -29,7 +29,7 @@ export function createDemoApi(): Api {
     return m
   }
   const withinWindow = (m: Match) => Date.now() - Date.parse(m.created_at) < db.settings.dispute_hours * 3600_000
-  const changed = () => changeListeners.forEach((f) => f())
+  const changed = (table: LiveTable) => changeListeners.forEach((f) => f(table))
   const setSession = (s: Session | null) => {
     session = s
     authListeners.forEach((f) => f(s))
@@ -46,6 +46,11 @@ export function createDemoApi(): Api {
     if (input.home_id === input.away_id) throw new Error('different_players')
     if (input.pens_winner_id && (input.home_goals !== input.away_goals || ![input.home_id, input.away_id].includes(input.pens_winner_id)))
       throw new Error('pens_only_after_a_draw')
+  }
+  const checkBody = (body: string) => {
+    const trimmed = body.trim()
+    if (trimmed.length < 1 || trimmed.length > 500) throw new Error('body_check')
+    return trimmed
   }
 
   return {
@@ -97,7 +102,6 @@ export function createDemoApi(): Api {
       await pause(500)
       requireMe()
       validate(input)
-      const now = new Date().toISOString()
       const match: Match = {
         id: crypto.randomUUID(),
         ...input,
@@ -106,10 +110,10 @@ export function createDemoApi(): Api {
         status: 'ok',
         dispute_reason: null,
         disputed_by: null,
-        created_at: now,
+        created_at: new Date().toISOString(),
       }
       db.matches.push(match)
-      changed()
+      changed('matches')
       return copy(match)
     },
     async updateMatch(match, input, shot) {
@@ -118,7 +122,7 @@ export function createDemoApi(): Api {
       validate(input)
       const m = findMatch(match.id)
       Object.assign(m, input, shot ? shotPaths(shot) : {})
-      changed()
+      changed('matches')
     },
     async deleteMatch(match) {
       await pause(300)
@@ -127,7 +131,8 @@ export function createDemoApi(): Api {
       if (!p.is_admin && !(m.submitted_by === p.id && withinWindow(m)))
         throw new Error('You can only delete your own results within the dispute window.')
       db.matches = db.matches.filter((x) => x.id !== m.id)
-      changed()
+      db.comments = db.comments.filter((c) => c.match_id !== m.id)
+      changed('matches')
     },
     async disputeMatch(matchId, reason) {
       await pause(300)
@@ -137,19 +142,108 @@ export function createDemoApi(): Api {
         throw new Error('Only the other player in this match can dispute it')
       if (!withinWindow(m)) throw new Error(`The ${db.settings.dispute_hours} hour dispute window has closed`)
       Object.assign(m, { status: 'disputed', dispute_reason: reason.trim().slice(0, 200) || null, disputed_by: p.id })
-      changed()
+      changed('matches')
     },
     async resolveDispute(matchId) {
       await pause(300)
       requireAdmin()
       Object.assign(findMatch(matchId), { status: 'ok', dispute_reason: null, disputed_by: null })
-      changed()
+      changed('matches')
     },
     async updateMyName(name) {
       await pause(300)
       const trimmed = name.trim()
       if (trimmed.length < 1 || trimmed.length > 40) throw new Error('Name must be between 1 and 40 characters')
       requireMe().name = trimmed
+    },
+    async setAvatar(player, photo, self) {
+      await pause(300)
+      const actor = requireMe()
+      if (!self && !actor.is_admin) throw deny()
+      const target = db.players.find((p) => p.id === (self ? actor.id : player.id))
+      if (!target) throw new Error('Player not found.')
+      target.avatar_url = photo ? URL.createObjectURL(photo) : null
+    },
+
+    async getAchievements() {
+      await pause(80)
+      return copy(db.achievements)
+    },
+    async saveAchievement(input, id) {
+      await pause(300)
+      requireAdmin()
+      const row = { ...input, metric: input.kind === 'auto' ? input.metric : null, threshold: input.kind === 'auto' ? input.threshold : null }
+      if (id) {
+        const a = db.achievements.find((x) => x.id === id)
+        if (!a) throw new Error('Achievement not found.')
+        Object.assign(a, row)
+      } else {
+        db.achievements.push({ id: crypto.randomUUID(), slug: null, sort_order: 1000, created_at: new Date().toISOString(), ...row })
+      }
+    },
+    async deleteAchievement(id) {
+      await pause(300)
+      requireAdmin()
+      db.achievements = db.achievements.filter((a) => a.id !== id)
+      db.awards = db.awards.filter((w) => w.achievement_id !== id)
+    },
+    async getAwards() {
+      await pause(80)
+      return copy(db.awards)
+    },
+    async setAward(playerId, achievementId, awarded, awardedBy) {
+      await pause(250)
+      requireAdmin()
+      db.awards = db.awards.filter((w) => !(w.player_id === playerId && w.achievement_id === achievementId))
+      if (awarded)
+        db.awards.push({ player_id: playerId, achievement_id: achievementId, awarded_at: new Date().toISOString(), awarded_by: awardedBy, note: null })
+    },
+
+    async getAnnouncements() {
+      await pause(100)
+      return copy(db.announcements).sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
+    },
+    async postAnnouncement(body, shot, playerId) {
+      await pause(400)
+      if (requireMe().id !== playerId) throw deny()
+      const paths = shotPaths(shot)
+      db.announcements.push({
+        id: crypto.randomUUID(),
+        player_id: playerId,
+        body: checkBody(body),
+        image_path: paths.screenshot_path,
+        thumb_path: paths.thumb_path,
+        created_at: new Date().toISOString(),
+      })
+      changed('announcements')
+    },
+    async deleteAnnouncement(a) {
+      await pause(250)
+      const p = requireMe()
+      if (!p.is_admin && a.player_id !== p.id) throw deny()
+      db.announcements = db.announcements.filter((x) => x.id !== a.id)
+      changed('announcements')
+    },
+
+    async getComments() {
+      await pause(80)
+      return copy(db.comments)
+    },
+    async addComment(matchId, body, playerId) {
+      await pause(250)
+      if (requireMe().id !== playerId) throw deny()
+      findMatch(matchId)
+      db.comments.push({ id: crypto.randomUUID(), match_id: matchId, player_id: playerId, body: checkBody(body), created_at: new Date().toISOString() })
+      changed('match_comments')
+    },
+    async deleteComment(id) {
+      await pause(200)
+      const p = requireMe()
+      const c = db.comments.find((x) => x.id === id)
+      if (!c) return
+      if (!p.is_admin && c.player_id !== p.id) throw deny()
+      db.comments = db.comments.filter((x) => x.id !== id)
+      changed('match_comments')
     },
 
     async getJoinRequests() {
