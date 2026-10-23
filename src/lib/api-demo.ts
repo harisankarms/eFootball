@@ -51,6 +51,9 @@ export function createDemoApi(): Api {
   return {
     mode: 'demo',
 
+    async getAuthOptions() {
+      return { google: true }
+    },
     async getSession() {
       return session
     },

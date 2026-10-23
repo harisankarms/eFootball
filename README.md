@@ -51,7 +51,9 @@ The script is safe to run again later. It never deletes data.
 1. Go to **Authentication → Sign In / Providers → Email**.
 2. Turn **off** "Confirm email" and save. The free plan can only send a few emails per hour, so confirmation emails would get stuck.
 
-**Google sign-in (recommended, one tap on phones):**
+**Google sign-in (optional, one tap on phones):**
+
+The "Continue with Google" button only appears on the site once Google is switched on in Supabase. Until then, everyone uses email.
 
 1. Go to [console.cloud.google.com](https://console.cloud.google.com) and create a project (any name).
 2. Open **Google Auth Platform** (it may still be labelled **APIs & Services → OAuth consent screen**):

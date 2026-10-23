@@ -4,6 +4,8 @@ import type { JoinRequest, Match, MatchInput, Player, Session, Settings, Shot } 
 export interface Api {
   mode: 'live' | 'demo'
 
+  /** Which sign-in methods are switched on. Google only shows once it's enabled in Supabase. */
+  getAuthOptions(): Promise<{ google: boolean }>
   getSession(): Promise<Session | null>
   onAuthChange(cb: (session: Session | null) => void): () => void
   signInWithGoogle(): Promise<void>

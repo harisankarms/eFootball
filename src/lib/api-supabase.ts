@@ -59,6 +59,15 @@ export function createSupabaseApi(url: string, key: string): Api {
   return {
     mode: 'live',
 
+    async getAuthOptions() {
+      try {
+        const res = await fetch(`${url}/auth/v1/settings`, { headers: { apikey: key } })
+        const data = res.ok ? await res.json() : null
+        return { google: !!data?.external?.google }
+      } catch {
+        return { google: false }
+      }
+    },
     async getSession() {
       const { data } = await sb.auth.getSession()
       return toSession(data.session)

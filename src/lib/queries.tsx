@@ -31,6 +31,10 @@ export function useSettings() {
   return useQuery({ queryKey: keys.settings, queryFn: () => api.getSettings() })
 }
 
+export function useAuthOptions() {
+  return useQuery({ queryKey: ['auth-options'], queryFn: () => api.getAuthOptions(), staleTime: Infinity })
+}
+
 /** Refresh everyone's screen when a friend adds, edits or deletes a result. */
 export function useLiveUpdates() {
   const qc = useQueryClient()

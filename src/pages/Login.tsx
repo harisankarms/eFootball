@@ -5,7 +5,7 @@ import { WaitingForApproval } from '../components/Guards'
 import { BallLogo, Button, PageSkeleton } from '../components/ui'
 import { friendlyError } from '../lib/api'
 import { api, isDemo } from '../lib/backend'
-import { useAuth, useSettings } from '../lib/queries'
+import { useAuth, useAuthOptions, useSettings } from '../lib/queries'
 
 function GoogleIcon() {
   return (
@@ -21,6 +21,8 @@ function GoogleIcon() {
 export default function Login() {
   const { ready, session, isMember, meLoading } = useAuth()
   const { data: settings } = useSettings()
+  const { data: authOptions } = useAuthOptions()
+  const googleEnabled = !!authOptions?.google
   const location = useLocation()
   const navigate = useNavigate()
   const from = (location.state as { from?: string } | null)?.from ?? '/'
@@ -79,15 +81,18 @@ export default function Login() {
       </div>
 
       <div className="card mt-7 p-5">
-        <Button variant="light" className="w-full" size="lg" loading={busy === 'google'} icon={<GoogleIcon />} onClick={google}>
-          Continue with Google
-        </Button>
-
-        <div className="my-5 flex items-center gap-3 text-xs text-muted">
-          <span className="h-px flex-1 bg-line" />
-          or with email
-          <span className="h-px flex-1 bg-line" />
-        </div>
+        {googleEnabled && (
+          <>
+            <Button variant="light" className="w-full" size="lg" loading={busy === 'google'} icon={<GoogleIcon />} onClick={google}>
+              Continue with Google
+            </Button>
+            <div className="my-5 flex items-center gap-3 text-xs text-muted">
+              <span className="h-px flex-1 bg-line" />
+              or with email
+              <span className="h-px flex-1 bg-line" />
+            </div>
+          </>
+        )}
 
         <form
           className="space-y-3"
@@ -135,12 +140,14 @@ export default function Login() {
         </button>
       </div>
 
-      <p className="mt-5 flex gap-2 text-xs leading-relaxed text-muted">
-        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
-        {isDemo
-          ? 'Demo mode: any option signs you in as Hari, the admin.'
-          : 'Opened this from WhatsApp or Instagram? Google blocks sign-in inside those apps. Open the link in Chrome or Safari, or use email.'}
-      </p>
+      {(isDemo || googleEnabled) && (
+        <p className="mt-5 flex gap-2 text-xs leading-relaxed text-muted">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+          {isDemo
+            ? 'Demo mode: any option signs you in as Hari, the admin.'
+            : 'Opened this from WhatsApp or Instagram? Google blocks sign-in inside those apps. Open the link in Chrome or Safari, or use email.'}
+        </p>
+      )}
       <p className="mt-3 text-center text-xs">
         <Link to="/" className="text-ink-2 hover:text-ink">
           Just looking? Back to the table
