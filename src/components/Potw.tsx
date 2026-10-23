@@ -1,5 +1,5 @@
-import { BrickWall, ChevronRight, Clock, Crown, Footprints, Plus, Utensils, Zap, type LucideIcon } from 'lucide-react'
-import { useRef, useState, type PointerEvent } from 'react'
+import { BrickWall, ChevronRight, Clock, Crown, Flame, Footprints, Plus, Utensils, Zap, type LucideIcon } from 'lucide-react'
+import { useEffect, useId, useRef, useState, type PointerEvent, type RefObject } from 'react'
 import { Link } from 'react-router'
 import { inkOn } from '../lib/colors'
 import { useAuth, type League } from '../lib/queries'
@@ -17,9 +17,8 @@ function CountUp({ value }: { value: number }) {
 }
 
 /** Tilts the card towards the mouse pointer, like holding a real card. */
-function useTilt<T extends HTMLElement>() {
-  const ref = useRef<T>(null)
-  const onPointerMove = (e: PointerEvent<T>) => {
+function useTilt(ref: RefObject<HTMLElement | null>) {
+  const onPointerMove = (e: PointerEvent<HTMLElement>) => {
     const el = ref.current
     if (!el || e.pointerType !== 'mouse' || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
     const r = el.getBoundingClientRect()
@@ -36,7 +35,124 @@ function useTilt<T extends HTMLElement>() {
     el.style.setProperty('--rx', '0deg')
     el.style.setProperty('--ry', '0deg')
   }
-  return { ref, onPointerMove, onPointerLeave }
+  return { onPointerMove, onPointerLeave }
+}
+
+/** Pauses the background animation while the card is scrolled out of view. */
+function usePauseOffscreen(ref: RefObject<HTMLElement | null>, enabled: boolean) {
+  useEffect(() => {
+    const el = ref.current
+    if (!el || !enabled || typeof IntersectionObserver === 'undefined') return
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) delete el.dataset.offscreen
+      else el.dataset.offscreen = ''
+    })
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [ref, enabled])
+}
+
+const CENTRE = { x: 50, y: 62 }
+const RINGS = 9
+const ZOOM_SECONDS = 6.5
+
+function hexagon(r: number) {
+  return Array.from({ length: 6 }, (_, i) => {
+    const a = (Math.PI / 3) * i - Math.PI / 2
+    return `${(CENTRE.x + r * Math.cos(a)).toFixed(2)},${(CENTRE.y + r * Math.sin(a)).toFixed(2)}`
+  }).join(' ')
+}
+
+/** The animated neon hexagon tunnel behind the player, as on eFootball 2026 Epic cards. */
+function EpicTunnel() {
+  const id = useId()
+  const ring = hexagon(34)
+  return (
+    <svg className="epic-tunnel" viewBox="0 0 100 143" preserveAspectRatio="xMidYMid slice" aria-hidden>
+      <defs>
+        <radialGradient id={`${id}bg`} cx="50%" cy="43%" r="72%">
+          <stop offset="0" style={{ stopColor: 'var(--tunnel-1)' }} />
+          <stop offset="0.5" style={{ stopColor: 'var(--tunnel-2)' }} />
+          <stop offset="1" style={{ stopColor: 'var(--tunnel-3)' }} />
+        </radialGradient>
+        <radialGradient id={`${id}core`}>
+          <stop offset="0" stopColor="#f2fff4" stopOpacity="0.95" />
+          <stop offset="0.35" style={{ stopColor: 'var(--neon)' }} stopOpacity="0.6" />
+          <stop offset="1" style={{ stopColor: 'var(--neon)' }} stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <rect width="100" height="143" fill={`url(#${id}bg)`} />
+      <g className="epic-spokes">
+        {Array.from({ length: 6 }, (_, i) => {
+          const a = (Math.PI / 3) * i - Math.PI / 2
+          return <line key={i} x1={CENTRE.x} y1={CENTRE.y} x2={CENTRE.x + 140 * Math.cos(a)} y2={CENTRE.y + 140 * Math.sin(a)} />
+        })}
+      </g>
+      {Array.from({ length: RINGS }, (_, i) => (
+        <g
+          key={i}
+          className="epic-ring"
+          style={{
+            animationDelay: `${(-(i * ZOOM_SECONDS) / RINGS).toFixed(2)}s`,
+            transform: `scale(${(0.08 * 1.45 ** i).toFixed(3)})`,
+          }}
+        >
+          <polygon points={ring} className="epic-ring-glow" />
+          <polygon points={ring} className="epic-ring-edge" />
+          <polygon points={ring} className="epic-ring-line" />
+        </g>
+      ))}
+      <circle cx={CENTRE.x} cy={CENTRE.y} r="18" fill={`url(#${id}core)`} className="epic-core" />
+    </svg>
+  )
+}
+
+/** Bronze frame lines, corner accents and the bottom plate, drawn over the card. */
+function EpicFrame() {
+  const id = useId()
+  const bronze = `url(#${id}bronze)`
+  return (
+    <svg className="epic-frame" viewBox="0 0 100 143" preserveAspectRatio="none" aria-hidden>
+      <defs>
+        <linearGradient id={`${id}bronze`} x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" style={{ stopColor: 'var(--frame-1)' }} />
+          <stop offset="0.3" style={{ stopColor: 'var(--frame-2)' }} />
+          <stop offset="0.55" style={{ stopColor: 'var(--frame-3)' }} />
+          <stop offset="0.78" style={{ stopColor: 'var(--frame-4)' }} />
+          <stop offset="1" style={{ stopColor: 'var(--frame-5)' }} />
+        </linearGradient>
+      </defs>
+      <path d="M7 0.6 H93 L99.4 7 V136 L93 142.4 H7 L0.6 136 V7 Z" fill="none" stroke={bronze} strokeWidth="2.4" vectorEffect="non-scaling-stroke" />
+      <path
+        d="M9 2.8 H40 L42 4.2 H58 L60 2.8 H91 L97.2 9 V134 L91 140.2 H9 L2.8 134 V9 Z"
+        fill="none"
+        stroke={bronze}
+        strokeWidth="0.9"
+        strokeOpacity="0.85"
+        vectorEffect="non-scaling-stroke"
+      />
+      <g stroke={bronze} strokeWidth="2" fill="none" vectorEffect="non-scaling-stroke">
+        <path d="M2.8 16 V9 L9 2.8 H17" vectorEffect="non-scaling-stroke" />
+        <path d="M83 2.8 H91 L97.2 9 V16" vectorEffect="non-scaling-stroke" />
+        <path d="M2.8 127 V134 L9 140.2 H17" vectorEffect="non-scaling-stroke" />
+        <path d="M83 140.2 H91 L97.2 134 V127" vectorEffect="non-scaling-stroke" />
+      </g>
+      <path
+        d="M33 143 V132.4 L36 129.4 H64 L67 132.4 V143 Z"
+        style={{ fill: 'var(--tunnel-3)' }}
+        fillOpacity="0.92"
+        stroke={bronze}
+        strokeWidth="1"
+        vectorEffect="non-scaling-stroke"
+      />
+    </svg>
+  )
+}
+
+/** One to five stars from the card rating. */
+function starsFor(rating: number | null) {
+  if (rating == null) return 0
+  return rating >= 95 ? 5 : rating >= 88 ? 4 : rating >= 80 ? 3 : rating >= 72 ? 2 : 1
 }
 
 type CollectibleProps = {
@@ -50,9 +166,11 @@ type CollectibleProps = {
   figureUrl?: string | null
 }
 
-/** A gold, eFootball-style player card with the player's figure, photo or initials, rating and weekly stats. */
+/** An eFootball 2026 Epic-style player card with the player's figure, photo or initials, rating and weekly stats. */
 export function CollectibleCard({ league, row, caption, mini = false, to, figureUrl }: CollectibleProps) {
-  const tilt = useTilt<HTMLAnchorElement>()
+  const ref = useRef<HTMLElement>(null)
+  const tilt = useTilt(ref)
+  usePauseOffscreen(ref, !mini)
   const [broken, setBroken] = useState(false)
   const [figureBroken, setFigureBroken] = useState(false)
   const id = row?.playerId
@@ -68,60 +186,93 @@ export function CollectibleCard({ league, row, caption, mini = false, to, figure
     { label: mini ? 'CS' : 'Clean sheets', value: row?.cleanSheets },
   ]
 
+  const stars = starsFor(rating)
+
   const inner = (
-    <div className="potw-card-inner" aria-hidden>
-      <div className="potw-card-top">
-        <div>
-          <div className="potw-rating">{rating ?? '??'}</div>
-          <div className="potw-position">POTW</div>
+    <div className="epic-clip" aria-hidden>
+      <EpicTunnel />
+      <div className="epic-shade" />
+      <div className="epic-content">
+        <div className="potw-card-top">
+          <div>
+            <div className="potw-rating">{rating ?? '??'}</div>
+            <div className="potw-position">POTW</div>
+          </div>
+          <Crown className="potw-award-icon" />
         </div>
-        <Crown className="potw-award-icon" />
+        <div className="potw-card-art">
+          {figure ? (
+            <img className="potw-figure" src={figure} alt="" onError={() => setFigureBroken(true)} />
+          ) : (
+            <div
+              className="potw-portrait"
+              style={photo ? undefined : { background: `radial-gradient(circle at 30% 25%, rgb(255 255 255 / 0.3), transparent 55%), ${color}` }}
+            >
+              {photo ? (
+                <img src={photo} alt="" referrerPolicy="no-referrer" onError={() => setBroken(true)} />
+              ) : (
+                <span className="potw-portrait-initials" style={{ color: row ? inkOn(color) : '#d6deef' }}>
+                  {row ? initials(name) : '?'}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="potw-card-player-name">{name}</div>
+        <div className="potw-card-label">{caption}</div>
+        <div className="potw-card-divider" />
+        <div className="potw-card-stats">
+          {stats.map((s) => (
+            <div key={s.label} className="potw-card-stat">
+              <strong>{s.value ?? '–'}</strong>
+              <span>{s.label.toUpperCase()}</span>
+            </div>
+          ))}
+        </div>
       </div>
-      <div className={`potw-card-art ${figure ? 'has-figure' : ''}`}>
-        <div className="potw-card-rays" />
-        <div className="potw-card-halo" />
-        {figure ? (
-          <img className="potw-figure" src={figure} alt="" onError={() => setFigureBroken(true)} />
-        ) : (
-          <div
-            className="potw-portrait"
-            style={photo ? undefined : { background: `radial-gradient(circle at 30% 25%, rgb(255 255 255 / 0.3), transparent 55%), ${color}` }}
-          >
-            {photo ? (
-              <img src={photo} alt="" referrerPolicy="no-referrer" onError={() => setBroken(true)} />
-            ) : (
-              <span className="potw-portrait-initials" style={{ color: row ? inkOn(color) : '#d6deef' }}>
-                {row ? initials(name) : '?'}
-              </span>
-            )}
-          </div>
-        )}
+      <EpicFrame />
+      <div className="epic-plate">
+        <div className="epic-chips">
+          <span className="epic-chip">
+            <Crown />
+          </span>
+          <span className="epic-chip">
+            <Flame />
+          </span>
+        </div>
+        <div className="epic-stars">
+          {Array.from({ length: 5 }, (_, i) => (
+            <span key={i} className={`epic-star ${i < stars ? '' : 'is-dim'}`}>
+              ★
+            </span>
+          ))}
+        </div>
       </div>
-      <div className="potw-card-player-name">{name}</div>
-      <div className="potw-card-label">{caption}</div>
-      <div className="potw-card-divider" />
-      <div className="potw-card-stats">
-        {stats.map((s) => (
-          <div key={s.label} className="potw-card-stat">
-            <strong>{s.value ?? '–'}</strong>
-            <span>{s.label.toUpperCase()}</span>
-          </div>
-        ))}
-      </div>
+      <svg className="epic-logo" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" />
+        <polygon points="12,7.4 15.6,10 14.2,14.2 9.8,14.2 8.4,10" fill="currentColor" />
+      </svg>
     </div>
   )
 
   const className = `potw-card ${mini ? 'is-mini' : ''} ${row ? '' : 'is-empty'}`
-  const label = row ? `${name}: ${caption}, card rating ${rating}` : 'Player of the Week card: up for grabs'
+  const label = row ? `${name}: ${caption}, card rating ${rating}, ${stars} stars` : 'Player of the Week card: up for grabs'
   if (!to) {
     return (
-      <div className={className} role="img" aria-label={label}>
+      <div ref={ref as RefObject<HTMLDivElement>} className={className} role="img" aria-label={label}>
         {inner}
       </div>
     )
   }
   return (
-    <Link to={to} ref={tilt.ref} className={className} aria-label={label} onPointerMove={tilt.onPointerMove} onPointerLeave={tilt.onPointerLeave}>
+    <Link
+      to={to}
+      ref={ref as RefObject<HTMLAnchorElement>}
+      className={className}
+      aria-label={label}
+      onPointerMove={tilt.onPointerMove}
+      onPointerLeave={tilt.onPointerLeave}
+    >
       {inner}
     </Link>
   )
@@ -157,7 +308,7 @@ export function PotwHero({ league, week, lastWeek, now }: HeroProps) {
         <CollectibleCard
           league={league}
           row={featured}
-          caption={featured ? (qualified ? 'Player of the week' : 'Race leader') : 'Up for grabs'}
+          caption={featured && !qualified ? 'Race leader' : 'Player of the week'}
           to={featured ? `/players/${featured.playerId}` : undefined}
         />
 

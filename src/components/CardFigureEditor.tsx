@@ -99,7 +99,7 @@ export function CardFigureEditor({ open, onClose, league, player, self }: { open
         <div className="relative mx-auto w-44">
           <CollectibleCard league={league} row={previewRow} caption="Player of the week" mini figureUrl={figure ? figure.url : undefined} />
           {working && (
-            <div className="absolute inset-0 grid place-items-center rounded-xl bg-black/60 text-center text-xs font-semibold text-white">
+            <div className="epic-shape absolute inset-0 grid place-items-center bg-black/60 text-center text-xs font-semibold text-white">
               <div>
                 <LoaderCircle className="mx-auto mb-2 h-7 w-7 animate-spin" aria-hidden />
                 {removeBg ? 'Cutting out…' : 'Preparing…'}

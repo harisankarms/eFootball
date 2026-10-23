@@ -1,10 +1,9 @@
-/* Player of the Week: a collectible card inspired by eFootball's Big Time cards.
-   Sizes inside the card use container units, so the same card works as the
-   big hero and as small cards in collections. */
+/* Player of the Week: an eFootball 2026 "Epic" style card with an animated
+   hexagon tunnel behind the player. Sizes inside the card use container
+   units, so the same card works as the big hero and as small collection cards. */
 
 .potw-section {
   --gold: #f6d77a;
-  --gold-bright: #fff0b0;
   --neon: #3dff8f;
   --muted: #91a2c4;
   position: relative;
@@ -12,13 +11,13 @@
   color: #f5f7ff;
   padding: 24px;
   overflow: hidden;
-  border: 1px solid rgb(246 215 122 / 0.22);
+  border: 1px solid rgb(61 255 122 / 0.18);
   border-radius: 24px;
   background:
-    radial-gradient(ellipse at 15% 45%, rgb(36 245 165 / 0.08), transparent 38%),
-    radial-gradient(ellipse at 80% 10%, rgb(246 215 122 / 0.1), transparent 40%),
-    linear-gradient(135deg, #080d1b, #0c1428 60%, #080d1b);
-  box-shadow: 0 30px 70px -40px rgb(246 215 122 / 0.4);
+    radial-gradient(ellipse at 18% 50%, rgb(61 255 122 / 0.1), transparent 42%),
+    radial-gradient(ellipse at 80% 10%, rgb(246 215 122 / 0.08), transparent 40%),
+    linear-gradient(135deg, #070d1a, #0b1626 60%, #070d1a);
+  box-shadow: 0 30px 70px -40px rgb(61 255 122 / 0.35);
 }
 
 /* Heading */
@@ -84,26 +83,31 @@
   }
 }
 
-/* The collectible card */
+/* ------------------------------------------------------------------
+   The card
+   ------------------------------------------------------------------ */
 
 .potw-card {
+  --neon: #3dff7a;
+  --neon-bright: #d4ffe0;
+  --tunnel-1: #12592a;
+  --tunnel-2: #062d15;
+  --tunnel-3: #010c05;
+  --bronze: #e9c47c;
+  --frame-1: #f6dfa0;
+  --frame-2: #9a6a33;
+  --frame-3: #f1d391;
+  --frame-4: #6e4521;
+  --frame-5: #e7c17a;
   position: relative;
   isolation: isolate;
+  container-type: inline-size;
   display: block;
   width: min(78%, 300px);
-  aspect-ratio: 0.7;
+  aspect-ratio: 100 / 143;
   margin: 0 auto;
-  padding: 7px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, #fff0b0 0%, #a7782b 12%, #fce7a0 25%, #60451b 43%, #f7d875 60%, #75501e 76%, #ffe9a1 100%);
-  box-shadow:
-    0 0 0 1px rgb(255 239 176 / 0.35),
-    0 18px 45px rgb(0 0 0 / 0.55),
-    0 0 35px rgb(246 215 122 / 0.12);
   transform: perspective(900px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(var(--lift, 0px));
-  transition:
-    transform 350ms ease,
-    box-shadow 350ms ease;
+  transition: transform 350ms ease;
 }
 
 @container (min-width: 620px) {
@@ -113,96 +117,92 @@
   }
 }
 
+/* Shadow and green glow, drawn once behind the card so the animation stays cheap */
+.potw-card::before {
+  content: '';
+  position: absolute;
+  inset: 4% 3% -3%;
+  z-index: -1;
+  border-radius: 12%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--neon) 30%, transparent), rgb(0 0 0 / 0.55) 62%, transparent);
+  filter: blur(18px);
+  opacity: 0.85;
+  transition: opacity 350ms ease;
+}
+
 .potw-card:hover {
   --lift: -5px;
-  box-shadow:
-    0 0 0 1px var(--gold-bright, #fff0b0),
-    0 22px 55px rgb(0 0 0 / 0.6),
-    0 0 42px rgb(246 215 122 / 0.26);
+}
+
+.potw-card:hover::before {
+  opacity: 1;
 }
 
 .potw-card[data-tilting] {
-  transition:
-    transform 80ms linear,
-    box-shadow 350ms ease;
+  transition: transform 80ms linear;
 }
 
 .potw-card.is-mini {
   width: 100%;
-  padding: 5px;
-  border-radius: 12px;
+}
+
+.potw-card.is-mini::before {
+  filter: blur(10px);
 }
 
 .potw-card.is-empty {
-  background: linear-gradient(135deg, #8b97b5 0%, #3b4566 30%, #a9b4cf 55%, #2b3350 80%, #7c88a6 100%);
+  --neon: #8fa6d6;
+  --neon-bright: #dbe4f7;
+  --tunnel-1: #26324f;
+  --tunnel-2: #131a2d;
+  --tunnel-3: #060910;
+  --bronze: #b9c3d9;
+  --frame-1: #eef2fa;
+  --frame-2: #5f6b84;
+  --frame-3: #d3dbea;
+  --frame-4: #3a4358;
+  --frame-5: #c3cddf;
 }
 
-.potw-card-inner {
-  position: relative;
-  container-type: inline-size;
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  padding: 7%;
-  border: 1px solid rgb(255 239 176 / 0.6);
-  border-radius: 10px;
-  background:
-    radial-gradient(ellipse at 50% 45%, rgb(189 135 39 / 0.25), transparent 58%),
-    linear-gradient(155deg, #20202a, #101728 48%, #15120c);
+/* The cut-corner card shape */
+.epic-clip,
+.epic-shape {
+  clip-path: polygon(7% 0, 93% 0, 100% 4.9%, 100% 95.1%, 93% 100%, 7% 100%, 0 95.1%, 0 4.9%);
 }
 
-.potw-card.is-mini .potw-card-inner {
-  border-radius: 8px;
-}
-
-.potw-card.is-empty .potw-card-inner {
-  border-color: rgb(200 210 235 / 0.4);
-  background:
-    radial-gradient(ellipse at 50% 45%, rgb(120 140 190 / 0.2), transparent 58%),
-    linear-gradient(155deg, #1a1f2e, #101728 48%, #10131c);
-}
-
-/* Angular artwork */
-.potw-card-inner::before {
-  content: '';
+/* Everything inside the cut-corner shape */
+.epic-clip {
   position: absolute;
   inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  opacity: 0.8;
-  background:
-    linear-gradient(130deg, transparent 20%, rgb(255 218 117 / 0.1) 20.5%, transparent 21.5%),
-    linear-gradient(40deg, transparent 55%, rgb(255 218 117 / 0.1) 55.5%, transparent 57%),
-    repeating-linear-gradient(125deg, transparent 0 25px, rgb(255 255 255 / 0.025) 26px 27px, transparent 28px 42px);
+  overflow: hidden;
+  background: var(--tunnel-3);
 }
 
 /* Holographic shine: sweeps on hover, and on its own on touch screens */
-.potw-card-inner::after {
+.epic-clip::after {
   content: '';
   position: absolute;
   inset: -100%;
-  z-index: 5;
+  z-index: 6;
   pointer-events: none;
   background: linear-gradient(
     115deg,
     transparent 43%,
-    rgb(255 255 255 / 0.02) 46%,
-    rgb(255 239 176 / 0.22) 49%,
-    rgb(255 255 255 / 0.04) 52%,
+    rgb(255 255 255 / 0.03) 46%,
+    rgb(215 255 225 / 0.22) 49%,
+    rgb(255 255 255 / 0.05) 52%,
     transparent 56%
   );
   transform: translateX(-55%);
   transition: transform 800ms ease;
 }
 
-.potw-card:hover .potw-card-inner::after {
+.potw-card:hover .epic-clip::after {
   transform: translateX(55%);
 }
 
 @media (hover: none) {
-  .potw-card-inner::after {
+  .epic-clip::after {
     animation: potw-shine 5s ease-in-out infinite;
   }
 }
@@ -217,7 +217,194 @@
   }
 }
 
-/* Rating and award */
+/* Animated hexagon tunnel */
+
+.epic-tunnel {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.epic-spokes line {
+  stroke: var(--neon);
+  stroke-width: 0.3;
+  opacity: 0.16;
+}
+
+.epic-ring {
+  transform-origin: 50px 62px;
+  animation: epic-zoom 6.5s cubic-bezier(0.55, 0, 0.9, 0.45) infinite;
+}
+
+.epic-ring-glow {
+  fill: none;
+  stroke: var(--neon);
+  stroke-width: 3.2;
+  opacity: 0.16;
+}
+
+.epic-ring-line {
+  fill: none;
+  stroke: var(--neon-bright);
+  stroke-width: 0.55;
+}
+
+.epic-ring-edge {
+  fill: none;
+  stroke: var(--neon);
+  stroke-width: 1.3;
+  opacity: 0.75;
+}
+
+.epic-core {
+  transform-origin: 50px 62px;
+  animation: epic-pulse 2.4s ease-in-out infinite alternate;
+}
+
+@keyframes epic-zoom {
+  0% {
+    transform: scale(0.05);
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 0.85;
+  }
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+@keyframes epic-pulse {
+  from {
+    opacity: 0.6;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+
+/* Only the big card animates, and only while it is on screen; small cards animate on hover */
+.potw-card.is-mini .epic-ring,
+.potw-card.is-mini .epic-core,
+.potw-card[data-offscreen] .epic-ring,
+.potw-card[data-offscreen] .epic-core {
+  animation-play-state: paused;
+}
+
+.potw-card.is-mini:hover .epic-ring,
+.potw-card.is-mini:hover .epic-core {
+  animation-play-state: running;
+}
+
+/* Darkens the top and bottom so the text stays readable over the light */
+.epic-shade {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--tunnel-3) 60%, transparent) 0%,
+    transparent 22%,
+    transparent 52%,
+    color-mix(in srgb, var(--tunnel-3) 86%, transparent) 78%,
+    color-mix(in srgb, var(--tunnel-3) 96%, transparent) 100%
+  );
+}
+
+.epic-content {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+  padding: 9% 9% 15%;
+}
+
+/* Bronze frame lines and the bottom plate, drawn over everything */
+.epic-frame {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.epic-plate {
+  position: absolute;
+  z-index: 5;
+  left: 50%;
+  bottom: 1.3%;
+  display: flex;
+  width: 34%;
+  height: 8.6%;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.9cqi;
+  transform: translateX(-50%);
+}
+
+.epic-chips {
+  display: flex;
+  gap: 2.6cqi;
+}
+
+.epic-chip {
+  display: grid;
+  width: 6.4cqi;
+  height: 6.4cqi;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--neon-bright);
+  background: radial-gradient(circle at 35% 30%, var(--tunnel-1), var(--tunnel-3));
+  box-shadow:
+    0 0 0 0.45cqi color-mix(in srgb, var(--neon) 60%, transparent),
+    0 0 2cqi color-mix(in srgb, var(--neon) 35%, transparent);
+}
+
+.epic-chip svg {
+  width: 62%;
+  height: 62%;
+}
+
+.epic-stars {
+  display: flex;
+  gap: 0.5cqi;
+  font-size: clamp(5px, 3.1cqi, 11px);
+  line-height: 1;
+}
+
+.epic-star {
+  color: #f3d27a;
+  text-shadow: 0 0 1.5cqi rgb(243 210 122 / 0.6);
+}
+
+.epic-star.is-dim {
+  color: rgb(243 210 122 / 0.22);
+  text-shadow: none;
+}
+
+.epic-logo {
+  position: absolute;
+  z-index: 5;
+  right: 7.5%;
+  bottom: 2.4%;
+  width: 7.5%;
+  aspect-ratio: 1;
+  color: var(--bronze);
+  opacity: 0.9;
+}
+
+/* Rating, position and award */
 
 .potw-card-top {
   position: relative;
@@ -228,110 +415,61 @@
 }
 
 .potw-rating {
-  color: var(--gold-bright, #fff0b0);
+  color: #fff6dc;
   font-family: var(--font-display);
-  font-size: clamp(24px, 19cqi, 64px);
+  font-size: clamp(22px, 18cqi, 60px);
   line-height: 0.9;
   font-weight: 700;
   font-style: italic;
-  text-shadow: 0 3px 12px #000;
+  text-shadow:
+    0 2px 10px #000,
+    0 0 16px color-mix(in srgb, var(--neon) 35%, transparent);
 }
 
 .potw-position {
   margin-top: 4px;
-  color: var(--gold, #f6d77a);
-  font-size: clamp(8px, 3.6cqi, 12px);
+  color: var(--bronze);
+  font-size: clamp(7px, 3.6cqi, 12px);
   font-weight: 900;
   letter-spacing: 2px;
 }
 
 .potw-award-icon {
-  width: clamp(16px, 10cqi, 30px);
-  height: clamp(16px, 10cqi, 30px);
-  color: var(--gold, #f6d77a);
-  filter: drop-shadow(0 0 8px rgb(246 215 122 / 0.6));
+  width: clamp(14px, 9cqi, 28px);
+  height: clamp(14px, 9cqi, 28px);
+  color: var(--bronze);
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--bronze) 50%, transparent));
 }
 
-/* Portrait */
+/* Player art: a cut-out figure, or a round photo / initials */
 
 .potw-card-art {
   position: relative;
   z-index: 2;
-  flex: 1;
-  min-height: 0;
   display: grid;
+  min-height: 0;
+  flex: 1;
   place-items: center;
-  margin-top: 1cqi;
-}
-
-.potw-card-rays {
-  position: absolute;
-  width: 120%;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: repeating-conic-gradient(rgb(255 224 140 / 0.08) 0deg 6deg, transparent 6deg 30deg);
-  mask-image: radial-gradient(circle, #000 25%, transparent 68%);
-  animation: turn 40s linear infinite;
-}
-
-.potw-card-halo {
-  position: absolute;
-  width: 78%;
-  aspect-ratio: 1;
-  border: 1px solid rgb(246 215 122 / 0.4);
-  border-radius: 50%;
-  background: radial-gradient(circle, rgb(246 215 122 / 0.16), transparent 68%);
-  box-shadow: 0 0 35px rgb(246 215 122 / 0.14);
 }
 
 .potw-portrait {
   position: relative;
-  width: 62%;
+  width: 56%;
   max-height: 100%;
   aspect-ratio: 1;
   overflow: hidden;
   border-radius: 50%;
   box-shadow:
-    0 0 0 2px var(--gold, #f6d77a),
-    0 0 0 5px rgb(8 13 27 / 0.85),
+    0 0 0 2px var(--bronze),
+    0 0 0 5px color-mix(in srgb, var(--tunnel-3) 85%, transparent),
+    0 0 30px color-mix(in srgb, var(--neon) 35%, transparent),
     0 12px 30px rgb(0 0 0 / 0.6);
-}
-
-.potw-card.is-empty .potw-portrait {
-  box-shadow:
-    0 0 0 2px rgb(200 210 235 / 0.6),
-    0 0 0 5px rgb(8 13 27 / 0.85);
 }
 
 .potw-portrait img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-}
-
-/* Cut-out player figure: rises from the bottom of the art and fades behind the name */
-.potw-figure {
-  position: absolute;
-  z-index: 2;
-  left: 50%;
-  bottom: -18%;
-  width: 135%;
-  max-width: none;
-  height: 150%;
-  object-fit: contain;
-  object-position: center bottom;
-  transform: translateX(-50%);
-  filter: drop-shadow(0 8px 16px rgb(0 0 0 / 0.55)) drop-shadow(0 0 22px rgb(246 215 122 / 0.25));
-  mask-image: linear-gradient(to bottom, #000 76%, transparent 100%);
-  transition: transform 450ms ease;
-}
-
-.potw-card:hover .potw-figure {
-  transform: translateX(-50%) scale(1.04);
-}
-
-.potw-card-art.has-figure .potw-card-halo {
-  width: 92%;
 }
 
 .potw-portrait-initials {
@@ -346,23 +484,45 @@
   text-shadow: 0 2px 10px rgb(0 0 0 / 0.45);
 }
 
-/* Name, label and mini stats */
+.potw-figure {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  bottom: -22%;
+  width: 135%;
+  max-width: none;
+  height: 152%;
+  object-fit: contain;
+  object-position: center bottom;
+  transform: translateX(-50%);
+  filter: drop-shadow(0 8px 16px rgb(0 0 0 / 0.6)) drop-shadow(0 0 18px color-mix(in srgb, var(--neon) 30%, transparent));
+  mask-image: linear-gradient(to bottom, #000 74%, transparent 100%);
+  transition: transform 450ms ease;
+}
+
+.potw-card:hover .potw-figure {
+  transform: translateX(-50%) scale(1.04);
+}
+
+/* Name, label and stats */
 
 .potw-card-player-name {
   position: relative;
   z-index: 3;
   overflow: hidden;
-  margin-top: 3cqi;
-  color: #fff2c7;
+  margin-top: 2cqi;
+  color: #fff;
   font-family: var(--font-display);
-  font-size: clamp(14px, 10.5cqi, 34px);
+  font-size: clamp(13px, 10.5cqi, 34px);
   line-height: 1.05;
   font-weight: 700;
   font-style: italic;
   text-overflow: ellipsis;
   text-transform: uppercase;
   white-space: nowrap;
-  text-shadow: 0 2px 10px #000;
+  text-shadow:
+    0 2px 10px #000,
+    0 0 14px color-mix(in srgb, var(--neon) 35%, transparent);
 }
 
 .potw-card-label {
@@ -370,7 +530,7 @@
   z-index: 3;
   margin-top: 1.5cqi;
   overflow: hidden;
-  color: var(--gold, #f6d77a);
+  color: var(--bronze);
   font-size: clamp(7px, 3.2cqi, 11px);
   font-weight: 900;
   letter-spacing: 2px;
@@ -383,15 +543,16 @@
   position: relative;
   z-index: 3;
   height: 1px;
-  margin: 4cqi 0 3.5cqi;
-  background: linear-gradient(90deg, var(--gold, #f6d77a), rgb(246 215 122 / 0.05));
+  margin: 3.5cqi 0 3cqi;
+  background: linear-gradient(90deg, var(--bronze), transparent);
 }
 
 .potw-card-stats {
   position: relative;
   z-index: 3;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(3, auto);
+  justify-content: space-between;
   gap: 3cqi;
 }
 
@@ -404,14 +565,14 @@
 
 .potw-card-stat strong {
   color: #fff;
-  font-size: clamp(13px, 8cqi, 26px);
+  font-size: clamp(12px, 7.6cqi, 25px);
   line-height: 1;
   font-weight: 800;
 }
 
 .potw-card-stat span {
   overflow: hidden;
-  color: #b9c0d1;
+  color: #b6c7bb;
   font-size: clamp(6.5px, 2.9cqi, 10px);
   font-weight: 800;
   letter-spacing: 1px;
@@ -419,7 +580,9 @@
   white-space: nowrap;
 }
 
-/* Details panel */
+/* ------------------------------------------------------------------
+   Details panel
+   ------------------------------------------------------------------ */
 
 .potw-details {
   min-width: 0;
@@ -511,7 +674,7 @@
   padding: 18px;
   border: 1px solid rgb(145 162 196 / 0.18);
   border-radius: 12px;
-  background: linear-gradient(110deg, #101e36, #0a1225);
+  background: linear-gradient(110deg, #0f2233, #0a1225);
 }
 
 .potw-points-info {
@@ -584,9 +747,6 @@
   .potw-section {
     padding: 16px;
   }
-  .potw-stats-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
   .potw-stat-box {
     padding: 12px;
   }
@@ -604,11 +764,12 @@
 
 @media (prefers-reduced-motion: reduce) {
   .potw-card,
-  .potw-card-inner::after {
+  .epic-clip::after {
     transition: none;
     animation: none;
   }
-  .potw-card-rays {
-    animation: none;
+  .epic-ring,
+  .epic-core {
+    animation-play-state: paused;
   }
 }
