@@ -1,3 +1,5 @@
+import type { MatchStats } from './matchStats'
+
 export type Player = {
   id: string
   name: string
@@ -30,7 +32,11 @@ export type Match = {
   dispute_reason: string | null
   disputed_by: string | null
   created_at: string
+  details?: MatchDetails | null
 }
+
+/** What was read from the full-time screenshot: the in-game names (home, away) and the stats table. */
+export type MatchDetails = { names?: [string | null, string | null]; stats?: MatchStats }
 
 export type Settings = {
   group_name: string
@@ -62,6 +68,7 @@ export type MatchInput = {
   home_team: string | null
   away_team: string | null
   notes: string | null
+  details?: MatchDetails | null
 }
 
 /** A compressed screenshot ready to upload: full size plus a small thumbnail. */

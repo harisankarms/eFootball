@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import confetti from 'canvas-confetti'
-import { ArrowLeftRight, Check, ChevronDown, ImagePlus, LoaderCircle, Minus, Plus, SearchX } from 'lucide-react'
-import { useEffect, useMemo, useState, type ChangeEvent } from 'react'
+import { ArrowLeftRight, Check, ChevronDown, CircleAlert, CircleCheck, Gamepad2, ImagePlus, LoaderCircle, Minus, Plus, SearchX } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { Avatar } from '../components/Avatar'
 import { SignInPrompt, WaitingForApproval } from '../components/Guards'
@@ -11,10 +11,51 @@ import { friendlyError } from '../lib/api'
 import { api } from '../lib/backend'
 import { compressScreenshot, formatBytes } from '../lib/image'
 import { unlocksFrom } from '../lib/achievements'
+import { gameNameOwner, type MatchStats } from '../lib/matchStats'
 import { keys, useAchievements, useAuth, useAwards, useLeague, type League } from '../lib/queries'
+import { readResultScreenshot, type ScreenshotReading } from '../lib/readResult'
 import { pastWeeks, winnerOf } from '../lib/stats'
 import { toLocalInputValue, weekKey } from '../lib/time'
 import type { Match, MatchInput, Player, Shot } from '../lib/types'
+
+type ReadState = { status: 'reading' | 'done' | 'failed'; result: ScreenshotReading | null }
+
+/** The same reading seen from the other side, for when the sides are swapped. */
+function flipped(r: ScreenshotReading): ScreenshotReading {
+  const stats: MatchStats = {}
+  for (const [key, pair] of Object.entries(r.stats) as [keyof MatchStats, [number, number] | undefined][]) {
+    if (pair) stats[key] = [pair[1], pair[0]]
+  }
+  return { homeName: r.awayName, awayName: r.homeName, homeGoals: r.awayGoals, awayGoals: r.homeGoals, stats }
+}
+
+function ReadNote({ read }: { read: ReadState }) {
+  const r = read.result
+  if (read.status === 'failed') {
+    return (
+      <p className="flex items-start gap-2 text-xs text-muted">
+        <CircleAlert className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden />
+        Couldn't read a result from this screenshot, so fill it in below.
+      </p>
+    )
+  }
+  if (read.status === 'reading' || !r) {
+    return (
+      <p className="flex items-start gap-2 text-xs text-ink-2">
+        <LoaderCircle className="mt-px h-3.5 w-3.5 shrink-0 animate-spin text-accent" aria-hidden />
+        {r ? `Read the score: ${r.homeGoals}–${r.awayGoals}. Now reading the match stats…` : 'Reading the result from the screenshot…'}
+      </p>
+    )
+  }
+  const stats = Object.keys(r.stats).length
+  return (
+    <p className="flex items-start gap-2 text-xs text-ink-2">
+      <CircleCheck className="mt-px h-3.5 w-3.5 shrink-0 text-accent" aria-hidden />
+      Filled in from the screenshot: {r.homeGoals}–{r.awayGoals}
+      {stats ? ` and ${stats} match stat${stats === 1 ? '' : 's'}` : ''}. Check it before saving.
+    </p>
+  )
+}
 
 const POPULAR_TEAMS = [
   'Dream Team',
@@ -82,6 +123,7 @@ function Slot({
   label,
   isMe,
   active,
+  gameName,
   onClick,
 }: {
   league: League
@@ -89,6 +131,8 @@ function Slot({
   label: string
   isMe: boolean
   active: boolean
+  /** The name shown in the game for this side, when it was read from the screenshot. */
+  gameName?: string | null
   onClick: () => void
 }) {
   return (
@@ -112,6 +156,13 @@ function Slot({
         {label}
         {isMe ? ' · you' : ''}
       </span>
+      {gameName && (
+        <span className="flex max-w-full items-center gap-1 text-[11px] text-ink-2">
+          <Gamepad2 className="h-3 w-3 shrink-0 text-muted" aria-hidden />
+          <span className="sr-only">In-game name:</span>
+          <span className="truncate">{gameName}</span>
+        </span>
+      )}
     </button>
   )
 }
@@ -140,6 +191,10 @@ function MatchForm({ league, me, existing }: { league: League; me: Player; exist
   const [more, setMore] = useState(!!existing)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [read, setRead] = useState<ReadState | null>(null)
+  const [askWho, setAskWho] = useState(false)
+  const readRun = useRef(0)
+  const gameNames = read?.result
 
   const selectable = league.players.filter((p) => p.active)
   const draw = hg === ag
@@ -153,9 +208,56 @@ function MatchForm({ league, me, existing }: { league: League; me: Player; exist
     if (shot) URL.revokeObjectURL(shot.preview)
   }, [shot])
 
+  /** Fills the score and, where the in-game names are known, the players. */
+  function fillFrom(r: ScreenshotReading) {
+    setHg(r.homeGoals)
+    setAg(r.awayGoals)
+    let home = r.homeName ? gameNameOwner(r.homeName, league.matches, league.players) : null
+    let away = r.awayName ? gameNameOwner(r.awayName, league.matches, league.players) : null
+    if (home && home === away) return
+    if (!home && !away) {
+      setAskWho(!!(r.homeName && r.awayName))
+      return
+    }
+    // Usually the person logging the result played in it.
+    if (home && !away && home !== me.id) away = me.id
+    if (away && !home && away !== me.id) home = me.id
+    setHomeId(home ?? '')
+    setAwayId(away ?? '')
+    setPicking(!home ? 'home' : !away ? 'away' : null)
+    setPensWinner(null)
+    setAskWho(false)
+  }
+
+  async function readShot(file: File) {
+    const run = ++readRun.current
+    const current = () => run === readRun.current
+    setRead({ status: 'reading', result: null })
+    setAskWho(false)
+    try {
+      const result = await readResultScreenshot(file, (early) => {
+        if (!current()) return
+        fillFrom(early)
+        setRead({ status: 'reading', result: early })
+      })
+      if (current()) setRead(result ? { status: 'done', result } : { status: 'failed', result: null })
+    } catch {
+      if (current()) setRead({ status: 'failed', result: null })
+    }
+  }
+
+  function iAm(side: 'home' | 'away' | null) {
+    setHomeId(side === 'home' ? me.id : '')
+    setAwayId(side === 'away' ? me.id : '')
+    setPicking(side === 'home' ? 'away' : 'home')
+    setPensWinner(null)
+    setAskWho(false)
+  }
+
   async function takeFile(file: File) {
     setProcessing(true)
     setFormError(null)
+    void readShot(file)
     try {
       const data = await compressScreenshot(file)
       setShot({ data, preview: URL.createObjectURL(data.full) })
@@ -191,6 +293,7 @@ function MatchForm({ league, me, existing }: { league: League; me: Player; exist
       setPicking(homeId ? null : 'home')
     }
     setPensWinner(null)
+    setAskWho(false)
   }
 
   function swap() {
@@ -200,6 +303,8 @@ function MatchForm({ league, me, existing }: { league: League; me: Player; exist
     setAg(hg)
     setHomeTeam(awayTeam)
     setAwayTeam(homeTeam)
+    setRead((r) => (r?.result ? { ...r, result: flipped(r.result) } : r))
+    setAskWho(false)
   }
 
   async function submit() {
@@ -212,6 +317,7 @@ function MatchForm({ league, me, existing }: { league: League; me: Player; exist
     if (Number.isNaN(when.getTime())) return setFormError('Pick a valid date and time.')
     if (when.getTime() > Date.now() + 5 * 60_000) return setFormError('That date is in the future.')
 
+    const r = read?.result
     const input: MatchInput = {
       played_at: when.toISOString(),
       home_id: homeId,
@@ -222,6 +328,11 @@ function MatchForm({ league, me, existing }: { league: League; me: Player; exist
       home_team: homeTeam.trim() || null,
       away_team: awayTeam.trim() || null,
       notes: notes.trim() || null,
+      details: r
+        ? { names: [r.homeName, r.awayName], ...(Object.keys(r.stats).length ? { stats: r.stats } : {}) }
+        : shot
+          ? null
+          : (existing?.details ?? null),
     }
 
     setSaving(true)
@@ -261,6 +372,65 @@ function MatchForm({ league, me, existing }: { league: League; me: Player; exist
 
       <section className="card p-4">
         <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-ink-2">Screenshot</h2>
+          {settings.require_screenshot && !existing && <Badge tone="accent">Required</Badge>}
+        </div>
+        {shot || existingShot ? (
+          <div>
+            <img src={shot?.preview ?? existingShot ?? ''} alt="Screenshot preview" className="w-full rounded-xl border border-line" />
+            {read && (
+              <div className="mt-3">
+                <ReadNote read={read} />
+              </div>
+            )}
+            {askWho && gameNames?.homeName && gameNames.awayName && (
+              <div className="mt-3 rounded-xl border border-accent/30 bg-accent/[0.06] p-3">
+                <div className="text-sm font-semibold">Which one is you?</div>
+                <div className="mt-0.5 text-xs text-muted">Next time these names are filled in for you.</div>
+                <div className="mt-2.5 grid grid-cols-2 gap-2">
+                  {(['home', 'away'] as const).map((side) => (
+                    <button
+                      type="button"
+                      key={side}
+                      onClick={() => iAm(side)}
+                      className="flex h-11 min-w-0 items-center justify-center gap-1.5 rounded-xl border border-line-strong bg-surface-2 px-3 text-sm font-semibold transition hover:border-accent/60"
+                    >
+                      <Gamepad2 className="h-4 w-4 shrink-0 text-muted" aria-hidden />
+                      <span className="truncate">{side === 'home' ? gameNames.homeName : gameNames.awayName}</span>
+                    </button>
+                  ))}
+                </div>
+                <button type="button" onClick={() => iAm(null)} className="mt-2 text-xs font-semibold text-muted hover:text-ink">
+                  Neither, I'm logging it for friends
+                </button>
+              </div>
+            )}
+            <div className="mt-3 flex items-center justify-between gap-2">
+              <span className="text-xs text-muted">
+                {processing ? 'Shrinking…' : shot ? `Ready · shrunk to ${formatBytes(shot.data.full.size)}` : 'Current screenshot'}
+              </span>
+              <label className={buttonClass('secondary', 'sm')}>
+                <input type="file" accept="image/*" className="sr-only" onChange={onFileInput} />
+                Replace
+              </label>
+            </div>
+          </div>
+        ) : (
+          <label className="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-line-strong bg-surface-2/40 px-4 py-9 text-center transition hover:border-accent/60">
+            {processing ? (
+              <LoaderCircle className="h-8 w-8 animate-spin text-accent" aria-hidden />
+            ) : (
+              <ImagePlus className="h-8 w-8 text-accent" aria-hidden />
+            )}
+            <span className="font-semibold">{processing ? 'Shrinking…' : 'Add the full-time screenshot'}</span>
+            <span className="text-xs text-muted">The score, players and match stats are read from it for you.</span>
+            <input type="file" accept="image/*" className="sr-only" onChange={onFileInput} />
+          </label>
+        )}
+      </section>
+
+      <section className="card p-4">
+        <div className="mb-3 flex items-center justify-between">
           <h2 className="text-sm font-semibold text-ink-2">Who played?</h2>
           <button
             type="button"
@@ -278,6 +448,7 @@ function MatchForm({ league, me, existing }: { league: League; me: Player; exist
             label="Home"
             isMe={homeId === me.id}
             active={picking === 'home'}
+            gameName={gameNames?.homeName}
             onClick={() => setPicking((p) => (p === 'home' ? null : 'home'))}
           />
           <span className="font-display text-xl font-bold text-muted">VS</span>
@@ -287,6 +458,7 @@ function MatchForm({ league, me, existing }: { league: League; me: Player; exist
             label="Away"
             isMe={awayId === me.id}
             active={picking === 'away'}
+            gameName={gameNames?.awayName}
             onClick={() => setPicking((p) => (p === 'away' ? null : 'away'))}
           />
         </div>
@@ -351,38 +523,6 @@ function MatchForm({ league, me, existing }: { league: League; me: Player; exist
               </div>
             )}
           </div>
-        )}
-      </section>
-
-      <section className="card p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-ink-2">Screenshot</h2>
-          {settings.require_screenshot && !existing && <Badge tone="accent">Required</Badge>}
-        </div>
-        {shot || existingShot ? (
-          <div>
-            <img src={shot?.preview ?? existingShot ?? ''} alt="Screenshot preview" className="w-full rounded-xl border border-line" />
-            <div className="mt-3 flex items-center justify-between gap-2">
-              <span className="text-xs text-muted">
-                {processing ? 'Shrinking…' : shot ? `Ready · shrunk to ${formatBytes(shot.data.full.size)}` : 'Current screenshot'}
-              </span>
-              <label className={buttonClass('secondary', 'sm')}>
-                <input type="file" accept="image/*" className="sr-only" onChange={onFileInput} />
-                Replace
-              </label>
-            </div>
-          </div>
-        ) : (
-          <label className="flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-line-strong bg-surface-2/40 px-4 py-9 text-center transition hover:border-accent/60">
-            {processing ? (
-              <LoaderCircle className="h-8 w-8 animate-spin text-accent" aria-hidden />
-            ) : (
-              <ImagePlus className="h-8 w-8 text-accent" aria-hidden />
-            )}
-            <span className="font-semibold">{processing ? 'Shrinking…' : 'Add the full-time screenshot'}</span>
-            <span className="text-xs text-muted">From your gallery. It's shrunk before upload to save space.</span>
-            <input type="file" accept="image/*" className="sr-only" onChange={onFileInput} />
-          </label>
         )}
       </section>
 

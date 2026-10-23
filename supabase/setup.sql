@@ -397,6 +397,13 @@ begin
 end;
 $$;
 
+-- What the app read from the full-time screenshot: the in-game names and the match stats,
+-- e.g. {"names": ["Unnal Mudiyath Thambi", "pray!"], "stats": {"possession": [53, 47]}}.
+alter table public.matches add column if not exists details jsonb;
+alter table public.matches drop constraint if exists matches_details_small;
+alter table public.matches add constraint matches_details_small
+  check (details is null or (jsonb_typeof(details) = 'object' and octet_length(details::text) <= 4000));
+
 -- A cut-out "figure" image for the Player of the Week cards, stored next to the photo.
 alter table public.players add column if not exists card_url text;
 

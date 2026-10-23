@@ -1,10 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { ArrowLeftRight, CalendarDays, ChevronRight, CircleCheck, Flag, ImageOff, Maximize2, Pencil, SearchX, Trash, TriangleAlert } from 'lucide-react'
+import { ArrowLeftRight, CalendarDays, ChevronRight, CircleCheck, Flag, Gamepad2, ImageOff, Maximize2, Pencil, SearchX, Trash, TriangleAlert } from 'lucide-react'
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { Avatar } from '../components/Avatar'
 import { MatchComments } from '../components/Comments'
 import { Lightbox } from '../components/Lightbox'
+import { MatchStatsCard } from '../components/MatchStatsCard'
 import { useToast } from '../components/Toast'
 import { BackButton, Button, EmptyState, ErrorState, PageSkeleton, Sheet, buttonClass } from '../components/ui'
 import { friendlyError } from '../lib/api'
@@ -13,7 +14,7 @@ import { keys, useAuth, useLeague, useNow, type League } from '../lib/queries'
 import { involves, winnerOf } from '../lib/stats'
 import { clockTime, longDate, relativeTime } from '../lib/time'
 
-function Side({ league, id, team, won }: { league: League; id: string; team: string | null; won: boolean }) {
+function Side({ league, id, team, gameName, won }: { league: League; id: string; team: string | null; gameName?: string | null; won: boolean }) {
   return (
     <Link to={`/players/${id}`} className="flex min-w-0 flex-col items-center gap-2 text-center">
       <Avatar league={league} id={id} size={64} ring={won ? 'accent' : undefined} />
@@ -22,6 +23,13 @@ function Side({ league, id, team, won }: { league: League; id: string; team: str
           {league.nameOf(id)}
         </div>
         {team && <div className="truncate text-xs text-muted">{team}</div>}
+        {gameName && (
+          <div className="mt-0.5 flex items-center justify-center gap-1 text-[11px] text-muted">
+            <Gamepad2 className="h-3 w-3 shrink-0" aria-hidden />
+            <span className="sr-only">In-game name:</span>
+            <span className="truncate">{gameName}</span>
+          </div>
+        )}
       </div>
     </Link>
   )
@@ -97,7 +105,7 @@ export default function MatchDetail() {
 
       <section className="card p-5">
         <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-2">
-          <Side league={league} id={m.home_id} team={m.home_team} won={winner === m.home_id} />
+          <Side league={league} id={m.home_id} team={m.home_team} gameName={m.details?.names?.[0]} won={winner === m.home_id} />
           <div className="pt-3 text-center">
             <div className="text-5xl leading-none font-bold tracking-tight tabular-nums">
               {m.home_goals}
@@ -108,7 +116,7 @@ export default function MatchDetail() {
               {m.pens_winner_id ? `${nameOf(m.pens_winner_id)} won on pens` : 'Full time'}
             </div>
           </div>
-          <Side league={league} id={m.away_id} team={m.away_team} won={winner === m.away_id} />
+          <Side league={league} id={m.away_id} team={m.away_team} gameName={m.details?.names?.[1]} won={winner === m.away_id} />
         </div>
         <div className="mt-5 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 border-t border-line/70 pt-4 text-xs text-muted">
           <span className="flex items-center gap-1.5">
@@ -135,6 +143,8 @@ export default function MatchDetail() {
           </div>
         </div>
       )}
+
+      <MatchStatsCard league={league} match={m} />
 
       {full ? (
         <button onClick={() => setZoom(true)} className="group relative block w-full overflow-hidden rounded-2xl border border-line">
