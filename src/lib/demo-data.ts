@@ -1,5 +1,6 @@
 // Sample squad and six weeks of results so the site can be explored before a
 // database is connected. Seeded, so the demo looks the same on every load.
+import type { MatchStats } from './matchStats'
 import { addDays, dayKey, startOfDay } from './time'
 import {
   DEFAULT_SETTINGS,
@@ -96,6 +97,11 @@ const PRESETS: [string, string, string, string, number, 'auto' | 'manual', strin
   ['squad-conqueror', 'Squad Conqueror', 'Beat 5 different opponents', '⚔️', 150, 'auto', 'opponents_beaten', 5],
   ['all-nighter', 'All-Nighter', 'Play 10 matches in one day', '🌙', 100, 'auto', 'matches_in_day', 10],
   ['statistician', 'Statistician', 'Log 25 results', '📸', 75, 'auto', 'results_logged', 25],
+  ['passmaster', 'Passmaster', 'Complete 90% of your passes in a match (30+ passes)', '🎼', 100, 'auto', 'pass_accuracy', 90],
+  ['fortress', 'Fortress', 'Keep your opponent to zero shots on target', '🏰', 100, 'auto', 'zero_shots_against', 1],
+  ['tiki-taka', 'Tiki-Taka', 'Have 65% possession in a match', '🔄', 75, 'auto', 'possession', 65],
+  ['sharpshooter', 'Sharpshooter', 'Put 10 shots on target in a match', '🏹', 100, 'auto', 'shots_on_target_in_match', 10],
+  ['ball-winner', 'Ball Winner', 'Make 25 tackles in a match', '🦾', 75, 'auto', 'tackles_in_match', 25],
   ['epic-pull', 'Epic Pull', 'Pack an Epic or Big Time card in eFootball', '💎', 100, 'manual', null, null],
   ['division-one', 'Division 1', 'Reach Division 1 in eFootball ranked matches', '🏔️', 300, 'manual', null, null],
   ['bicycle-kick', 'Bicycle Kick', 'Score a bicycle kick and post the clip', '🤸', 50, 'manual', null, null],
@@ -149,6 +155,37 @@ export type DemoDb = {
   awards: Award[]
   announcements: Announcement[]
   comments: Comment[]
+}
+
+/** A believable full-time stats table for a demo result, leaning towards the stronger player. */
+function demoStats(r: () => number, hg: number, ag: number, homeSkill: number, awaySkill: number): MatchStats {
+  const int = (lo: number, hi: number) => lo + Math.floor(r() * (hi - lo + 1))
+  const share = Math.min(68, Math.max(32, Math.round(50 + (homeSkill - awaySkill) * 12 + (r() - 0.5) * 16)))
+  const shots = (goals: number, skill: number) => goals + Math.round(3 + r() * 8 * skill)
+  const onTarget = (goals: number, total: number) => Math.min(total, goals + Math.round(r() * (total - goals) * 0.6))
+  const passes = (possession: number) => Math.round(90 + possession * 2.4 + r() * 40)
+  const completed = (n: number) => Math.round(n * (0.7 + r() * 0.22))
+  const hs = shots(hg, homeSkill)
+  const as = shots(ag, awaySkill)
+  const hot = onTarget(hg, hs)
+  const aot = onTarget(ag, as)
+  const hp = passes(share)
+  const ap = passes(100 - share)
+  return {
+    possession: [share, 100 - share],
+    shots: [hs, as],
+    shots_on_target: [hot, aot],
+    fouls: [int(0, 4), int(0, 4)],
+    offsides: [int(0, 3), int(0, 3)],
+    corners: [int(0, 8), int(0, 8)],
+    free_kicks: [int(0, 4), int(0, 4)],
+    passes: [hp, ap],
+    successful_passes: [completed(hp), completed(ap)],
+    crosses: [int(0, 5), int(0, 5)],
+    interceptions: [int(10, 40), int(10, 40)],
+    tackles: [int(5, 24), int(5, 24)],
+    saves: [Math.max(0, aot - ag), Math.max(0, hot - hg)],
+  }
 }
 
 export function makeDemoData(now = new Date()): DemoDb {
@@ -214,6 +251,16 @@ export function makeDemoData(now = new Date()): DemoDb {
         disputed_by: null,
         created_at: new Date(at + (3 + Math.floor(rand() * 10)) * 60_000).toISOString(),
       })
+    }
+  }
+
+  // Most results come with stats, as if read from the full-time screenshot. A separate random
+  // sequence keeps the results themselves the same as before stats existed.
+  const statRand = mulberry32(5150)
+  const byId = new Map(players.map((p) => [p.id, p]))
+  for (const m of matches) {
+    if (statRand() < 0.75) {
+      m.details = { stats: demoStats(statRand, m.home_goals, m.away_goals, skill(byId.get(m.home_id)!), skill(byId.get(m.away_id)!)) }
     }
   }
 

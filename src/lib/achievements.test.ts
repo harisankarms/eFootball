@@ -88,6 +88,35 @@ describe('stat timelines', () => {
   })
 })
 
+describe('achievements from screenshot stats', () => {
+  const ms = [
+    // a is home: 179/199 = 89.9% passing, 61% possession, 12 on target, opponent 0 on target
+    mk('a', 'b', 3, 0, day(13), {
+      details: { stats: { passes: [199, 150], successful_passes: [179, 120], possession: [61, 39], shots_on_target: [12, 0], tackles: [18, 9] } },
+    }),
+    // a is away: 27/28 passes is too few to count; 26 tackles
+    mk('b', 'a', 1, 1, day(14), { details: { stats: { passes: [210, 28], successful_passes: [190, 27], shots_on_target: [3, 2], tackles: [10, 26] } } }),
+    // no stats read: counts for everything else but not these
+    mk('a', 'b', 2, 1, day(15)),
+  ]
+  const t = playerTimelines(ms, 'a', [], TZ)
+
+  it('tracks the best pass accuracy, rounding down and ignoring matches with few passes', () => {
+    expect(t.pass_accuracy.map((p) => p.value)).toEqual([89])
+  })
+
+  it('reads each stat from the player own side', () => {
+    expect(t.possession.at(-1)?.value).toBe(61)
+    expect(t.shots_on_target_in_match.at(-1)?.value).toBe(12)
+    expect(t.tackles_in_match.map((p) => p.value)).toEqual([18, 26])
+  })
+
+  it('counts matches where the opponent had no shots on target', () => {
+    expect(t.zero_shots_against.map((p) => p.value)).toEqual([1])
+    expect(playerTimelines(ms, 'b', [], TZ).zero_shots_against).toEqual([])
+  })
+})
+
 describe('achievement statuses', () => {
   const ms = [mk('a', 'b', 1, 0, day(13)), mk('a', 'b', 2, 0, day(14)), mk('a', 'b', 0, 1, day(15))]
   const t = playerTimelines(ms, 'a', [], TZ)

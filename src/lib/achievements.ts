@@ -1,8 +1,12 @@
 // Achievements, XP and levels. Automatic achievements are worked out from the
 // match list, like every other stat, so they always match the results.
+import { sidesOf } from './matchStats'
 import { chronological, isCounted, outcomeFor, sideOf, type WeekResult } from './stats'
 import { addDays, dayKey, startOfDay } from './time'
 import type { Achievement, Award, Match } from './types'
+
+/** Pass accuracy only counts for matches with at least this many passes, so a handful of passes can't make 100%. */
+export const MIN_PASSES_FOR_ACCURACY = 30
 
 export const METRICS = {
   matches_played: { label: 'Matches played', unit: 'matches' },
@@ -19,6 +23,11 @@ export const METRICS = {
   opponents_beaten: { label: 'Different opponents beaten', unit: 'opponents' },
   matches_in_day: { label: 'Matches played in one day', unit: 'in a day' },
   results_logged: { label: 'Results logged', unit: 'results' },
+  pass_accuracy: { label: 'Pass accuracy in a match (%)', unit: '% passing' },
+  possession: { label: 'Possession in a match (%)', unit: '% possession' },
+  shots_on_target_in_match: { label: 'Shots on target in a match', unit: 'on target' },
+  tackles_in_match: { label: 'Tackles in a match', unit: 'tackles' },
+  zero_shots_against: { label: 'Matches facing no shots on target', unit: 'matches' },
 } as const
 
 export type MetricKey = keyof typeof METRICS
@@ -48,6 +57,11 @@ export function playerTimelines(matches: Match[], playerId: string, pastWeeks: W
   let bestUnbeaten = 0
   let pens = 0
   let bestDay = 0
+  let bestPassing = 0
+  let bestPossession = 0
+  let bestOnTarget = 0
+  let bestTackles = 0
+  let noShotsFaced = 0
   const beaten = new Set<string>()
   const perDay = new Map<string, number>()
 
@@ -84,6 +98,29 @@ export function playerTimelines(matches: Match[], playerId: string, pastWeeks: W
     perDay.set(day, count)
     bestDay = Math.max(bestDay, count)
     push('matches_in_day', at, bestDay)
+
+    // Stats read from the full-time screenshot, when there was one.
+    const sides = sidesOf(m, playerId)
+    if (sides) {
+      const { mine, theirs } = sides
+      if (mine.passes != null && mine.successful_passes != null && mine.passes >= MIN_PASSES_FOR_ACCURACY) {
+        bestPassing = Math.max(bestPassing, Math.floor((mine.successful_passes / mine.passes) * 100))
+        push('pass_accuracy', at, bestPassing)
+      }
+      if (mine.possession != null) {
+        bestPossession = Math.max(bestPossession, mine.possession)
+        push('possession', at, bestPossession)
+      }
+      if (mine.shots_on_target != null) {
+        bestOnTarget = Math.max(bestOnTarget, mine.shots_on_target)
+        push('shots_on_target_in_match', at, bestOnTarget)
+      }
+      if (mine.tackles != null) {
+        bestTackles = Math.max(bestTackles, mine.tackles)
+        push('tackles_in_match', at, bestTackles)
+      }
+      if (theirs.shots_on_target === 0) push('zero_shots_against', at, ++noShotsFaced)
+    }
   }
 
   let logged = 0
@@ -210,5 +247,6 @@ export function unlocksFrom(
 export function progressLabel(s: AchievementStatus): string | null {
   const a = s.achievement
   if (a.kind !== 'auto' || !isMetric(a.metric)) return null
-  return `${Math.min(s.current, s.target)} / ${s.target} ${METRICS[a.metric].unit}`
+  const unit = METRICS[a.metric].unit
+  return `${Math.min(s.current, s.target)} / ${s.target}${unit.startsWith('%') ? '' : ' '}${unit}`
 }

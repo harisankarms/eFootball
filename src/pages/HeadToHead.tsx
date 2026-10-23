@@ -6,6 +6,7 @@ import { FormChips } from '../components/FormChips'
 import { MatchCard } from '../components/MatchCard'
 import { PlayerPickerSheet } from '../components/PlayerPickerSheet'
 import { Button, EmptyState, ErrorState, PageSkeleton, PageTitle, SectionTitle, buttonClass } from '../components/ui'
+import { formatStat, meetingStats, type StatSummary } from '../lib/matchStats'
 import { useAuth, useLeague, type League } from '../lib/queries'
 import { headToHead, playerSummary, rivalries, sideOf, type HeadToHead } from '../lib/stats'
 import { longDate } from '../lib/time'
@@ -74,6 +75,17 @@ function CompareRow({
   )
 }
 
+/** The screenshot stats compared in head-to-heads: each player's average across their meetings. */
+const MEETING_STATS: { label: string; percent: boolean; pick: (s: StatSummary) => number | null | undefined }[] = [
+  { label: 'Possession', percent: true, pick: (s) => s.avg.possession },
+  { label: 'Shots', percent: false, pick: (s) => s.avg.shots },
+  { label: 'Shots on target', percent: false, pick: (s) => s.avg.shots_on_target },
+  { label: 'Pass accuracy', percent: true, pick: (s) => s.passAccuracy },
+  { label: 'Tackles', percent: false, pick: (s) => s.avg.tackles },
+  { label: 'Interceptions', percent: false, pick: (s) => s.avg.interceptions },
+  { label: 'Saves', percent: false, pick: (s) => s.avg.saves },
+]
+
 function streakText(h: HeadToHead, nameA: string, nameB: string) {
   if (!h.streak) return null
   const { side, count } = h.streak
@@ -105,6 +117,7 @@ export default function HeadToHeadPage() {
   }, [league, params, me, rivals])
 
   const h = useMemo(() => (league && a && b && a !== b ? headToHead(league.matches, a, b) : null), [league, a, b])
+  const ms = useMemo(() => (league && a && b && a !== b ? meetingStats(league.matches, a, b) : null), [league, a, b])
 
   useEffect(() => setShown(5), [a, b])
 
@@ -267,6 +280,35 @@ export default function HeadToHeadPage() {
               </div>
             </div>
           </section>
+
+          {ms && ms.a.matches > 0 && (
+            <section className="card p-5">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-sm font-semibold text-ink-2">Match stats</h2>
+                <span className="text-right text-[11px] text-muted">
+                  Averages from {ms.a.matches} meeting{ms.a.matches === 1 ? '' : 's'} with stats
+                </span>
+              </div>
+              <div className="mt-1 divide-y divide-white/[0.06]">
+                {MEETING_STATS.map((stat) => {
+                  const va = stat.pick(ms.a)
+                  const vb = stat.pick(ms.b)
+                  if (va == null || vb == null) return null
+                  return (
+                    <CompareRow
+                      key={stat.label}
+                      label={stat.label}
+                      a={va}
+                      b={vb}
+                      colorA={colorA}
+                      colorB={colorB}
+                      format={(n) => formatStat(n, stat.percent)}
+                    />
+                  )
+                })}
+              </div>
+            </section>
+          )}
 
           <section className="card p-5">
             <div className="mb-2 text-xs font-medium text-muted">Last {h.aForm.length} meetings, oldest to newest</div>

@@ -1,4 +1,26 @@
-import { BrickWall, Camera, ChevronRight, Crown, Flame, Footprints, Gamepad2, Goal, Percent, SearchX, Shield, Sparkles, TrendingUp, Utensils } from 'lucide-react'
+import {
+  BrickWall,
+  Camera,
+  ChartPie,
+  ChevronRight,
+  Crosshair,
+  Crown,
+  Flame,
+  Footprints,
+  Gamepad2,
+  Goal,
+  Hand,
+  Percent,
+  Radar,
+  Route,
+  SearchX,
+  Shield,
+  ShieldHalf,
+  Sparkles,
+  TrendingUp,
+  Utensils,
+  type LucideIcon,
+} from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { AchievementBadge } from '../components/AchievementCard'
@@ -9,8 +31,9 @@ import { FormChips } from '../components/FormChips'
 import { LevelBadge, XpBar } from '../components/Level'
 import { MatchCard } from '../components/MatchCard'
 import { CollectibleCard } from '../components/Potw'
-import { BackButton, Badge, Button, EmptyState, ErrorState, PageSkeleton, SectionTitle, StatTile, buttonClass } from '../components/ui'
+import { BackButton, Badge, Button, EmptyState, ErrorState, PageSkeleton, SectionTitle, StatTile, buttonClass, type Tint } from '../components/ui'
 import { api } from '../lib/backend'
+import { formatStat, playerStats, type StatSummary } from '../lib/matchStats'
 import { useAuth, useLeague, useNow, useProgress } from '../lib/queries'
 import { formatPct, involves, newestFirst, pastWeeks, playerSummary, signed, trophyCounts, type Outcome } from '../lib/stats'
 import { longDate, weekKey, weekLabel } from '../lib/time'
@@ -19,6 +42,41 @@ const streakWords: Record<Outcome, [string, string]> = {
   W: ['win', 'wins'],
   D: ['draw', 'draws'],
   L: ['loss', 'losses'],
+}
+
+type Tile = { label: string; value: string; sub?: string; icon: LucideIcon; tint: Tint }
+
+/** Tiles for the averages read from full-time screenshots, leaving out stats that were never read. */
+function statTiles(s: StatSummary): Tile[] {
+  const { avg } = s
+  const tiles: (Tile | null)[] = [
+    avg.possession != null ? { label: 'Possession', value: formatStat(avg.possession, true), sub: 'on average', icon: ChartPie, tint: 'violet' } : null,
+    s.passAccuracy != null
+      ? {
+          label: 'Pass accuracy',
+          value: formatStat(s.passAccuracy, true),
+          sub: avg.passes != null ? `${Math.round(avg.passes)} passes a match` : undefined,
+          icon: Route,
+          tint: 'cyan',
+        }
+      : null,
+    avg.shots != null
+      ? {
+          label: 'Shots',
+          value: formatStat(avg.shots, false),
+          sub:
+            avg.shots_on_target != null
+              ? `${formatStat(avg.shots_on_target, false)} on target${s.shotAccuracy != null ? ` (${formatStat(s.shotAccuracy, true)})` : ''}`
+              : 'a match',
+          icon: Crosshair,
+          tint: 'gold',
+        }
+      : null,
+    avg.tackles != null ? { label: 'Tackles', value: formatStat(avg.tackles, false), sub: 'a match', icon: ShieldHalf, tint: 'accent' } : null,
+    avg.interceptions != null ? { label: 'Interceptions', value: formatStat(avg.interceptions, false), sub: 'a match', icon: Radar, tint: 'cyan' } : null,
+    avg.saves != null ? { label: 'Saves', value: formatStat(avg.saves, false), sub: 'a match', icon: Hand, tint: 'violet' } : null,
+  ]
+  return tiles.filter((t): t is Tile => t !== null)
 }
 
 export default function PlayerProfile() {
@@ -37,6 +95,7 @@ export default function PlayerProfile() {
     const mine = newestFirst(matches.filter((m) => involves(m, id)))
     return {
       summary: playerSummary(matches, id),
+      stats: playerStats(matches, id),
       trophies: trophyCounts(weeks).get(id) ?? { potw: 0, goldenBoots: 0, walls: 0, spoons: 0 },
       potwWeeks: weeks.filter((w) => w.winner?.playerId === id),
       recent: mine.slice(0, 5),
@@ -171,6 +230,24 @@ export default function PlayerProfile() {
             <div className="mb-3 text-xs font-medium text-muted">Last {s.form.length} games, oldest to newest</div>
             <FormChips form={s.form} size="md" />
           </section>
+
+          {data.stats.matches > 0 && (
+            <section>
+              <SectionTitle
+                title="Match stats"
+                action={
+                  <span className="text-right text-xs text-muted">
+                    From {data.stats.matches} match{data.stats.matches === 1 ? '' : 'es'} with stats
+                  </span>
+                }
+              />
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {statTiles(data.stats).map((t) => (
+                  <StatTile key={t.label} label={t.label} value={t.value} sub={t.sub} icon={t.icon} tint={t.tint} />
+                ))}
+              </div>
+            </section>
+          )}
 
           {(s.biggestWin || s.heaviestDefeat) && (
             <section>

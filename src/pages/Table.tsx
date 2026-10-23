@@ -1,12 +1,14 @@
 import { ChevronLeft, ChevronRight, Crown, Info, ListOrdered } from 'lucide-react'
 import { useMemo } from 'react'
-import { useSearchParams } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { Avatar } from '../components/Avatar'
 import { StandingsTable } from '../components/StandingsTable'
-import { EmptyState, ErrorState, PageSkeleton, PageTitle, Segmented } from '../components/ui'
+import { EmptyState, ErrorState, PageSkeleton, PageTitle, SectionTitle, Segmented } from '../components/ui'
+import { formatStat, statLeaders } from '../lib/matchStats'
 import { useLeague, useNow } from '../lib/queries'
 import { buildTable, formatPoints, isCounted, weekResult, type Row } from '../lib/stats'
 import { addDays, addMonths, monthKey, monthLabel, startOfDay, weekKey, weekLabel } from '../lib/time'
+import type { Match } from '../lib/types'
 
 type View = 'week' | 'month' | 'all'
 const VIEWS: { value: View; label: string }[] = [
@@ -18,6 +20,7 @@ const VIEWS: { value: View; label: string }[] = [
 type Period = {
   title: string
   note: string | null
+  matches: Match[]
   rows: Row[]
   winner: Row | null
   isCurrent: boolean
@@ -46,15 +49,12 @@ export default function Table() {
       const current = weekKey(now, tz)
       const key = at && /^\d{4}-\d{2}-\d{2}$/.test(at) ? weekKey(startOfDay(at, tz), tz) : current
       const first = earliest ? weekKey(earliest, tz) : current
-      const res = weekResult(
-        counted.filter((m) => weekKey(m.played_at, tz) === key),
-        settings,
-        key,
-        nameOf,
-      )
+      const matches = counted.filter((m) => weekKey(m.played_at, tz) === key)
+      const res = weekResult(matches, settings, key, nameOf)
       return {
         title: weekLabel(key),
         note: key === current ? 'This week · live' : key === addDays(current, -7) ? 'Last week' : null,
+        matches,
         rows: res.rows,
         winner: res.winner,
         isCurrent: key === current,
@@ -66,15 +66,12 @@ export default function Table() {
       const current = monthKey(now, tz)
       const key = at && /^\d{4}-\d{2}$/.test(at) ? at : current
       const first = earliest ? monthKey(earliest, tz) : current
+      const matches = counted.filter((m) => monthKey(m.played_at, tz) === key)
       return {
         title: monthLabel(key),
         note: key === current ? 'This month' : null,
-        rows: buildTable(
-          counted.filter((m) => monthKey(m.played_at, tz) === key),
-          settings,
-          0,
-          nameOf,
-        ),
+        matches,
+        rows: buildTable(matches, settings, 0, nameOf),
         winner: null,
         isCurrent: key === current,
         prev: key > first ? addMonths(key, -1) : null,
@@ -84,6 +81,7 @@ export default function Table() {
     return {
       title: 'All time',
       note: `${counted.length} matches`,
+      matches: counted,
       rows: buildTable(counted, settings, 0, nameOf),
       winner: null,
       isCurrent: true,
@@ -91,6 +89,8 @@ export default function Table() {
       next: null,
     }
   }, [league, view, at, now])
+
+  const leaders = useMemo(() => (period ? statLeaders(period.matches) : []), [period])
 
   if (error) return <ErrorState error={error} onRetry={refetch} />
   if (!league || !period) return <PageSkeleton />
@@ -154,6 +154,36 @@ export default function Table() {
         <EmptyState icon={ListOrdered} title="No games">
           Nobody played in this period.
         </EmptyState>
+      )}
+
+      {leaders.length > 0 ? (
+        <section className="mt-6">
+          <SectionTitle title="Stat leaders" />
+          <div className="card divide-y divide-line/70">
+            {leaders.map((l) => (
+              <Link key={l.title} to={`/players/${l.playerId}`} className="flex items-center gap-3 px-4 py-3 transition hover:bg-surface-2/50">
+                <div className="min-w-0 flex-1">
+                  <div className="text-[11px] font-semibold tracking-wider text-muted uppercase">{l.title}</div>
+                  <div className="mt-1 flex min-w-0 items-center gap-2">
+                    <Avatar league={league} id={l.playerId} size={24} />
+                    <span className="truncate font-semibold">{league.nameOf(l.playerId)}</span>
+                  </div>
+                </div>
+                <div className="shrink-0 text-right">
+                  <div className="text-lg font-bold tabular-nums">{formatStat(l.value, l.percent)}</div>
+                  <div className="text-[11px] text-muted">
+                    {l.detail} · {l.matches} match{l.matches === 1 ? '' : 'es'}
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+          <p className="mt-2 text-xs text-muted">From results logged with the full-time screenshot.</p>
+        </section>
+      ) : (
+        period.rows.length > 0 && (
+          <p className="mt-5 text-xs text-muted">Stat leaders show up here once results are logged with the full-time screenshot.</p>
+        )
       )}
 
       <div className="mt-5 flex gap-3 rounded-2xl border border-line bg-surface/60 p-4 text-xs leading-relaxed text-ink-2">
