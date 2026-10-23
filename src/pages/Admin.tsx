@@ -1,9 +1,10 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Camera, Check, ChevronRight, Download, Pencil, ShieldCheck, Trophy, UserPlus, X } from 'lucide-react'
+import { Camera, Check, ChevronRight, Download, Pencil, ShieldCheck, Sparkles, Trophy, UserPlus, X } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { Avatar } from '../components/Avatar'
 import { AvatarEditor } from '../components/AvatarEditor'
+import { CardFigureEditor } from '../components/CardFigureEditor'
 import { SignInPrompt } from '../components/Guards'
 import { MatchCard } from '../components/MatchCard'
 import { useToast } from '../components/Toast'
@@ -137,6 +138,7 @@ function PlayersAdmin({ league, me }: { league: League; me: Player }) {
   const [newName, setNewName] = useState('')
   const [editing, setEditing] = useState<{ id: string; name: string } | null>(null)
   const [photoFor, setPhotoFor] = useState<Player | null>(null)
+  const [cardFor, setCardFor] = useState<Player | null>(null)
   const admins = league.players.filter((p) => p.is_admin && p.active)
 
   const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: keys.players }), qc.invalidateQueries({ queryKey: ['me'] })])
@@ -226,6 +228,9 @@ function PlayersAdmin({ league, me }: { league: League; me: Player }) {
                       <Button size="sm" variant="ghost" icon={<Camera className="h-4 w-4" />} onClick={() => setPhotoFor(p)}>
                         Photo
                       </Button>
+                      <Button size="sm" variant="ghost" icon={<Sparkles className="h-4 w-4" />} onClick={() => setCardFor(p)}>
+                        Card
+                      </Button>
                       {p.user_id && p.active && (
                         <Button
                           size="sm"
@@ -261,6 +266,9 @@ function PlayersAdmin({ league, me }: { league: League; me: Player }) {
       </p>
       {photoFor && (
         <AvatarEditor open onClose={() => setPhotoFor(null)} league={league} player={photoFor} self={photoFor.id === me.id} />
+      )}
+      {cardFor && (
+        <CardFigureEditor open onClose={() => setCardFor(null)} league={league} player={cardFor} self={cardFor.id === me.id} />
       )}
     </section>
   )

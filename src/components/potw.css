@@ -309,6 +309,31 @@
   object-fit: cover;
 }
 
+/* Cut-out player figure: rises from the bottom of the art and fades behind the name */
+.potw-figure {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  bottom: -18%;
+  width: 135%;
+  max-width: none;
+  height: 150%;
+  object-fit: contain;
+  object-position: center bottom;
+  transform: translateX(-50%);
+  filter: drop-shadow(0 8px 16px rgb(0 0 0 / 0.55)) drop-shadow(0 0 22px rgb(246 215 122 / 0.25));
+  mask-image: linear-gradient(to bottom, #000 76%, transparent 100%);
+  transition: transform 450ms ease;
+}
+
+.potw-card:hover .potw-figure {
+  transform: translateX(-50%) scale(1.04);
+}
+
+.potw-card-art.has-figure .potw-card-halo {
+  width: 92%;
+}
+
 .potw-portrait-initials {
   display: grid;
   width: 100%;

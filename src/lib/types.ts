@@ -3,6 +3,8 @@ export type Player = {
   name: string
   user_id: string | null
   avatar_url: string | null
+  /** Cut-out figure shown on Player of the Week cards. */
+  card_url: string | null
   is_admin: boolean
   active: boolean
   created_at: string

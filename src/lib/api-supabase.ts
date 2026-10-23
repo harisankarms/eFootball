@@ -59,6 +59,42 @@ export function createSupabaseApi(url: string, key: string): Api {
     if (list.length) await bucket().remove(list).catch(() => undefined)
   }
 
+  /**
+   * Uploads a player's photo or card figure into their folder, points the player at it (through the
+   * player's own function, or as admin), and removes the image it replaces.
+   */
+  async function replaceImage(
+    player: Player,
+    image: Blob | null,
+    self: boolean,
+    column: 'avatar_url' | 'card_url',
+    rpc: 'update_my_avatar' | 'update_my_card',
+    prefix: string,
+  ) {
+    let newPath: string | null = null
+    let newUrl: string | null = null
+    if (image) {
+      const ext = image.type === 'image/webp' ? 'webp' : image.type === 'image/png' ? 'png' : 'jpg'
+      newPath = `${player.id}/${prefix}${crypto.randomUUID()}.${ext}`
+      must(await sb.storage.from(AVATARS).upload(newPath, image, { cacheControl: '31536000', contentType: image.type, upsert: false }))
+      newUrl = sb.storage.from(AVATARS).getPublicUrl(newPath).data.publicUrl
+    }
+    try {
+      if (self) {
+        must(await sb.rpc(rpc, { p_url: newUrl }))
+      } else {
+        const res = await sb.from('players').update({ [column]: newUrl }, { count: 'exact' }).eq('id', player.id)
+        if (res.error) throw new Error(res.error.message)
+        if (res.count === 0) throw denied()
+      }
+    } catch (e) {
+      if (newPath) await sb.storage.from(AVATARS).remove([newPath]).catch(() => undefined)
+      throw e
+    }
+    const oldPath = player[column]?.split(`/storage/v1/object/public/${AVATARS}/`)[1]
+    if (oldPath) await sb.storage.from(AVATARS).remove([decodeURIComponent(oldPath)]).catch(() => undefined)
+  }
+
   /** The API returns at most 1000 rows per request, so page until an empty page comes back. */
   async function fetchAll<T>(table: string, order: string, ascending: boolean): Promise<T[]> {
     const all: T[] = []
@@ -187,29 +223,8 @@ export function createSupabaseApi(url: string, key: string): Api {
     async updateMyName(name) {
       must(await sb.rpc('update_my_name', { p_name: name }))
     },
-    async setAvatar(player, photo, self) {
-      let newPath: string | null = null
-      let newUrl: string | null = null
-      if (photo) {
-        newPath = `${player.id}/${crypto.randomUUID()}.${photo.type === 'image/webp' ? 'webp' : 'jpg'}`
-        must(await sb.storage.from(AVATARS).upload(newPath, photo, { cacheControl: '31536000', contentType: photo.type, upsert: false }))
-        newUrl = sb.storage.from(AVATARS).getPublicUrl(newPath).data.publicUrl
-      }
-      try {
-        if (self) {
-          must(await sb.rpc('update_my_avatar', { p_url: newUrl }))
-        } else {
-          const res = await sb.from('players').update({ avatar_url: newUrl }, { count: 'exact' }).eq('id', player.id)
-          if (res.error) throw new Error(res.error.message)
-          if (res.count === 0) throw denied()
-        }
-      } catch (e) {
-        if (newPath) await sb.storage.from(AVATARS).remove([newPath]).catch(() => undefined)
-        throw e
-      }
-      const oldPath = player.avatar_url?.split(`/storage/v1/object/public/${AVATARS}/`)[1]
-      if (oldPath) await sb.storage.from(AVATARS).remove([decodeURIComponent(oldPath)]).catch(() => undefined)
-    },
+    setAvatar: (player, photo, self) => replaceImage(player, photo, self, 'avatar_url', 'update_my_avatar', ''),
+    setCardFigure: (player, figure, self) => replaceImage(player, figure, self, 'card_url', 'update_my_card', 'card-'),
 
     async getAchievements() {
       return must(await sb.from('achievements').select('*').order('sort_order').order('created_at')) as Achievement[]

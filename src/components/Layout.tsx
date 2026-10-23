@@ -11,6 +11,7 @@ import {
   Pencil,
   Plus,
   Settings,
+  Sparkles,
   Swords,
   Trophy,
   UserRound,
@@ -25,6 +26,7 @@ import { keys, useAuth, useLeague, useLiveUpdates, useProgress, useSettings } fr
 import { DEFAULT_SETTINGS } from '../lib/types'
 import { Avatar } from './Avatar'
 import { AvatarEditor } from './AvatarEditor'
+import { CardFigureEditor } from './CardFigureEditor'
 import { LevelBadge } from './Level'
 import { useToast } from './Toast'
 import { BallLogo, Button, Sheet, Wordmark, buttonClass } from './ui'
@@ -107,6 +109,7 @@ function AccountMenu() {
   const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState(false)
   const [editingPhoto, setEditingPhoto] = useState(false)
+  const [editingCard, setEditingCard] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const level = me && progress ? progress.levelOf(me.id) : null
 
@@ -171,6 +174,15 @@ function AccountMenu() {
                 <button
                   onClick={() => {
                     setOpen(false)
+                    setEditingCard(true)
+                  }}
+                  className={item}
+                >
+                  <Sparkles className="h-4 w-4" aria-hidden /> My POTW card
+                </button>
+                <button
+                  onClick={() => {
+                    setOpen(false)
                     setEditing(true)
                   }}
                   className={item}
@@ -203,6 +215,7 @@ function AccountMenu() {
       )}
       {me && <EditNameSheet open={editing} onClose={() => setEditing(false)} current={me.name} />}
       {me && league && <AvatarEditor open={editingPhoto} onClose={() => setEditingPhoto(false)} league={league} player={me} self />}
+      {me && league && <CardFigureEditor open={editingCard} onClose={() => setEditingCard(false)} league={league} player={me} self />}
     </div>
   )
 }

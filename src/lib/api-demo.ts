@@ -164,6 +164,14 @@ export function createDemoApi(): Api {
       if (!target) throw new Error('Player not found.')
       target.avatar_url = photo ? URL.createObjectURL(photo) : null
     },
+    async setCardFigure(player, figure, self) {
+      await pause(300)
+      const actor = requireMe()
+      if (!self && !actor.is_admin) throw deny()
+      const target = db.players.find((p) => p.id === (self ? actor.id : player.id))
+      if (!target) throw new Error('Player not found.')
+      target.card_url = figure ? URL.createObjectURL(figure) : null
+    },
 
     async getAchievements() {
       await pause(80)
@@ -300,6 +308,7 @@ function newPlayer(name: string, userId: string | null): Player {
     name,
     user_id: userId,
     avatar_url: null,
+    card_url: null,
     is_admin: false,
     active: true,
     created_at: new Date().toISOString(),

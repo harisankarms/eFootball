@@ -102,6 +102,26 @@ const PRESETS: [string, string, string, string, number, 'auto' | 'manual', strin
   ['tournament-winner', 'Tournament Winner', 'Win an eFootball online tournament or event', '🥇', 250, 'manual', null, null],
 ]
 
+/** An illustrated, transparent "player figure" standing in for an uploaded cut-out. */
+function demoFigure(kit: string, kitDark: string, skin: string, hair: string, number: number): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="480" height="600" viewBox="0 0 480 600">
+<defs>
+<linearGradient id="k" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${kit}"/><stop offset="1" stop-color="${kitDark}"/></linearGradient>
+<radialGradient id="s" cx=".42" cy=".38" r=".75"><stop offset="0" stop-color="${skin}"/><stop offset="1" stop-color="#8a5a3a"/></radialGradient>
+</defs>
+<path d="M30 600 C34 470 70 408 150 384 L205 364 Q240 396 275 364 L330 384 C410 408 446 470 450 600 Z" fill="url(#k)"/>
+<path d="M95 600 L110 470 M385 600 L370 470" stroke="#000" stroke-opacity=".18" stroke-width="8"/>
+<path d="M212 298 L268 298 L273 372 Q240 394 207 372 Z" fill="${skin}"/>
+<path d="M200 366 Q240 402 280 366" fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="10"/>
+<ellipse cx="164" cy="246" rx="11" ry="20" fill="${skin}"/>
+<ellipse cx="316" cy="246" rx="11" ry="20" fill="${skin}"/>
+<ellipse cx="240" cy="236" rx="78" ry="93" fill="url(#s)"/>
+<path d="M160 228 C158 140 204 124 242 124 C292 124 324 148 322 228 C306 182 282 168 240 168 C200 168 176 182 160 228 Z" fill="${hair}"/>
+<text x="240" y="545" font-family="Arial Black,Arial,sans-serif" font-weight="900" font-size="104" fill="#fff" fill-opacity=".92" text-anchor="middle">${number}</text>
+</svg>`
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+}
+
 function demoCardImage(): string {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540">
 <defs>
@@ -143,6 +163,12 @@ export function makeDemoData(now = new Date()): DemoDb {
     name: p.name,
     user_id: i === 0 ? DEMO_USER_ID : i < 4 ? `demo-user-${i + 1}` : null,
     avatar_url: null,
+    card_url:
+      p.name === 'Jay'
+        ? demoFigure('#f5b301', '#3a2600', '#d9a27a', '#1a1008', 10)
+        : p.name === 'Sam'
+          ? demoFigure('#e4572e', '#5c1408', '#e6b994', '#3b2416', 7)
+          : null,
     is_admin: i === 0,
     active: true,
     created_at: new Date(founded + i * 60_000).toISOString(),

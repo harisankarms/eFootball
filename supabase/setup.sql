@@ -397,6 +397,27 @@ begin
 end;
 $$;
 
+-- A cut-out "figure" image for the Player of the Week cards, stored next to the photo.
+alter table public.players add column if not exists card_url text;
+
+create or replace function public.update_my_card(p_url text)
+returns void
+language plpgsql security definer
+set search_path = public
+as $$
+declare
+  me uuid := public.my_player_id();
+begin
+  if me is null then
+    raise exception 'Only squad members can change their card';
+  end if;
+  if p_url is not null and p_url not like '%/storage/v1/object/public/avatars/' || me::text || '/%' then
+    raise exception 'Upload the figure first';
+  end if;
+  update public.players set card_url = p_url where id = me;
+end;
+$$;
+
 
 -- ---------------------------------------------------------------------
 --  Achievements, XP and levels
@@ -537,7 +558,7 @@ create policy "Authors and admins delete comments" on public.match_comments
 grant select on public.achievements, public.player_achievements, public.announcements, public.match_comments to anon, authenticated;
 grant insert, update, delete on public.achievements, public.player_achievements to authenticated;
 grant insert, delete on public.announcements, public.match_comments to authenticated;
-grant execute on function public.update_my_avatar(text) to anon, authenticated;
+grant execute on function public.update_my_avatar(text), public.update_my_card(text) to anon, authenticated;
 
 
 -- ---------------------------------------------------------------------

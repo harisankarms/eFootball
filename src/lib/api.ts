@@ -43,6 +43,8 @@ export interface Api {
   updateMyName(name: string): Promise<void>
   /** Uploads a new profile photo (or removes it with null). `self` uses the player's own permission, otherwise admin. */
   setAvatar(player: Player, photo: Blob | null, self: boolean): Promise<void>
+  /** Uploads the cut-out figure for the Player of the Week cards (or removes it with null). */
+  setCardFigure(player: Player, figure: Blob | null, self: boolean): Promise<void>
 
   getAchievements(): Promise<Achievement[]>
   /** Creates an achievement, or updates it when `id` is given. Admin only. */

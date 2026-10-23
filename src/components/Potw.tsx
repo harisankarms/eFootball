@@ -46,16 +46,20 @@ type CollectibleProps = {
   caption: string
   mini?: boolean
   to?: string
+  /** Shows this figure instead of the player's saved one (used for previews); null shows none. */
+  figureUrl?: string | null
 }
 
-/** A gold, eFootball-style player card with the player's photo (or initials), rating and weekly stats. */
-export function CollectibleCard({ league, row, caption, mini = false, to }: CollectibleProps) {
+/** A gold, eFootball-style player card with the player's figure, photo or initials, rating and weekly stats. */
+export function CollectibleCard({ league, row, caption, mini = false, to, figureUrl }: CollectibleProps) {
   const tilt = useTilt<HTMLAnchorElement>()
   const [broken, setBroken] = useState(false)
+  const [figureBroken, setFigureBroken] = useState(false)
   const id = row?.playerId
   const player = id ? league.byId.get(id) : undefined
   const color = id ? league.colorOf(id) : '#3b4566'
   const photo = player?.avatar_url && !broken ? player.avatar_url : null
+  const figure = figureUrl !== undefined ? figureUrl : player?.card_url && !figureBroken ? player.card_url : null
   const name = player?.name ?? 'Up for grabs'
   const rating = row ? cardRating(row) : null
   const stats = [
@@ -73,21 +77,25 @@ export function CollectibleCard({ league, row, caption, mini = false, to }: Coll
         </div>
         <Crown className="potw-award-icon" />
       </div>
-      <div className="potw-card-art">
+      <div className={`potw-card-art ${figure ? 'has-figure' : ''}`}>
         <div className="potw-card-rays" />
         <div className="potw-card-halo" />
-        <div
-          className="potw-portrait"
-          style={photo ? undefined : { background: `radial-gradient(circle at 30% 25%, rgb(255 255 255 / 0.3), transparent 55%), ${color}` }}
-        >
-          {photo ? (
-            <img src={photo} alt="" referrerPolicy="no-referrer" onError={() => setBroken(true)} />
-          ) : (
-            <span className="potw-portrait-initials" style={{ color: row ? inkOn(color) : '#d6deef' }}>
-              {row ? initials(name) : '?'}
-            </span>
-          )}
-        </div>
+        {figure ? (
+          <img className="potw-figure" src={figure} alt="" onError={() => setFigureBroken(true)} />
+        ) : (
+          <div
+            className="potw-portrait"
+            style={photo ? undefined : { background: `radial-gradient(circle at 30% 25%, rgb(255 255 255 / 0.3), transparent 55%), ${color}` }}
+          >
+            {photo ? (
+              <img src={photo} alt="" referrerPolicy="no-referrer" onError={() => setBroken(true)} />
+            ) : (
+              <span className="potw-portrait-initials" style={{ color: row ? inkOn(color) : '#d6deef' }}>
+                {row ? initials(name) : '?'}
+              </span>
+            )}
+          </div>
+        )}
       </div>
       <div className="potw-card-player-name">{name}</div>
       <div className="potw-card-label">{caption}</div>

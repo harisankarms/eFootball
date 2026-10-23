@@ -1,14 +1,15 @@
-import { BrickWall, Camera, ChevronRight, Crown, Flame, Footprints, Gamepad2, Goal, Percent, SearchX, Shield, TrendingUp, Utensils } from 'lucide-react'
+import { BrickWall, Camera, ChevronRight, Crown, Flame, Footprints, Gamepad2, Goal, Percent, SearchX, Shield, Sparkles, TrendingUp, Utensils } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { AchievementBadge } from '../components/AchievementCard'
 import { Avatar } from '../components/Avatar'
 import { AvatarEditor } from '../components/AvatarEditor'
+import { CardFigureEditor } from '../components/CardFigureEditor'
 import { FormChips } from '../components/FormChips'
 import { LevelBadge, XpBar } from '../components/Level'
 import { MatchCard } from '../components/MatchCard'
 import { CollectibleCard } from '../components/Potw'
-import { BackButton, Badge, EmptyState, ErrorState, PageSkeleton, SectionTitle, StatTile, buttonClass } from '../components/ui'
+import { BackButton, Badge, Button, EmptyState, ErrorState, PageSkeleton, SectionTitle, StatTile, buttonClass } from '../components/ui'
 import { api } from '../lib/backend'
 import { useAuth, useLeague, useNow, useProgress } from '../lib/queries'
 import { formatPct, involves, newestFirst, pastWeeks, playerSummary, signed, trophyCounts, type Outcome } from '../lib/stats'
@@ -27,6 +28,7 @@ export default function PlayerProfile() {
   const now = useNow()
   const progress = useProgress(league)
   const [editingPhoto, setEditingPhoto] = useState(false)
+  const [editingCard, setEditingCard] = useState(false)
 
   const data = useMemo(() => {
     if (!league || !league.byId.has(id)) return null
@@ -101,6 +103,11 @@ export default function PlayerProfile() {
               {!player.active && <Badge>Inactive</Badge>}
               <span className="text-xs text-muted">Joined {longDate(player.created_at, league.tz)}</span>
             </div>
+            {canEditPhoto && (
+              <Button size="sm" variant="secondary" className="mt-3" icon={<Sparkles className="h-4 w-4 text-gold" />} onClick={() => setEditingCard(true)}>
+                {player.card_url ? 'Change card figure' : 'Add card figure'}
+              </Button>
+            )}
           </div>
         </div>
         {trophyChips.length > 0 && (
@@ -260,7 +267,10 @@ export default function PlayerProfile() {
       )}
 
       {canEditPhoto && (
-        <AvatarEditor open={editingPhoto} onClose={() => setEditingPhoto(false)} league={league} player={player} self={me?.id === id} />
+        <>
+          <AvatarEditor open={editingPhoto} onClose={() => setEditingPhoto(false)} league={league} player={player} self={me?.id === id} />
+          <CardFigureEditor open={editingCard} onClose={() => setEditingCard(false)} league={league} player={player} self={me?.id === id} />
+        </>
       )}
     </div>
   )
