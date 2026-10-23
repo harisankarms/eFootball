@@ -217,7 +217,29 @@
   }
 }
 
-/* Animated hexagon tunnel */
+/* The honeycomb flight: live on the big card, a still picture on small ones */
+
+.epic-live,
+.epic-gl,
+.epic-still {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.epic-still {
+  object-fit: cover;
+  transform-origin: 50% 45%;
+  transition: transform 6s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.potw-card.is-mini:hover .epic-still {
+  transform: scale(1.15) rotate(-5deg);
+}
+
+/* Without WebGL: a simpler animated hexagon tunnel */
 
 .epic-tunnel {
   position: absolute;
@@ -764,9 +786,13 @@
 
 @media (prefers-reduced-motion: reduce) {
   .potw-card,
-  .epic-clip::after {
+  .epic-clip::after,
+  .epic-still {
     transition: none;
     animation: none;
+  }
+  .potw-card.is-mini:hover .epic-still {
+    transform: none;
   }
   .epic-ring,
   .epic-core {

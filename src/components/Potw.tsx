@@ -7,6 +7,7 @@ import { cardRating, formatPoints, sideOf, winnerOf, type Awards, type Row, type
 import { addDays, durationLabel, startOfDay, weekLabel } from '../lib/time'
 import { roundLike, useCountUp } from '../lib/useCountUp'
 import { Avatar, initials } from './Avatar'
+import { EMPTY_TUNNEL, EPIC_TUNNEL, TUNNEL_START, createTunnel, readyTunnelStill, tunnelStill } from './epicTunnel'
 import { FormChips } from './FormChips'
 import { GlowIcon, buttonClass, type Tint } from './ui'
 import './potw.css'
@@ -38,18 +39,123 @@ function useTilt(ref: RefObject<HTMLElement | null>) {
   return { onPointerMove, onPointerLeave }
 }
 
-/** Pauses the background animation while the card is scrolled out of view. */
-function usePauseOffscreen(ref: RefObject<HTMLElement | null>, enabled: boolean) {
+/** Whether the card is on screen, so the background animation can pause while it is scrolled away. */
+function useOnScreen(ref: RefObject<HTMLElement | null>, enabled: boolean) {
+  const [onScreen, setOnScreen] = useState(true)
   useEffect(() => {
     const el = ref.current
     if (!el || !enabled || typeof IntersectionObserver === 'undefined') return
     const observer = new IntersectionObserver(([entry]) => {
+      setOnScreen(entry.isIntersecting)
       if (entry.isIntersecting) delete el.dataset.offscreen
       else el.dataset.offscreen = ''
     })
     observer.observe(el)
     return () => observer.disconnect()
   }, [ref, enabled])
+  return onScreen
+}
+
+const MAX_SCALE = 1.5
+
+/** The moving honeycomb flight behind the big card, drawn with WebGL; the SVG tunnel stands in without it. */
+function LiveTunnel({ empty, active }: { empty: boolean; active: boolean }) {
+  const boxRef = useRef<HTMLDivElement>(null)
+  const activeRef = useRef(active)
+  const wakeRef = useRef(() => {})
+  const [fallback, setFallback] = useState(false)
+
+  useEffect(() => {
+    activeRef.current = active
+    wakeRef.current()
+  }, [active])
+
+  useEffect(() => {
+    const box = boxRef.current
+    if (!box) return
+    const canvas = document.createElement('canvas')
+    canvas.className = 'epic-gl'
+    const tunnel = createTunnel(canvas, empty ? EMPTY_TUNNEL : EPIC_TUNNEL)
+    if (!tunnel) {
+      setFallback(true)
+      return
+    }
+    box.append(canvas)
+
+    const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
+    const started = performance.now()
+    const now = () => (still ? TUNNEL_START : TUNNEL_START + (performance.now() - started) / 1000)
+    let scale = Math.min(window.devicePixelRatio || 1, MAX_SCALE)
+    const fit = () => {
+      tunnel.resize(box.clientWidth * scale, box.clientHeight * scale)
+      tunnel.draw(now())
+    }
+
+    // Drops to a lower resolution on phones that can't keep up.
+    let frame = 0
+    let last = 0
+    let slow = 0
+    const loop = (time: number) => {
+      if (last && time - last > 28 && scale > 1 && ++slow > 20) {
+        scale = 1
+        fit()
+      }
+      last = time
+      tunnel.draw(now())
+      frame = activeRef.current && !still ? requestAnimationFrame(loop) : 0
+    }
+    const wake = () => {
+      if (frame) return
+      last = 0
+      loop(performance.now())
+    }
+
+    fit()
+    const resize = new ResizeObserver(fit)
+    resize.observe(box)
+    const lost = (e: Event) => {
+      e.preventDefault()
+      cancelAnimationFrame(frame)
+      canvas.remove()
+      setFallback(true)
+    }
+    canvas.addEventListener('webglcontextlost', lost)
+    wakeRef.current = wake
+    wake()
+
+    return () => {
+      cancelAnimationFrame(frame)
+      wakeRef.current = () => {}
+      resize.disconnect()
+      canvas.removeEventListener('webglcontextlost', lost)
+      tunnel.destroy()
+      canvas.remove()
+    }
+  }, [empty])
+
+  return (
+    <>
+      {fallback && <EpicTunnel />}
+      <div ref={boxRef} className="epic-live" />
+    </>
+  )
+}
+
+/** One frame of the honeycomb flight as a picture, shared by every small card on the page. */
+function StillTunnel({ empty }: { empty: boolean }) {
+  const colors = empty ? EMPTY_TUNNEL : EPIC_TUNNEL
+  const [url, setUrl] = useState(() => readyTunnelStill(colors))
+  useEffect(() => {
+    let alive = true
+    void tunnelStill(colors, 360, 515).then((made) => {
+      if (alive) setUrl(made)
+    })
+    return () => {
+      alive = false
+    }
+  }, [colors])
+  if (url === undefined) return null
+  return url ? <img className="epic-still" src={url} alt="" /> : <EpicTunnel />
 }
 
 const CENTRE = { x: 50, y: 62 }
@@ -170,7 +276,7 @@ type CollectibleProps = {
 export function CollectibleCard({ league, row, caption, mini = false, to, figureUrl }: CollectibleProps) {
   const ref = useRef<HTMLElement>(null)
   const tilt = useTilt(ref)
-  usePauseOffscreen(ref, !mini)
+  const onScreen = useOnScreen(ref, !mini)
   const [broken, setBroken] = useState(false)
   const [figureBroken, setFigureBroken] = useState(false)
   const id = row?.playerId
@@ -190,7 +296,7 @@ export function CollectibleCard({ league, row, caption, mini = false, to, figure
 
   const inner = (
     <div className="epic-clip" aria-hidden>
-      <EpicTunnel />
+      {mini ? <StillTunnel empty={!row} /> : <LiveTunnel empty={!row} active={onScreen} />}
       <div className="epic-shade" />
       <div className="epic-content">
         <div className="potw-card-top">
