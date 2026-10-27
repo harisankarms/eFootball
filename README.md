@@ -5,7 +5,7 @@ A small, free website for a group of friends who play eFootball. Log every resul
 - **Log a result in about 15 seconds** from your phone: pick your opponent, tap the score, attach the full-time screenshot.
 - **Tables** for this week, this month and all time, with form, goal difference and win %.
 - **Player of the Week**, decided by points: 3 per win, 1 per draw, 0.5 per goal, 1 per clean sheet, minimum 3 games. Ties go to win %, then goal difference, then goals, then head-to-head. The admin can change all of this.
-- **Weekly awards**: Golden Boot, The Wall, Biggest Win and the Wooden Spoon.
+- **Weekly awards**: Golden Boot, The Wall, Biggest Win and the **Chenda**, a card with a drum being beaten for whoever has the fewest points a game that week (among players with the minimum games, once at least three have them).
 - **Head to Head**: pick any two players to see every result between them, their record, goals, streaks and form, plus a list of every rivalry in the group.
 - **Player profiles** and a **Hall of Fame** of every past winner.
 - **Disputes**: the other player can flag a wrong result within 24 hours. It stops counting until the admin sorts it out.

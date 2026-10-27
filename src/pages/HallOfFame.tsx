@@ -1,4 +1,4 @@
-import { BrickWall, Crown, Footprints, Trophy, Utensils } from 'lucide-react'
+import { BrickWall, Crown, Drum, Footprints, Trophy } from 'lucide-react'
 import { useMemo } from 'react'
 import { Link } from 'react-router'
 import { Avatar } from '../components/Avatar'
@@ -18,7 +18,7 @@ export default function HallOfFame() {
     const { matches, settings, tz, nameOf } = league
     const weeks = pastWeeks(matches, settings, weekKey(now, tz), nameOf)
     const cabinet = [...trophyCounts(weeks).entries()]
-      .filter(([, t]) => t.potw + t.goldenBoots + t.walls > 0)
+      .filter(([, t]) => t.potw + t.goldenBoots + t.walls + t.chendas > 0)
       .sort(
         ([ia, a], [ib, b]) =>
           b.potw - a.potw || b.goldenBoots - a.goldenBoots || b.walls - a.walls || nameOf(ia).localeCompare(nameOf(ib)),
@@ -63,9 +63,9 @@ export default function HallOfFame() {
                       <BrickWall className="h-4 w-4" aria-label="The Wall" />
                       {t.walls}
                     </span>
-                    <span className={`flex items-center gap-1 ${t.spoons ? 'text-ink-2' : 'text-muted/50'}`} title="Wooden Spoon">
-                      <Utensils className="h-4 w-4" aria-label="Wooden Spoon" />
-                      {t.spoons}
+                    <span className={`flex items-center gap-1 ${t.chendas ? 'text-ember' : 'text-muted/50'}`} title="Chenda">
+                      <Drum className="h-4 w-4" aria-label="Chenda" />
+                      {t.chendas}
                     </span>
                   </span>
                 </Link>
@@ -81,6 +81,27 @@ export default function HallOfFame() {
                   .filter((w) => w.winner)
                   .map((w) => (
                     <CollectibleCard key={w.weekKey} league={league} row={w.winner} caption={weekLabel(w.weekKey)} mini to={`/table?at=${w.weekKey}`} />
+                  ))}
+              </div>
+            </section>
+          )}
+
+          {data.weeks.some((w) => w.awards.chenda) && (
+            <section>
+              <SectionTitle title="Chenda collection" />
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                {data.weeks
+                  .filter((w) => w.awards.chenda)
+                  .map((w) => (
+                    <CollectibleCard
+                      key={w.weekKey}
+                      kind="chenda"
+                      league={league}
+                      row={w.awards.chenda}
+                      caption={weekLabel(w.weekKey)}
+                      mini
+                      to={`/table?at=${w.weekKey}`}
+                    />
                   ))}
               </div>
             </section>

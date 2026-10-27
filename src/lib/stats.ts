@@ -165,7 +165,30 @@ export type Awards = {
   goldenBoot: { ids: string[]; goals: number } | null
   wall: { ids: string[]; cleanSheets: number } | null
   biggestWin: Match | null
-  woodenSpoon: Row | null
+  /** The week's chenda: the qualified player who did worst per game, beaten like a drum. */
+  chenda: Row | null
+}
+
+/** Points a game for a row that has played. */
+export const pointsPerGame = (r: Row) => r.points / r.played
+
+/** Points a game to one decimal place, e.g. "1.3". */
+export const formatPerGame = (r: Row) => pointsPerGame(r).toFixed(1)
+
+/**
+ * The player who did worst per game: fewest points a game, then lowest win %, worst goal
+ * difference a game, most conceded a game. A full tie goes to whoever is lower in the table.
+ */
+function worstPerGame(ranked: Row[]): Row {
+  const per = (r: Row, n: number) => n / r.played
+  return ranked.reduce((worst, r) => {
+    const diff =
+      pointsPerGame(r) - pointsPerGame(worst) ||
+      r.winPct - worst.winPct ||
+      per(r, r.gd) - per(worst, worst.gd) ||
+      per(worst, worst.ga) - per(r, r.ga)
+    return diff <= 0 ? r : worst
+  })
 }
 
 export function biggestWinIn(matches: Match[]): Match | null {
@@ -196,8 +219,9 @@ export function weeklyAwards(rows: Row[], matches: Match[]): Awards {
     goldenBoot: maxGoals > 0 ? { ids: played.filter((r) => r.gf === maxGoals).map((r) => r.playerId), goals: maxGoals } : null,
     wall: maxCs > 0 ? { ids: played.filter((r) => r.cleanSheets === maxCs).map((r) => r.playerId), cleanSheets: maxCs } : null,
     biggestWin: biggestWinIn(matches),
-    // Only handed out when at least three people qualified, so a two-player week has no spoon.
-    woodenSpoon: qualified.length >= 3 ? qualified[qualified.length - 1] : null,
+    // Judged per game, so playing more games never counts against anyone. Only handed out
+    // when at least three people qualified, so a two-player week has no chenda.
+    chenda: qualified.length >= 3 ? worstPerGame(qualified) : null,
   }
 }
 
@@ -242,14 +266,14 @@ export function pastWeeks(
     .map((k) => weekResult(byWeek.get(k)!, s, k, nameOf))
 }
 
-export type Trophies = { potw: number; goldenBoots: number; walls: number; spoons: number }
+export type Trophies = { potw: number; goldenBoots: number; walls: number; chendas: number }
 
 export function trophyCounts(weeks: WeekResult[]): Map<string, Trophies> {
   const out = new Map<string, Trophies>()
   const get = (id: string) => {
     let t = out.get(id)
     if (!t) {
-      t = { potw: 0, goldenBoots: 0, walls: 0, spoons: 0 }
+      t = { potw: 0, goldenBoots: 0, walls: 0, chendas: 0 }
       out.set(id, t)
     }
     return t
@@ -258,7 +282,7 @@ export function trophyCounts(weeks: WeekResult[]): Map<string, Trophies> {
     if (w.winner) get(w.winner.playerId).potw++
     for (const id of w.awards.goldenBoot?.ids ?? []) get(id).goldenBoots++
     for (const id of w.awards.wall?.ids ?? []) get(id).walls++
-    if (w.awards.woodenSpoon) get(w.awards.woodenSpoon.playerId).spoons++
+    if (w.awards.chenda) get(w.awards.chenda.playerId).chendas++
   }
   return out
 }

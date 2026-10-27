@@ -5,6 +5,7 @@ import {
   ChevronRight,
   Crosshair,
   Crown,
+  Drum,
   Flame,
   Footprints,
   Gamepad2,
@@ -18,7 +19,6 @@ import {
   ShieldHalf,
   Sparkles,
   TrendingUp,
-  Utensils,
   type LucideIcon,
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
@@ -96,8 +96,9 @@ export default function PlayerProfile() {
     return {
       summary: playerSummary(matches, id),
       stats: playerStats(matches, id),
-      trophies: trophyCounts(weeks).get(id) ?? { potw: 0, goldenBoots: 0, walls: 0, spoons: 0 },
+      trophies: trophyCounts(weeks).get(id) ?? { potw: 0, goldenBoots: 0, walls: 0, chendas: 0 },
       potwWeeks: weeks.filter((w) => w.winner?.playerId === id),
+      chendaWeeks: weeks.filter((w) => w.awards.chenda?.playerId === id),
       recent: mine.slice(0, 5),
       gallery: mine.filter((m) => m.thumb_path || m.screenshot_path).slice(0, 9),
     }
@@ -116,7 +117,7 @@ export default function PlayerProfile() {
     )
   }
 
-  const { summary: s, trophies, potwWeeks } = data
+  const { summary: s, trophies, potwWeeks, chendaWeeks } = data
   const streak = s.currentStreak
   const canEditPhoto = me?.id === id || isAdmin
   const statuses = progress?.statusesOf(id) ?? []
@@ -128,7 +129,7 @@ export default function PlayerProfile() {
     { n: trophies.potw, icon: Crown, label: 'Player of the Week', cls: 'border-gold/40 bg-gold/10 text-gold' },
     { n: trophies.goldenBoots, icon: Footprints, label: 'Golden Boot', cls: 'border-line-strong bg-surface-2 text-ink-2' },
     { n: trophies.walls, icon: BrickWall, label: 'The Wall', cls: 'border-line-strong bg-surface-2 text-ink-2' },
-    { n: trophies.spoons, icon: Utensils, label: 'Wooden Spoon', cls: 'border-line-strong bg-surface-2 text-muted' },
+    { n: trophies.chendas, icon: Drum, label: 'Chenda', cls: 'border-ember/35 bg-ember/10 text-ember' },
   ].filter((t) => t.n > 0)
 
   return (
@@ -301,6 +302,19 @@ export default function PlayerProfile() {
             {potwWeeks.map((w) => (
               <div key={w.weekKey} className="w-[150px] shrink-0 snap-start sm:w-[170px]">
                 <CollectibleCard league={league} row={w.winner} caption={weekLabel(w.weekKey)} mini to={`/table?at=${w.weekKey}`} />
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {chendaWeeks.length > 0 && (
+        <section>
+          <SectionTitle title={`Chenda cards · ${chendaWeeks.length}`} />
+          <div className="no-scrollbar -mx-4 flex snap-x gap-3 overflow-x-auto px-4 pt-1 pb-3">
+            {chendaWeeks.map((w) => (
+              <div key={w.weekKey} className="w-[150px] shrink-0 snap-start sm:w-[170px]">
+                <CollectibleCard kind="chenda" league={league} row={w.awards.chenda} caption={weekLabel(w.weekKey)} mini to={`/table?at=${w.weekKey}`} />
               </div>
             ))}
           </div>

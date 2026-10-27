@@ -2,6 +2,7 @@ import { Camera, ChevronRight, Copy, Crown, Megaphone, PenLine, Plus, Share2, Tr
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { AnnouncementCard, ComposerSheet } from '../components/Announcements'
+import { ChendaSpotlight } from '../components/ChendaSpotlight'
 import { MatchCard } from '../components/MatchCard'
 import { AwardsStrip, PotwHero } from '../components/Potw'
 import { StandingsTable } from '../components/StandingsTable'
@@ -263,6 +264,7 @@ export default function Home() {
       <LiveTournaments league={league} />
       <div className="grid grid-cols-1 gap-7 md:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] md:items-start">
         <div className="min-w-0 space-y-7">
+          <ChendaSpotlight league={league} week={view.week} lastWeek={view.lastWeek} />
           <section>
             <SectionTitle title="This week's awards" />
             <AwardsStrip league={league} awards={view.week.awards} />
@@ -274,6 +276,7 @@ export default function Home() {
                 league={league}
                 rows={view.week.rows}
                 crownId={view.week.winner?.playerId}
+                drumId={view.week.awards.chenda?.playerId}
                 showQualification
                 compact
                 limit={5}

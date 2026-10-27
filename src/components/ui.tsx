@@ -99,6 +99,7 @@ const tints = {
   gold: 'from-gold/30 to-gold-2/10 text-gold shadow-[0_0_24px_-6px_rgb(255_207_77/0.6)] ring-gold/30',
   violet: 'from-violet/30 to-cyan/10 text-[#c4b5fd] shadow-[0_0_24px_-6px_rgb(139_92_246/0.7)] ring-violet/35',
   cyan: 'from-cyan/25 to-violet/10 text-[#67e8f9] shadow-[0_0_24px_-6px_rgb(34_211_238/0.6)] ring-cyan/30',
+  ember: 'from-ember/30 to-loss/10 text-ember shadow-[0_0_24px_-6px_rgb(255_138_61/0.6)] ring-ember/30',
   neutral: 'from-white/10 to-white/[0.02] text-ink-2 ring-white/10',
 }
 export type Tint = keyof typeof tints

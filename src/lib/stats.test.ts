@@ -129,12 +129,28 @@ describe('Player of the Week', () => {
     expect(awards.goldenBoot).toEqual({ ids: ['a', 'b'], goals: 7 })
     expect(awards.biggestWin?.id).toBe(ms[0].id)
     expect(awards.wall?.cleanSheets).toBe(2)
-    expect(awards.woodenSpoon?.playerId).toBe('c')
+    expect(awards.chenda?.playerId).toBe('c')
   })
 
-  it('skips the wooden spoon when fewer than three people qualify', () => {
+  it('gives the chenda to the worst per game, not the fewest points', () => {
+    const ms = [
+      mk('z', 'x', 3, 1),
+      mk('z', 'x', 3, 1),
+      mk('z', 'x', 3, 1),
+      mk('z', 'x', 3, 1),
+      mk('y', 'x', 2, 1),
+      mk('x', 'y', 2, 1),
+      mk('z', 'y', 3, 0),
+    ]
+    // x: 6 games, 6.5 points (1.08 a game). y: 3 games, 4.5 points (1.5 a game).
+    const { rows, awards } = weekResult(ms, S, '2026-10-19')
+    expect(rows.at(-1)?.playerId).toBe('y')
+    expect(awards.chenda?.playerId).toBe('x')
+  })
+
+  it('skips the chenda when fewer than three people qualify', () => {
     const ms = [mk('a', 'b', 1, 0), mk('a', 'b', 1, 0), mk('a', 'b', 1, 0)]
-    expect(weekResult(ms, S, '2026-10-19').awards.woodenSpoon).toBeNull()
+    expect(weekResult(ms, S, '2026-10-19').awards.chenda).toBeNull()
   })
 
   it('builds the hall of fame from completed weeks only, newest first', () => {

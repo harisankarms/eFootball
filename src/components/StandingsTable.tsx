@@ -1,4 +1,4 @@
-import { ArrowDown, ArrowUp, Crown } from 'lucide-react'
+import { ArrowDown, ArrowUp, Crown, Drum } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router'
 import { useAuth, type League } from '../lib/queries'
@@ -37,13 +37,15 @@ type Props = {
   rows: Row[]
   /** Player who holds (or leads the race for) Player of the Week. */
   crownId?: string | null
+  /** Player who holds (or is heading for) the week's chenda. */
+  drumId?: string | null
   showQualification?: boolean
   compact?: boolean
   limit?: number
   sortable?: boolean
 }
 
-export function StandingsTable({ league, rows, crownId, showQualification, compact, limit, sortable }: Props) {
+export function StandingsTable({ league, rows, crownId, drumId, showQualification, compact, limit, sortable }: Props) {
   const { me } = useAuth()
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'points', dir: -1 })
 
@@ -123,6 +125,7 @@ export function StandingsTable({ league, rows, crownId, showQualification, compa
                       <div className="flex items-center gap-1.5">
                         <span className={`truncate font-semibold ${dim ? 'text-ink-2' : 'text-ink'}`}>{league.nameOf(r.playerId)}</span>
                         {crowned && <Crown className="h-3.5 w-3.5 shrink-0 text-gold" aria-label="Player of the Week" />}
+                        {drumId === r.playerId && <Drum className="h-3.5 w-3.5 shrink-0 text-ember" aria-label="Chenda" />}
                       </div>
                       {dim ? (
                         <div className="text-[11px] text-muted">

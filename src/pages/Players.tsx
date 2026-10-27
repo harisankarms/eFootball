@@ -1,4 +1,4 @@
-import { BrickWall, Crown, Footprints, Users } from 'lucide-react'
+import { BrickWall, Crown, Drum, Footprints, Users } from 'lucide-react'
 import { useMemo } from 'react'
 import { Link } from 'react-router'
 import { Avatar } from '../components/Avatar'
@@ -72,7 +72,7 @@ export default function Players() {
               <div className="mt-1.5 text-xs text-ink-2">
                 {row ? `${row.won}W ${row.drawn}D ${row.lost}L · ${formatPct(row.winPct)}` : 'No games yet'}
               </div>
-              {trophies && (trophies.potw > 0 || trophies.goldenBoots > 0 || trophies.walls > 0) && (
+              {trophies && (trophies.potw > 0 || trophies.goldenBoots > 0 || trophies.walls > 0 || trophies.chendas > 0) && (
                 <div className="mt-3 flex items-center gap-3 text-xs font-semibold text-ink-2">
                   {trophies.potw > 0 && (
                     <span className="flex items-center gap-1 text-gold" title="Player of the Week">
@@ -87,6 +87,11 @@ export default function Players() {
                   {trophies.walls > 0 && (
                     <span className="flex items-center gap-1" title="The Wall">
                       <BrickWall className="h-3.5 w-3.5" aria-label="The Wall" />×{trophies.walls}
+                    </span>
+                  )}
+                  {trophies.chendas > 0 && (
+                    <span className="flex items-center gap-1 text-ember" title="Chenda">
+                      <Drum className="h-3.5 w-3.5" aria-label="Chenda" />×{trophies.chendas}
                     </span>
                   )}
                 </div>

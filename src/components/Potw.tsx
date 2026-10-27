@@ -1,12 +1,13 @@
-import { BrickWall, ChevronRight, Clock, Crown, Flame, Footprints, Plus, Utensils, Zap, type LucideIcon } from 'lucide-react'
+import { BrickWall, ChevronRight, Clock, Crown, Drum, Flame, Footprints, Plus, Volume2, Zap, type LucideIcon } from 'lucide-react'
 import { useEffect, useId, useRef, useState, type PointerEvent, type RefObject } from 'react'
 import { Link } from 'react-router'
 import { inkOn } from '../lib/colors'
 import { useAuth, type League } from '../lib/queries'
-import { cardRating, formatPoints, sideOf, winnerOf, type Awards, type Row, type WeekResult } from '../lib/stats'
+import { cardRating, formatPerGame, formatPoints, sideOf, winnerOf, type Awards, type Row, type WeekResult } from '../lib/stats'
 import { addDays, durationLabel, startOfDay, weekLabel } from '../lib/time'
 import { roundLike, useCountUp } from '../lib/useCountUp'
 import { Avatar, initials } from './Avatar'
+import { ChendaScene } from './ChendaScene'
 import { EMPTY_TUNNEL, EPIC_TUNNEL, TUNNEL_START, createTunnel, readyTunnelStill, tunnelStill } from './epicTunnel'
 import { FormChips } from './FormChips'
 import { GlowIcon, buttonClass, type Tint } from './ui'
@@ -270,48 +271,60 @@ type CollectibleProps = {
   to?: string
   /** Shows this figure instead of the player's saved one (used for previews); null shows none. */
   figureUrl?: string | null
+  /** A Player of the Week card, or the chenda card for the week's last place. */
+  kind?: 'potw' | 'chenda'
 }
 
 /** An eFootball 2026 Epic-style player card with the player's figure, photo or initials, rating and weekly stats. */
-export function CollectibleCard({ league, row, caption, mini = false, to, figureUrl }: CollectibleProps) {
+export function CollectibleCard({ league, row, caption, mini = false, to, figureUrl, kind = 'potw' }: CollectibleProps) {
   const ref = useRef<HTMLElement>(null)
   const tilt = useTilt(ref)
   const onScreen = useOnScreen(ref, !mini)
   const [broken, setBroken] = useState(false)
   const [figureBroken, setFigureBroken] = useState(false)
+  const chenda = kind === 'chenda'
   const id = row?.playerId
   const player = id ? league.byId.get(id) : undefined
   const color = id ? league.colorOf(id) : '#3b4566'
   const photo = player?.avatar_url && !broken ? player.avatar_url : null
-  const figure = figureUrl !== undefined ? figureUrl : player?.card_url && !figureBroken ? player.card_url : null
-  const name = player?.name ?? 'Up for grabs'
+  // The chenda card puts the player's face on the drum, so it never shows a cut-out figure.
+  const figure = chenda ? null : figureUrl !== undefined ? figureUrl : player?.card_url && !figureBroken ? player.card_url : null
+  const name = player?.name ?? (chenda ? 'Nobody yet' : 'Up for grabs')
   const rating = row ? cardRating(row) : null
-  const stats = [
-    { label: 'Goals', value: row?.gf },
-    { label: 'Wins', value: row?.won },
-    { label: mini ? 'CS' : 'Clean sheets', value: row?.cleanSheets },
-  ]
+  const stats = chenda
+    ? [
+        { label: 'Lost', value: row?.lost },
+        { label: mini ? 'GA' : 'Conceded', value: row?.ga },
+        { label: mini ? 'PPG' : 'Pts/game', value: row ? formatPerGame(row) : undefined },
+      ]
+    : [
+        { label: 'Goals', value: row?.gf },
+        { label: 'Wins', value: row?.won },
+        { label: mini ? 'CS' : 'Clean sheets', value: row?.cleanSheets },
+      ]
+  const Badge = chenda ? Drum : Crown
+  const chips = chenda ? [Drum, Volume2] : [Crown, Flame]
 
   const stars = starsFor(rating)
 
   const inner = (
     <div className="epic-clip" aria-hidden>
-      {mini ? <StillTunnel empty={!row} /> : <LiveTunnel empty={!row} active={onScreen} />}
+      {chenda ? <ChendaScene /> : mini ? <StillTunnel empty={!row} /> : <LiveTunnel empty={!row} active={onScreen} />}
       <div className="epic-shade" />
       <div className="epic-content">
         <div className="potw-card-top">
           <div>
             <div className="potw-rating">{rating ?? '??'}</div>
-            <div className="potw-position">POTW</div>
+            <div className="potw-position">{chenda ? 'CHENDA' : 'POTW'}</div>
           </div>
-          <Crown className="potw-award-icon" />
+          <Badge className="potw-award-icon" />
         </div>
         <div className="potw-card-art">
           {figure ? (
             <img className="potw-figure" src={figure} alt="" onError={() => setFigureBroken(true)} />
           ) : (
             <div
-              className="potw-portrait"
+              className={`potw-portrait ${chenda ? 'chenda-anim' : ''}`}
               style={photo ? undefined : { background: `radial-gradient(circle at 30% 25%, rgb(255 255 255 / 0.3), transparent 55%), ${color}` }}
             >
               {photo ? (
@@ -339,12 +352,11 @@ export function CollectibleCard({ league, row, caption, mini = false, to, figure
       <EpicFrame />
       <div className="epic-plate">
         <div className="epic-chips">
-          <span className="epic-chip">
-            <Crown />
-          </span>
-          <span className="epic-chip">
-            <Flame />
-          </span>
+          {chips.map((Chip, i) => (
+            <span key={i} className="epic-chip">
+              <Chip />
+            </span>
+          ))}
         </div>
         <div className="epic-stars">
           {Array.from({ length: 5 }, (_, i) => (
@@ -361,8 +373,14 @@ export function CollectibleCard({ league, row, caption, mini = false, to, figure
     </div>
   )
 
-  const className = `potw-card ${mini ? 'is-mini' : ''} ${row ? '' : 'is-empty'}`
-  const label = row ? `${name}: ${caption}, card rating ${rating}, ${stars} stars` : 'Player of the Week card: up for grabs'
+  const className = `potw-card ${mini ? 'is-mini' : ''} ${row ? '' : 'is-empty'} ${chenda ? 'is-chenda' : ''}`
+  const label = chenda
+    ? row
+      ? `${name}: chenda card, ${caption}, ${formatPerGame(row)} points a game`
+      : 'Chenda card: nobody yet'
+    : row
+      ? `${name}: ${caption}, card rating ${rating}, ${stars} stars`
+      : 'Player of the Week card: up for grabs'
   if (!to) {
     return (
       <div ref={ref as RefObject<HTMLDivElement>} className={className} role="img" aria-label={label}>
@@ -497,7 +515,7 @@ export function PotwHero({ league, week, lastWeek, now }: HeroProps) {
   )
 }
 
-type AwardItem = { icon: LucideIcon; tint: Tint; glow: string; label: string; ids: string[]; detail: string | null }
+type AwardItem = { icon: LucideIcon; tint: Tint; glow: string; label: string; ids: string[]; detail: string | null; empty?: string }
 
 export function awardItems(league: League, awards: Awards): AwardItem[] {
   const big = awards.biggestWin
@@ -532,12 +550,13 @@ export function awardItems(league: League, awards: Awards): AwardItem[] {
           : null,
     },
     {
-      icon: Utensils,
-      tint: 'violet',
-      glow: 'rgb(139 92 246 / 0.16)',
-      label: 'Wooden Spoon',
-      ids: awards.woodenSpoon ? [awards.woodenSpoon.playerId] : [],
-      detail: awards.woodenSpoon ? `${formatPoints(awards.woodenSpoon.points)} pts` : null,
+      icon: Drum,
+      tint: 'ember',
+      glow: 'rgb(255 138 61 / 0.16)',
+      label: 'Chenda',
+      ids: awards.chenda ? [awards.chenda.playerId] : [],
+      detail: awards.chenda ? `${formatPerGame(awards.chenda)} pts a game` : null,
+      empty: 'Nobody yet',
     },
   ]
 }
@@ -565,7 +584,7 @@ export function AwardsStrip({ league, awards }: { league: League; awards: Awards
               <div className="relative mt-1 truncate text-xs text-ink-2">{a.detail}</div>
             </>
           ) : (
-            <div className="relative mt-3 text-sm text-muted">Up for grabs</div>
+            <div className="relative mt-3 text-sm text-muted">{a.empty ?? 'Up for grabs'}</div>
           )}
         </div>
       ))}

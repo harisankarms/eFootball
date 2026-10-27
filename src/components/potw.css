@@ -164,6 +164,21 @@
   --frame-5: #c3cddf;
 }
 
+/* The chenda card for the week's last place: maroon, saffron and brass */
+.potw-card.is-chenda {
+  --neon: #ff8a3d;
+  --neon-bright: #ffe2c2;
+  --tunnel-1: #8f1d12;
+  --tunnel-2: #4a0b07;
+  --tunnel-3: #150302;
+  --bronze: #f3c46a;
+  --frame-1: #ffe7a8;
+  --frame-2: #9a5a1c;
+  --frame-3: #f8d27c;
+  --frame-4: #64340f;
+  --frame-5: #eeb55c;
+}
+
 /* The cut-corner card shape */
 .epic-clip,
 .epic-shape {
@@ -524,6 +539,38 @@
 
 .potw-card:hover .potw-figure {
   transform: translateX(-50%) scale(1.04);
+}
+
+/* On the chenda card the face sits on the drum, below the head the sticks hit */
+.potw-card.is-chenda .potw-card-art {
+  place-items: end center;
+}
+
+.potw-card.is-chenda .potw-portrait {
+  width: 30%;
+}
+
+.potw-card.is-chenda .potw-portrait-initials {
+  font-size: clamp(11px, 12cqi, 40px);
+}
+
+.potw-card.is-chenda .potw-position {
+  text-shadow: 0 1px 4px rgb(0 0 0 / 0.85);
+}
+
+.potw-card.is-chenda .potw-card-stat span {
+  color: #dcc1a9;
+}
+
+.potw-card.is-chenda .epic-clip::after {
+  background: linear-gradient(
+    115deg,
+    transparent 43%,
+    rgb(255 255 255 / 0.03) 46%,
+    rgb(255 226 190 / 0.22) 49%,
+    rgb(255 255 255 / 0.05) 52%,
+    transparent 56%
+  );
 }
 
 /* Name, label and stats */

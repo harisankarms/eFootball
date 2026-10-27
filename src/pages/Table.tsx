@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Crown, Info, ListOrdered } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Crown, Drum, Info, ListOrdered } from 'lucide-react'
 import { useMemo } from 'react'
 import { useSearchParams } from 'react-router'
 import { Avatar } from '../components/Avatar'
@@ -7,7 +7,7 @@ import { StatLeaders } from '../components/StatLeaders'
 import { EmptyState, ErrorState, PageSkeleton, PageTitle, SectionTitle, Segmented } from '../components/ui'
 import { statLeaders } from '../lib/matchStats'
 import { useLeague, useNow } from '../lib/queries'
-import { buildTable, formatPoints, isCounted, weekResult, type Row } from '../lib/stats'
+import { buildTable, formatPerGame, formatPoints, isCounted, weekResult, type Row } from '../lib/stats'
 import { addDays, addMonths, monthKey, monthLabel, startOfDay, weekKey, weekLabel } from '../lib/time'
 import type { Match } from '../lib/types'
 
@@ -24,6 +24,7 @@ type Period = {
   matches: Match[]
   rows: Row[]
   winner: Row | null
+  chenda: Row | null
   isCurrent: boolean
   prev: string | null
   next: string | null
@@ -58,6 +59,7 @@ export default function Table() {
         matches,
         rows: res.rows,
         winner: res.winner,
+        chenda: res.awards.chenda,
         isCurrent: key === current,
         prev: key > first ? addDays(key, -7) : null,
         next: key < current ? addDays(key, 7) : null,
@@ -74,6 +76,7 @@ export default function Table() {
         matches,
         rows: buildTable(matches, settings, 0, nameOf),
         winner: null,
+        chenda: null,
         isCurrent: key === current,
         prev: key > first ? addMonths(key, -1) : null,
         next: key < current ? addMonths(key, 1) : null,
@@ -85,6 +88,7 @@ export default function Table() {
       matches: counted,
       rows: buildTable(counted, settings, 0, nameOf),
       winner: null,
+      chenda: null,
       isCurrent: true,
       prev: null,
       next: null,
@@ -143,11 +147,27 @@ export default function Table() {
         </div>
       )}
 
+      {view === 'week' && period.chenda && (
+        <div className="mb-4 flex items-center gap-3 rounded-2xl border border-ember/30 bg-ember/[0.07] p-3.5">
+          <Avatar league={league} id={period.chenda.playerId} size={36} />
+          <div className="min-w-0 flex-1">
+            <div className="text-[11px] font-semibold tracking-wider text-ember uppercase">
+              {period.isCurrent ? 'On the drum this week' : 'Chenda of the week'}
+            </div>
+            <div className="truncate font-semibold">
+              {league.nameOf(period.chenda.playerId)} · {formatPerGame(period.chenda)} pts a game
+            </div>
+          </div>
+          <Drum className="h-6 w-6 shrink-0 text-ember" aria-hidden />
+        </div>
+      )}
+
       {period.rows.length ? (
         <StandingsTable
           league={league}
           rows={period.rows}
           crownId={view === 'week' ? period.winner?.playerId : null}
+          drumId={view === 'week' ? period.chenda?.playerId : null}
           showQualification={view === 'week'}
           sortable
         />
@@ -174,8 +194,9 @@ export default function Table() {
         <p>
           <span className="font-semibold text-ink">Points:</span> {formatPoints(s.potw_win)} per win, {formatPoints(s.potw_draw)} per
           draw, {formatPoints(s.potw_goal)} per goal, {formatPoints(s.potw_clean_sheet)} per clean sheet. Player of the Week needs at
-          least {s.potw_min_matches} games in the week. Ties go to win %, goal difference, goals, then head-to-head. Disputed results
-          don't count until they're resolved. Tap a column to sort.
+          least {s.potw_min_matches} games in the week. Ties go to win %, goal difference, goals, then head-to-head. The chenda goes to
+          whoever has the fewest points a game among players with {s.potw_min_matches}+ games, once at least three have them. Disputed
+          results don't count until they're resolved. Tap a column to sort.
         </p>
       </div>
     </div>
