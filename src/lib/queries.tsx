@@ -3,6 +3,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { achievementStatuses, levelFor, playerTimelines, totalXp, type AchievementStatus, type LevelInfo } from './achievements'
 import { api } from './backend'
 import { PLAYER_COLORS } from './colors'
+import { dropSaved, forgetSaved, keepSaving, restoreSaved } from './persist'
 import { pastWeeks } from './stats'
 import { safeTimeZone, weekKey } from './time'
 import type { Achievement, LiveTable, Match, Player, Session, Settings } from './types'
@@ -12,6 +13,11 @@ export const queryClient = new QueryClient({
     queries: { staleTime: 60_000, retry: 1, refetchOnWindowFocus: true },
   },
 })
+
+/** Demo data resets on every reload, so only the live site keeps a saved copy. */
+const saving = api.mode === 'live'
+/** Whose league was put back from the phone's saved copy, read once as the app starts. */
+const savedOwner = saving ? restoreSaved(queryClient) : null
 
 export const keys = {
   players: ['players'] as const,
@@ -114,9 +120,13 @@ export function useLeague() {
     }
   }, [players.data, matches.data, settings.data])
 
+  const error = players.error ?? matches.error ?? settings.error
   return {
     league,
-    error: players.error ?? matches.error ?? settings.error,
+    // A failed refresh keeps showing the results already on screen (or saved on the phone).
+    error: league ? null : error,
+    /** The latest refresh failed, so what's shown may be out of date. */
+    stale: !!league && !!error,
     refetch: () => {
       void players.refetch()
       void matches.refetch()
@@ -191,40 +201,72 @@ const AuthContext = createContext<AuthState>({
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient()
-  const [ready, setReady] = useState(false)
-  const [session, setSession] = useState<Session | null>(null)
+  // With a saved league, start as its owner straight away; the sign-in check below catches up.
+  const [ready, setReady] = useState(!!savedOwner)
+  const [session, setSession] = useState<Session | null>(savedOwner)
 
   useEffect(() => {
     let alive = true
+    let owner = savedOwner?.userId ?? null
     const apply = (s: Session | null) => {
       if (!alive) return
+      // Someone else signed in on this phone: drop the previous person's saved league.
+      if (s && owner && s.userId !== owner) forgetSaved(qc)
+      owner = s?.userId ?? owner
       setSession((prev) => (prev?.userId === s?.userId ? prev : s))
       setReady(true)
     }
     api
       .getSession()
-      .then(apply)
-      .catch(() => apply(null))
-    const off = api.onAuthChange(apply)
+      .then((s) => {
+        if (!s && owner) {
+          forgetSaved(qc)
+          owner = null
+        }
+        apply(s)
+      })
+      // Offline or the sign-in server is unreachable: keep showing the saved league, if there is one.
+      .catch(() => alive && setReady(true))
+    const off = api.onAuthChange((s, signedOut) => {
+      if (signedOut) {
+        forgetSaved(qc)
+        owner = null
+      }
+      apply(s)
+    })
     return () => {
       alive = false
       off()
     }
-  }, [])
+  }, [qc])
 
   const meQuery = useQuery({
     queryKey: keys.me(session?.userId ?? null),
     enabled: !!session,
-    staleTime: Infinity,
+    // Checked again now and then, so a saved "member" who has since been deactivated finds out.
+    staleTime: 5 * 60_000,
     queryFn: async () => {
+      const known = session ? qc.getQueryData(keys.me(session.userId)) !== undefined : false
       const p = await api.linkMe()
       // The first sign-in may have just created a player.
-      void qc.invalidateQueries({ queryKey: keys.players })
+      if (!known) void qc.invalidateQueries({ queryKey: keys.players })
       return p
     },
   })
 
   const { data: meData, isPending: mePending, error: meError, refetch } = meQuery
+  const member = !!meData?.active
+
+  // Members keep a saved copy of the league; anyone else (waiting, deactivated) doesn't.
+  useEffect(() => {
+    if (!saving || !session) return
+    if (!member) {
+      if (meData !== undefined) dropSaved()
+      return
+    }
+    const userId = session.userId
+    return keepSaving(qc, session, () => !!qc.getQueryData<Player | null>(keys.me(userId))?.active)
+  }, [qc, session, member, meData])
   const value = useMemo<AuthState>(() => {
     const me = session ? (meData ?? null) : null
     return {

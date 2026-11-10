@@ -11,7 +11,7 @@ export default function News() {
   const { isMember, session } = useAuth()
   const [composing, setComposing] = useState(false)
 
-  if (error || news.error) {
+  if (error || (news.error && !news.data)) {
     return (
       <ErrorState
         error={error ?? news.error}

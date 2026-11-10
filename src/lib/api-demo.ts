@@ -6,7 +6,7 @@ import type { LiveTable, Match, MatchInput, Player, Session, Shot, Tournament } 
 export function createDemoApi(): Api {
   const db = makeDemoData()
   let session: Session | null = { userId: DEMO_USER_ID, email: DEMO_EMAIL }
-  const authListeners = new Set<(s: Session | null) => void>()
+  const authListeners = new Set<(s: Session | null, signedOut: boolean) => void>()
   const changeListeners = new Set<(table: LiveTable) => void>()
 
   const pause = (ms = 120) => new Promise((r) => setTimeout(r, ms))
@@ -32,7 +32,10 @@ export function createDemoApi(): Api {
   const changed = (table: LiveTable) => changeListeners.forEach((f) => f(table))
   const setSession = (s: Session | null) => {
     session = s
-    authListeners.forEach((f) => f(s))
+    authListeners.forEach((f) => f(s, !s))
+  }
+  const checkPassword = (password: string) => {
+    if (password.length < 6) throw new Error('Password should be at least 6 characters.')
   }
   const signIn = async () => {
     await pause(300)
@@ -174,6 +177,19 @@ export function createDemoApi(): Api {
       const trimmed = name.trim()
       if (trimmed.length < 1 || trimmed.length > 40) throw new Error('Name must be between 1 and 40 characters')
       requireMe().name = trimmed
+    },
+    async changeMyPassword(password) {
+      await pause(300)
+      requireMe()
+      checkPassword(password)
+    },
+    async adminSetPassword(playerId, password) {
+      await pause(300)
+      const admin = requireAdmin()
+      checkPassword(password)
+      const p = db.players.find((x) => x.id === playerId)
+      if (!p?.user_id) throw new Error('That player has no account to reset')
+      if (p.id === admin.id) throw new Error('Change your own password from your account menu')
     },
     async setAvatar(player, photo, self) {
       await pause(300)

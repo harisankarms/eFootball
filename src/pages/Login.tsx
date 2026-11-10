@@ -136,12 +136,25 @@ export default function Login() {
             {mode === 'signin' ? 'Sign in' : 'Create account'}
           </Button>
         </form>
+        {mode === 'signin' && (
+          <button
+            onClick={() =>
+              setMessage({
+                kind: 'info',
+                text: 'Ask the admin to reset it: they set a temporary password for you on the Admin page. Sign in with that, then pick your own under Change password in the account menu.',
+              })
+            }
+            className="mt-4 w-full text-center text-sm text-ink-2 hover:text-ink"
+          >
+            Forgot your password?
+          </button>
+        )}
         <button
           onClick={() => {
             setMode(mode === 'signin' ? 'signup' : 'signin')
             setMessage(null)
           }}
-          className="mt-4 w-full text-center text-sm text-ink-2 hover:text-ink"
+          className={`${mode === 'signin' ? 'mt-2' : 'mt-4'} w-full text-center text-sm text-ink-2 hover:text-ink`}
         >
           {mode === 'signin' ? 'New here? Create an account' : 'Already have an account? Sign in'}
         </button>

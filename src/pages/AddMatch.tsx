@@ -11,12 +11,13 @@ import { friendlyError } from '../lib/api'
 import { api } from '../lib/backend'
 import { compressScreenshot, formatBytes } from '../lib/image'
 import { unlocksFrom } from '../lib/achievements'
+import { findDuplicate } from '../lib/duplicates'
 import { gameNameOwner, type MatchStats } from '../lib/matchStats'
 import { keys, useAchievements, useAuth, useAwards, useLeague, useTournaments, type League } from '../lib/queries'
 import { ReaderUnavailableError, readResultScreenshot, type ScreenshotReading } from '../lib/readResult'
 import { pastWeeks, winnerOf } from '../lib/stats'
 import { POPULAR_TEAMS, clubName } from '../lib/teams'
-import { toLocalInputValue, weekKey } from '../lib/time'
+import { relativeTime, toLocalInputValue, weekKey } from '../lib/time'
 import { STAGE_LABELS, stageFor, tournamentState } from '../lib/tournaments'
 import type { Match, MatchInput, Player, Shot, Stage, Tournament } from '../lib/types'
 
@@ -211,6 +212,8 @@ function MatchForm({ league, me, existing }: { league: League; me: Player; exist
   const [more, setMore] = useState(!!existing)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  /** A result already logged that looks like this one, waiting for "Save anyway". */
+  const [twin, setTwin] = useState<Match | null>(null)
   const [read, setRead] = useState<ReadState | null>(null)
   const [askWho, setAskWho] = useState(false)
   const readRun = useRef(0)
@@ -246,6 +249,9 @@ function MatchForm({ league, me, existing }: { league: League; me: Player; exist
   useEffect(() => () => {
     if (shot) URL.revokeObjectURL(shot.preview)
   }, [shot])
+
+  // A changed result needs checking again.
+  useEffect(() => setTwin(null), [homeId, awayId, hg, ag, playedAt])
 
   /** Fills the score and, where the in-game names are known, the players. */
   function fillFrom(r: ScreenshotReading) {
@@ -360,8 +366,10 @@ function MatchForm({ league, me, existing }: { league: League; me: Player; exist
     setAskWho(false)
   }
 
-  async function submit() {
+  /** `anyway` skips the check for a result that's already been logged. */
+  async function submit(anyway = false) {
     setFormError(null)
+    setTwin(null)
     if (!homeId || !awayId) return setFormError('Pick both players.')
     if (homeId === awayId) return setFormError('Pick two different players.')
     if (draw && pensOn && !pensWinner) return setFormError('Who won the penalty shootout?')
@@ -393,6 +401,18 @@ function MatchForm({ league, me, existing }: { league: League; me: Player; exist
     }
 
     setSaving(true)
+    if (!existing && !anyway) {
+      // Check the latest results, in case the other player has just logged this game.
+      const latest = await qc
+        .fetchQuery({ queryKey: keys.matches, queryFn: () => api.getMatches(), staleTime: 15_000 })
+        .catch(() => league.matches)
+      const found = findDuplicate(latest, input)
+      if (found) {
+        setTwin(found)
+        setSaving(false)
+        return
+      }
+    }
     try {
       if (existing) {
         await api.updateMatch(existing, input, shot?.data ?? null)
@@ -690,17 +710,40 @@ function MatchForm({ league, me, existing }: { league: League; me: Player; exist
             {formError}
           </p>
         )}
-        <Button
-          variant="primary"
-          size="lg"
-          className="w-full"
-          loading={saving}
-          disabled={processing}
-          onClick={() => void submit()}
-          icon={<Check className="h-5 w-5" strokeWidth={2.75} />}
-        >
-          {existing ? 'Save changes' : 'Save result'}
-        </Button>
+        {twin ? (
+          <div role="alert" className="rounded-xl border border-warn/40 bg-[#262010] px-3.5 py-3 text-sm">
+            <div className="flex items-start gap-2">
+              <CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-warn" aria-hidden />
+              <div className="min-w-0">
+                <div className="font-semibold">Already logged?</div>
+                <div className="text-ink-2">
+                  {nameOf(twin.home_id)} {twin.home_goals}–{twin.away_goals} {nameOf(twin.away_id)} is already in
+                  {twin.submitted_by ? `, added by ${nameOf(twin.submitted_by)}` : ''} · {relativeTime(twin.created_at, league.tz)}
+                </div>
+              </div>
+            </div>
+            <div className="mt-3 flex gap-2">
+              <Link to={`/match/${twin.id}`} className={buttonClass('secondary', 'sm', 'flex-1')}>
+                View it
+              </Link>
+              <Button size="sm" variant="ghost" className="flex-1" onClick={() => void submit(true)}>
+                Save anyway
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Button
+            variant="primary"
+            size="lg"
+            className="w-full"
+            loading={saving}
+            disabled={processing}
+            onClick={() => void submit()}
+            icon={<Check className="h-5 w-5" strokeWidth={2.75} />}
+          >
+            {existing ? 'Save changes' : 'Save result'}
+          </Button>
+        )}
       </div>
     </div>
   )

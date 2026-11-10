@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Camera, Check, ChevronRight, Download, Pencil, ShieldCheck, Sparkles, Trophy, UserPlus, X } from 'lucide-react'
+import { Camera, Check, ChevronRight, Copy, Download, KeyRound, Pencil, RefreshCw, ShieldCheck, Sparkles, Trophy, UserPlus, X } from 'lucide-react'
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { Avatar } from '../components/Avatar'
@@ -8,7 +8,7 @@ import { CardFigureEditor } from '../components/CardFigureEditor'
 import { SignInPrompt } from '../components/Guards'
 import { MatchCard } from '../components/MatchCard'
 import { useToast } from '../components/Toast'
-import { Badge, Button, EmptyState, ErrorState, GlowIcon, PageSkeleton, PageTitle, SectionTitle, Toggle } from '../components/ui'
+import { Badge, Button, EmptyState, ErrorState, GlowIcon, PageSkeleton, PageTitle, SectionTitle, Sheet, Toggle } from '../components/ui'
 import { friendlyError } from '../lib/api'
 import { api } from '../lib/backend'
 import { downloadFile, matchesToCsv } from '../lib/csv'
@@ -132,6 +132,108 @@ function JoinRequests({ league }: { league: League }) {
   )
 }
 
+const WORDS = ['goal', 'volley', 'header', 'corner', 'derby', 'trophy', 'striker', 'keeper', 'tackle', 'dribble', 'curler', 'penalty', 'offside', 'stadium', 'captain', 'chenda']
+
+/** Easy to read out or paste into WhatsApp, e.g. "volley-4821-derby". */
+function tempPassword() {
+  const [a, b, n] = crypto.getRandomValues(new Uint32Array(3))
+  return `${WORDS[a % WORDS.length]}-${String(n % 10000).padStart(4, '0')}-${WORDS[b % WORDS.length]}`
+}
+
+/** Gives a friend who forgot their password a temporary one (the free email can't send reset links). */
+function TempPasswordSheet({ player, onClose }: { player: Player; onClose: () => void }) {
+  const toast = useToast()
+  const [password, setPassword] = useState(tempPassword)
+  const [saving, setSaving] = useState(false)
+  const [done, setDone] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function save() {
+    if (password.trim().length < 6) return setError('Use at least 6 characters.')
+    setSaving(true)
+    setError(null)
+    try {
+      await api.adminSetPassword(player.id, password.trim())
+      setDone(true)
+    } catch (e) {
+      setError(friendlyError(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const copy = () =>
+    navigator.clipboard
+      ?.writeText(password.trim())
+      .then(() => toast.success('Password copied'))
+      .catch(() => toast.error(`Copy it by hand: ${password.trim()}`))
+
+  return (
+    <Sheet open onClose={onClose} title="Reset password">
+      {done ? (
+        <div className="space-y-4">
+          <p className="text-sm text-ink-2">
+            Done. Send this to {player.name}. They sign in with it, then pick their own from the account menu under <b>Change password</b>.
+          </p>
+          <button
+            onClick={() => void copy()}
+            className="flex w-full items-center justify-between gap-3 rounded-xl border border-line-strong bg-surface-2 px-4 py-3 text-left font-mono text-base"
+          >
+            <span className="truncate">{password.trim()}</span>
+            <Copy className="h-4 w-4 shrink-0 text-muted" aria-hidden />
+            <span className="sr-only">Copy</span>
+          </button>
+          <Button variant="primary" size="lg" className="w-full" onClick={onClose}>
+            Done
+          </Button>
+        </div>
+      ) : (
+        <form
+          className="space-y-4"
+          onSubmit={(e) => {
+            e.preventDefault()
+            void save()
+          }}
+        >
+          <p className="text-sm text-ink-2">
+            For when {player.name} forgets their password. This replaces it with a temporary one that you send them.
+          </p>
+          <label className="block">
+            <span className="mb-1.5 block text-sm text-ink-2">Temporary password</span>
+            <div className="flex gap-2">
+              <input
+                className="field font-mono"
+                value={password}
+                maxLength={72}
+                autoComplete="off"
+                spellCheck={false}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <Button
+                type="button"
+                variant="secondary"
+                className="shrink-0"
+                aria-label="Make a new one"
+                title="Make a new one"
+                icon={<RefreshCw className="h-4 w-4" />}
+                onClick={() => setPassword(tempPassword())}
+              />
+            </div>
+          </label>
+          {error && (
+            <p role="alert" className="rounded-xl border border-loss/40 bg-[#2a1216] px-3.5 py-2.5 text-sm text-[#ffd0d0]">
+              {error}
+            </p>
+          )}
+          <Button type="submit" variant="primary" size="lg" className="w-full" loading={saving} icon={<KeyRound className="h-5 w-5" />}>
+            Set password
+          </Button>
+        </form>
+      )}
+    </Sheet>
+  )
+}
+
 function PlayersAdmin({ league, me }: { league: League; me: Player }) {
   const qc = useQueryClient()
   const { busy, run } = useAction()
@@ -139,6 +241,7 @@ function PlayersAdmin({ league, me }: { league: League; me: Player }) {
   const [editing, setEditing] = useState<{ id: string; name: string } | null>(null)
   const [photoFor, setPhotoFor] = useState<Player | null>(null)
   const [cardFor, setCardFor] = useState<Player | null>(null)
+  const [passwordFor, setPasswordFor] = useState<Player | null>(null)
   const admins = league.players.filter((p) => p.is_admin && p.active)
 
   const refresh = () => Promise.all([qc.invalidateQueries({ queryKey: keys.players }), qc.invalidateQueries({ queryKey: ['me'] })])
@@ -231,6 +334,11 @@ function PlayersAdmin({ league, me }: { league: League; me: Player }) {
                       <Button size="sm" variant="ghost" icon={<Sparkles className="h-4 w-4" />} onClick={() => setCardFor(p)}>
                         Card
                       </Button>
+                      {p.user_id && p.id !== me.id && (
+                        <Button size="sm" variant="ghost" icon={<KeyRound className="h-4 w-4" />} onClick={() => setPasswordFor(p)}>
+                          Password
+                        </Button>
+                      )}
                       {p.user_id && p.active && (
                         <Button
                           size="sm"
@@ -270,6 +378,7 @@ function PlayersAdmin({ league, me }: { league: League; me: Player }) {
       {cardFor && (
         <CardFigureEditor open onClose={() => setCardFor(null)} league={league} player={cardFor} self={cardFor.id === me.id} />
       )}
+      {passwordFor && <TempPasswordSheet player={passwordFor} onClose={() => setPasswordFor(null)} />}
     </section>
   )
 }

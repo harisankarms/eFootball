@@ -126,7 +126,7 @@ export default function TournamentPage() {
     return { state, stats: tournamentStats(t, state), leaders: statLeaders(state.matches, (m) => m.status === 'ok') }
   }, [t, league])
 
-  if (error || tournaments.error) return <ErrorState error={error ?? tournaments.error} onRetry={refetch} />
+  if (error || (tournaments.error && !tournaments.data)) return <ErrorState error={error ?? tournaments.error} onRetry={refetch} />
   if (!league || !tournaments.data) return <PageSkeleton />
   if (!t || !data) {
     return (

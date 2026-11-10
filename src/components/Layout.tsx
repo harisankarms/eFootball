@@ -5,6 +5,7 @@ import {
   Gamepad2,
   House,
   Info,
+  KeyRound,
   ListOrdered,
   LogOut,
   Megaphone,
@@ -16,9 +17,10 @@ import {
   Trophy,
   UserRound,
   Users,
+  WifiOff,
   type LucideIcon,
 } from 'lucide-react'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { Suspense, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router'
 import { friendlyError } from '../lib/api'
 import { api, isDemo } from '../lib/backend'
@@ -29,7 +31,9 @@ import { AvatarEditor } from './AvatarEditor'
 import { CardFigureEditor } from './CardFigureEditor'
 import { WaitingForApproval } from './Guards'
 import { LevelBadge } from './Level'
+import { PageBoundary } from './PageBoundary'
 import { useToast } from './Toast'
+import { UpdateBanner } from './UpdateBanner'
 import { BallLogo, Button, PageSkeleton, Sheet, Wordmark, buttonClass } from './ui'
 
 /** `long` is the label in the desktop header, where there's room for it. */
@@ -103,6 +107,93 @@ function EditNameSheet({ open, onClose, current }: { open: boolean; onClose: () 
   )
 }
 
+function ChangePasswordSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const toast = useToast()
+  const [password, setPassword] = useState('')
+  const [again, setAgain] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  useEffect(() => {
+    if (!open) return
+    setPassword('')
+    setAgain('')
+    setError(null)
+  }, [open])
+
+  async function save() {
+    if (password.length < 6) return setError('Use at least 6 characters.')
+    if (password !== again) return setError("The two passwords don't match.")
+    setSaving(true)
+    setError(null)
+    try {
+      await api.changeMyPassword(password)
+      toast.success('Password changed')
+      onClose()
+    } catch (e) {
+      setError(friendlyError(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Sheet open={open} onClose={onClose} title="New password">
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          void save()
+        }}
+        className="space-y-3"
+      >
+        <input
+          className="field"
+          type="password"
+          placeholder="New password (6+ characters)"
+          autoComplete="new-password"
+          minLength={6}
+          required
+          autoFocus
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
+        <input
+          className="field"
+          type="password"
+          placeholder="Type it again"
+          autoComplete="new-password"
+          minLength={6}
+          required
+          value={again}
+          onChange={(e) => setAgain(e.target.value)}
+        />
+        {error && (
+          <p role="alert" className="rounded-xl border border-loss/40 bg-[#2a1216] px-3.5 py-2.5 text-sm text-[#ffd0d0]">
+            {error}
+          </p>
+        )}
+        <Button type="submit" variant="primary" size="lg" className="w-full" loading={saving}>
+          Change password
+        </Button>
+      </form>
+    </Sheet>
+  )
+}
+
+/** Shown when the latest refresh failed, so nobody mistakes saved results for live ones. */
+function StaleNotice() {
+  const { stale, refetch } = useLeague()
+  if (!stale) return null
+  return (
+    <div className="border-b border-warn/20 bg-warn/[0.08] px-4 py-2 text-center text-xs text-warn">
+      <WifiOff className="mr-1.5 inline h-3.5 w-3.5 align-[-2px]" aria-hidden />
+      Can't refresh right now, so these are the last saved results.
+      <button onClick={refetch} className="ml-1.5 font-semibold underline underline-offset-2">
+        Try again
+      </button>
+    </div>
+  )
+}
+
 /** For someone signed in who isn't in the squad yet: just a way out. */
 function GuestMenu() {
   const toast = useToast()
@@ -128,6 +219,7 @@ function AccountMenu() {
   const [editing, setEditing] = useState(false)
   const [editingPhoto, setEditingPhoto] = useState(false)
   const [editingCard, setEditingCard] = useState(false)
+  const [changingPassword, setChangingPassword] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const level = me && progress ? progress.levelOf(me.id) : null
 
@@ -199,6 +291,15 @@ function AccountMenu() {
                 >
                   <Pencil className="h-4 w-4" aria-hidden /> Change my name
                 </button>
+                <button
+                  onClick={() => {
+                    setOpen(false)
+                    setChangingPassword(true)
+                  }}
+                  className={item}
+                >
+                  <KeyRound className="h-4 w-4" aria-hidden /> Change password
+                </button>
               </>
             )}
             {isAdmin && (
@@ -224,6 +325,7 @@ function AccountMenu() {
         </div>
       )}
       {me && <EditNameSheet open={editing} onClose={() => setEditing(false)} current={me.name} />}
+      {me && <ChangePasswordSheet open={changingPassword} onClose={() => setChangingPassword(false)} />}
       {me && league && <AvatarEditor open={editingPhoto} onClose={() => setEditingPhoto(false)} league={league} player={me} self />}
       {me && league && <CardFigureEditor open={editingCard} onClose={() => setEditingCard(false)} league={league} player={me} self />}
     </div>
@@ -373,13 +475,17 @@ export function Layout() {
       <Backdrop />
       <Header />
       {isDemo && <DemoBanner />}
+      {isMember && <StaleNotice />}
       <main className="mx-auto w-full max-w-5xl px-4 pt-6 pb-[calc(8rem+env(safe-area-inset-bottom))] md:pt-9 md:pb-16">
         <div key={pathname} className="animate-page">
-          {page}
+          <PageBoundary>
+            <Suspense fallback={<PageSkeleton />}>{page}</Suspense>
+          </PageBoundary>
         </div>
       </main>
       {isMember && <AddButton />}
       {isMember && <BottomNav />}
+      <UpdateBanner />
     </div>
   )
 }

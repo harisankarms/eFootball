@@ -128,11 +128,17 @@ export function createSupabaseApi(url: string, key: string): Api {
       }
     },
     async getSession() {
-      const { data } = await sb.auth.getSession()
+      const { data, error } = await sb.auth.getSession()
+      // No session plus an error means the sign-in couldn't be refreshed (usually no connection), not a sign-out.
+      if (error && !data.session) throw error
       return toSession(data.session)
     },
     onAuthChange(cb) {
-      const { data } = sb.auth.onAuthStateChange((_event, session) => cb(toSession(session)))
+      const { data } = sb.auth.onAuthStateChange((event, session) => {
+        // The starting state comes from getSession, which can tell "signed out" from "offline".
+        if (event === 'INITIAL_SESSION') return
+        cb(toSession(session), event === 'SIGNED_OUT')
+      })
       return () => data.subscription.unsubscribe()
     },
     async signInWithGoogle() {
@@ -224,6 +230,13 @@ export function createSupabaseApi(url: string, key: string): Api {
     },
     async updateMyName(name) {
       must(await sb.rpc('update_my_name', { p_name: name }))
+    },
+    async changeMyPassword(password) {
+      const { error } = await sb.auth.updateUser({ password })
+      if (error) throw new Error(error.message)
+    },
+    async adminSetPassword(playerId, password) {
+      must(await sb.rpc('admin_set_password', { p_player_id: playerId, p_password: password }))
     },
     setAvatar: (player, photo, self) => replaceImage(player, photo, self, 'avatar_url', 'update_my_avatar', ''),
     setCardFigure: (player, figure, self) => replaceImage(player, figure, self, 'card_url', 'update_my_card', 'card-'),

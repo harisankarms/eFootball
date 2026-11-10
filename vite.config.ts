@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { defineConfig, type Plugin } from 'vite'
@@ -5,9 +6,16 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
+const file = (path: string) => readFileSync(fileURLToPath(new URL(path, import.meta.url)))
+const shortHash = (parts: Buffer[]) => {
+  const hash = createHash('sha256')
+  for (const part of parts) hash.update(part)
+  return hash.digest('hex').slice(0, 10)
+}
+
 /**
  * The screenshot reader's OCR engine (Tesseract) and its English data, served from this site
- * under /ocr/ instead of a public CDN, which some mobile networks block or slow down.
+ * instead of a public CDN, which some mobile networks block or slow down.
  * Tesseract picks one of the three engine builds to suit the phone.
  */
 const OCR_FILES: Record<string, string> = {
@@ -17,26 +25,42 @@ const OCR_FILES: Record<string, string> = {
   'tesseract-core-lstm.wasm.js': 'tesseract.js-core/tesseract-core-lstm.wasm.js',
   'eng.traineddata.gz': '@tesseract.js-data/eng/4.0.0_best_int/eng.traineddata.gz',
 }
+const readOcr = (name: string) => file(`./node_modules/${OCR_FILES[name]}`)
+
+/**
+ * The folder name changes whenever an engine file does, so phones can keep these big files
+ * for a year (see vercel.json) and still get a new engine the moment it ships.
+ */
+const OCR_BASE = `/ocr/${shortHash(Object.keys(OCR_FILES).map(readOcr))}`
+
+/**
+ * Saved league data (see src/lib/persist.ts) is thrown away when the shape of the data
+ * could have changed, which only happens when one of these files does.
+ */
+const CACHE_VERSION = shortHash([file('./src/lib/types.ts'), file('./src/lib/api-supabase.ts')])
 
 function ocrEngine(): Plugin {
-  const read = (name: string) => readFileSync(fileURLToPath(new URL(`./node_modules/${OCR_FILES[name]}`, import.meta.url)))
   return {
     name: 'ocr-engine',
     configureServer(server) {
-      server.middlewares.use('/ocr', (req, res, next) => {
+      server.middlewares.use(OCR_BASE, (req, res, next) => {
         const name = (req.url ?? '').split('?')[0].replace(/^\//, '')
         if (!(name in OCR_FILES)) return next()
         res.setHeader('Content-Type', name.endsWith('.gz') ? 'application/gzip' : 'text/javascript')
-        res.end(read(name))
+        res.end(readOcr(name))
       })
     },
     generateBundle() {
-      for (const name of Object.keys(OCR_FILES)) this.emitFile({ type: 'asset', fileName: `ocr/${name}`, source: read(name) })
+      for (const name of Object.keys(OCR_FILES)) this.emitFile({ type: 'asset', fileName: `${OCR_BASE.slice(1)}/${name}`, source: readOcr(name) })
     },
   }
 }
 
 export default defineConfig({
+  define: {
+    __OCR_BASE__: JSON.stringify(OCR_BASE),
+    __CACHE_VERSION__: JSON.stringify(CACHE_VERSION),
+  },
   plugins: [
     react(),
     tailwindcss(),

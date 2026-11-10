@@ -66,7 +66,7 @@ export default function Tournaments() {
     [league, tournaments.data],
   )
 
-  if (error || tournaments.error) return <ErrorState error={error ?? tournaments.error} onRetry={refetch} />
+  if (error || (tournaments.error && !tournaments.data)) return <ErrorState error={error ?? tournaments.error} onRetry={refetch} />
   if (!league || !items) return <PageSkeleton />
 
   const active = items.filter((x) => x.s.phase !== 'finished')

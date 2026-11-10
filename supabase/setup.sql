@@ -312,7 +312,7 @@ create policy "Admins change settings" on public.settings
 
 drop policy if exists "Admins and the requester view join requests" on public.join_requests;
 create policy "Admins and the requester view join requests" on public.join_requests
-  for select to authenticated using (public.is_admin() or user_id = auth.uid());
+  for select to authenticated using (public.is_admin() or user_id = (select auth.uid()));
 
 drop policy if exists "Admins dismiss join requests" on public.join_requests;
 create policy "Admins dismiss join requests" on public.join_requests
@@ -332,7 +332,7 @@ grant execute on function
   public.approve_join(uuid, uuid),
   public.dispute_match(uuid, text),
   public.update_my_name(text)
-  to anon, authenticated;
+  to authenticated;
 
 
 -- ---------------------------------------------------------------------
@@ -520,9 +520,17 @@ drop policy if exists "Squad members view achievements" on public.achievements;
 create policy "Squad members view achievements" on public.achievements
   for select to authenticated using (public.is_member());
 
+-- Separate add, edit and delete rules (not one "for all" rule) so reading is checked by one rule only.
 drop policy if exists "Admins manage achievements" on public.achievements;
-create policy "Admins manage achievements" on public.achievements
-  for all to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists "Admins add achievements" on public.achievements;
+create policy "Admins add achievements" on public.achievements
+  for insert to authenticated with check (public.is_admin());
+drop policy if exists "Admins edit achievements" on public.achievements;
+create policy "Admins edit achievements" on public.achievements
+  for update to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists "Admins delete achievements" on public.achievements;
+create policy "Admins delete achievements" on public.achievements
+  for delete to authenticated using (public.is_admin());
 
 drop policy if exists "Anyone can view awarded achievements" on public.player_achievements;
 drop policy if exists "Squad members view awarded achievements" on public.player_achievements;
@@ -531,7 +539,13 @@ create policy "Squad members view awarded achievements" on public.player_achieve
 
 drop policy if exists "Admins award achievements" on public.player_achievements;
 create policy "Admins award achievements" on public.player_achievements
-  for all to authenticated using (public.is_admin()) with check (public.is_admin());
+  for insert to authenticated with check (public.is_admin());
+drop policy if exists "Admins edit awards" on public.player_achievements;
+create policy "Admins edit awards" on public.player_achievements
+  for update to authenticated using (public.is_admin()) with check (public.is_admin());
+drop policy if exists "Admins take back awards" on public.player_achievements;
+create policy "Admins take back awards" on public.player_achievements
+  for delete to authenticated using (public.is_admin());
 
 
 -- ---------------------------------------------------------------------
@@ -592,7 +606,7 @@ grant select on public.achievements, public.player_achievements, public.announce
 revoke select on public.achievements, public.player_achievements, public.announcements, public.match_comments from anon;
 grant insert, update, delete on public.achievements, public.player_achievements to authenticated;
 grant insert, delete on public.announcements, public.match_comments to authenticated;
-grant execute on function public.update_my_avatar(text), public.update_my_card(text) to anon, authenticated;
+grant execute on function public.update_my_avatar(text), public.update_my_card(text) to authenticated;
 
 
 -- ---------------------------------------------------------------------
@@ -762,3 +776,86 @@ begin
     end if;
   end loop;
 end $$;
+
+
+-- ---------------------------------------------------------------------
+--  Password resets
+--  The free built-in email only reaches addresses on your Supabase team,
+--  so a "forgot password" email can't reach friends. Instead an admin
+--  sets a temporary password, and the player changes it once signed in.
+-- ---------------------------------------------------------------------
+
+create or replace function public.admin_set_password(p_player_id uuid, p_password text)
+returns void
+language plpgsql security definer
+set search_path = public
+as $$
+declare
+  uid uuid;
+begin
+  if not public.is_admin() then
+    raise exception 'Only an admin can reset passwords';
+  end if;
+  if p_password is null or char_length(p_password) < 6 or octet_length(p_password) > 72 then
+    raise exception 'The password needs 6 to 72 characters';
+  end if;
+  select user_id into uid from public.players where id = p_player_id;
+  if uid is null then
+    raise exception 'That player has no account to reset';
+  end if;
+  if uid = auth.uid() then
+    raise exception 'Change your own password from your account menu';
+  end if;
+  -- The same bcrypt format Supabase Auth uses for every password.
+  update auth.users
+     set encrypted_password = extensions.crypt(p_password, extensions.gen_salt('bf', 10)),
+         updated_at = now()
+   where id = uid;
+end;
+$$;
+
+
+-- ---------------------------------------------------------------------
+--  Housekeeping
+-- ---------------------------------------------------------------------
+
+-- Indexes on the columns that point at other tables, so removing a player
+-- or achievement doesn't have to scan whole tables.
+create index if not exists announcements_player_id_idx on public.announcements (player_id);
+create index if not exists match_comments_player_id_idx on public.match_comments (player_id);
+create index if not exists matches_disputed_by_idx on public.matches (disputed_by);
+create index if not exists matches_pens_winner_id_idx on public.matches (pens_winner_id);
+create index if not exists matches_submitted_by_idx on public.matches (submitted_by);
+create index if not exists player_achievements_achievement_id_idx on public.player_achievements (achievement_id);
+create index if not exists player_achievements_awarded_by_idx on public.player_achievements (awarded_by);
+create index if not exists tournament_players_player_id_idx on public.tournament_players (player_id);
+create index if not exists tournaments_created_by_idx on public.tournaments (created_by);
+
+-- Keep this block last. Signed-out visitors can't call any of the app's functions
+-- (each one already refused them, this closes the door before they're reached);
+-- signed-in accounts can call the ones the app and the access rules use.
+do $$
+declare
+  f regprocedure;
+begin
+  for f in select p.oid::regprocedure from pg_proc p where p.pronamespace = 'public'::regnamespace loop
+    execute format('revoke execute on function %s from public, anon', f);
+  end loop;
+end $$;
+
+grant execute on function
+  public.my_player_id(),
+  public.is_admin(),
+  public.is_member(),
+  public.link_my_player(),
+  public.approve_join(uuid, uuid),
+  public.dispute_match(uuid, text),
+  public.update_my_name(text),
+  public.update_my_avatar(text),
+  public.update_my_card(text),
+  public.create_tournament(text, uuid[], int, int, boolean),
+  public.admin_set_password(uuid, text)
+  to authenticated;
+
+-- Only ever runs as a trigger, never called directly.
+revoke execute on function public.tournament_match_rules() from authenticated;

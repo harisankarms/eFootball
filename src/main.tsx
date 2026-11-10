@@ -11,6 +11,12 @@ import { BrowserRouter } from 'react-router'
 import App from './App'
 import { ToastProvider } from './components/Toast'
 import { AuthProvider, queryClient } from './lib/queries'
+import { reloadOnce } from './lib/reload'
+
+// A page's code can be missing after an update (the old version's files are gone): load the new version.
+window.addEventListener('vite:preloadError', (event) => {
+  if (reloadOnce()) event.preventDefault()
+})
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

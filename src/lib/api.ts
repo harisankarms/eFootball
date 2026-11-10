@@ -22,8 +22,10 @@ export interface Api {
 
   /** Which sign-in methods are switched on. Google only shows once it's enabled in Supabase. */
   getAuthOptions(): Promise<{ google: boolean }>
+  /** The signed-in account, or null. Rejects when it can't tell (for example offline with an expired sign-in). */
   getSession(): Promise<Session | null>
-  onAuthChange(cb: (session: Session | null) => void): () => void
+  /** Calls `cb` on sign-in, sign-out and account changes; `signedOut` is true when the session really ended. */
+  onAuthChange(cb: (session: Session | null, signedOut: boolean) => void): () => void
   signInWithGoogle(): Promise<void>
   signInWithPassword(email: string, password: string): Promise<void>
   signUpWithPassword(email: string, password: string, name: string): Promise<{ needsConfirmation: boolean }>
@@ -43,6 +45,10 @@ export interface Api {
   disputeMatch(matchId: string, reason: string): Promise<void>
   resolveDispute(matchId: string): Promise<void>
   updateMyName(name: string): Promise<void>
+  /** Changes the signed-in account's password. */
+  changeMyPassword(password: string): Promise<void>
+  /** Admin: gives a player's account a temporary password, for when they've forgotten theirs. */
+  adminSetPassword(playerId: string, password: string): Promise<void>
   /** Uploads a new profile photo (or removes it with null). `self` uses the player's own permission, otherwise admin. */
   setAvatar(player: Player, photo: Blob | null, self: boolean): Promise<void>
   /** Uploads the cut-out figure for the Player of the Week cards (or removes it with null). */
@@ -91,5 +97,9 @@ export function friendlyError(e: unknown): string {
   if (/invalid login credentials/i.test(message)) return 'Wrong email or password.'
   if (/body_check/.test(message)) return 'Write something first (up to 500 characters).'
   if (/matches_tournament_id_fkey/.test(message)) return "A tournament with results can't be deleted."
+  if (/could not find the function/i.test(message)) {
+    return 'The database needs an update for this: run supabase/setup.sql in the Supabase SQL Editor.'
+  }
+  if (/should be different from the old password/i.test(message)) return "That's already your password. Pick a new one."
   return message
 }

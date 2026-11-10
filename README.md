@@ -115,7 +115,10 @@ Without this step, Google sign-in sends people back to the wrong place.
 
 ## How it works
 
-- **Who can do what**: anyone with the link can view everything. Squad members can log results. The submitter can delete their own result within 24 hours, and the other player can dispute it in that time. Admins can edit or delete anything, approve players and change the rules.
+- **Who can do what**: only approved squad members can see anything. Squad members can log results. The submitter can delete their own result within 24 hours, and the other player can dispute it in that time. Admins can edit or delete anything, approve players and change the rules.
+- **Opens instantly**: each phone keeps the last results it loaded and shows them straight away while it fetches the latest. The saved copy is wiped on sign-out.
+- **Duplicate check**: if a result with the same two players and score was logged within the hour (both players logging the same game), the app asks before saving it again.
+- **Forgotten passwords**: the free email service can't send reset links to friends, so the admin sets a temporary password on the Admin page (**Squad → Password**). The friend signs in with it and picks their own under **Change password** in the account menu.
 - **Weeks** run Monday to Sunday in the group's timezone (India by default), so the week resets at the same moment for everyone. Change it under **Admin → Settings**.
 - **Penalties**: if a draw goes to penalties, the shootout winner gets the win. Shootout goals don't count as goals.
 - **Screenshots** are shrunk on the phone before uploading (to about 150 KB plus a small thumbnail). The free 1 GB of storage holds several thousand matches.
@@ -135,7 +138,8 @@ Without this step, Google sign-in sends people back to the wrong place.
 | Google sign-in fails inside WhatsApp or Instagram | Google blocks sign-in inside in-app browsers. Open the link in Chrome or Safari, or use email. |
 | After Google sign-in you land on the wrong site or on localhost | Fix the Site URL and Redirect URLs (step 6). |
 | A friend is stuck on "Waiting for approval" | Approve them on the Admin page. |
-| The site still shows the old version after a deploy | Close the app or tab completely and open it again. |
+| A friend forgot their password | **Admin → Squad → Password** gives them a temporary one to send them. |
+| The site still shows the old version after a deploy | Tap **Refresh** on the "New version ready" banner, or close the app completely and open it again. |
 | "Can't reach the database" | The free project is probably paused. Restore it in the Supabase dashboard. |
 
 ## For developers

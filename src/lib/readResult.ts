@@ -316,7 +316,7 @@ export function parseStats(rows: StatRow[]): MatchStats {
 const MIN_STATS_HEIGHT = 540
 
 /** The OCR engine files are served by this site (see vite.config.ts) rather than a public CDN. */
-const ENGINE = { workerPath: '/ocr/worker.min.js', corePath: '/ocr', langPath: '/ocr', workerBlobURL: false }
+const ENGINE = { workerPath: `${__OCR_BASE__}/worker.min.js`, corePath: __OCR_BASE__, langPath: __OCR_BASE__, workerBlobURL: false }
 const ENGINE_TIMEOUT = 60_000
 
 /** Thrown when the OCR engine can't be loaded, for example on a bad connection. */
