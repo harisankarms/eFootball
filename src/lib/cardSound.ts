@@ -227,6 +227,137 @@ export function createSoundController({ makeAudio, startOn = false, save, fadeMs
 
 export type SoundController = ReturnType<typeof createSoundController>
 
+/*
+ * Playing a track. Tracks can be mastered at very different loudness (the first two were 10 dB
+ * apart), and iPhones ignore an <audio> element's volume, so each track goes through Web Audio:
+ * its loudness is measured once (and remembered), and a gain brings every track to the same level.
+ */
+
+/** Every track is brought to this average level (dBFS), never louder than its peaks allow. */
+const TARGET_DB = -18
+const LEVEL_KEY = 'eft-sound-level:'
+
+type WebkitWindow = Window & { webkitAudioContext?: typeof AudioContext }
+type AudioSessionNavigator = Navigator & { audioSession?: { type: string } }
+
+let context: AudioContext | null | undefined
+
+function audioContext(): AudioContext | null {
+  if (context !== undefined) return context
+  const Ctor = window.AudioContext ?? (window as WebkitWindow).webkitAudioContext
+  context = Ctor ? new Ctor() : null
+  // iPhones: play with the ringer switch on silent too, the way a video does once you unmute it.
+  try {
+    const session = (navigator as AudioSessionNavigator).audioSession
+    if (session) session.type = 'playback'
+  } catch {
+    // Older Safari: the ringer switch decides.
+  }
+  return context
+}
+
+/** How much to turn a track up or down to reach the common level, measured once per file. */
+async function levelFor(url: string, ctx: AudioContext): Promise<number> {
+  try {
+    const saved = Number(localStorage.getItem(LEVEL_KEY + url))
+    if (saved > 0) return saved
+  } catch {
+    // Storage blocked: just measure again.
+  }
+  const buffer = await ctx.decodeAudioData(await (await fetch(url)).arrayBuffer())
+  let sum = 0
+  let count = 0
+  let peak = 0
+  for (let c = 0; c < buffer.numberOfChannels; c++) {
+    const samples = buffer.getChannelData(c)
+    for (let i = 0; i < samples.length; i += 2) {
+      const v = samples[i]
+      sum += v * v
+      count++
+      if (Math.abs(v) > peak) peak = Math.abs(v)
+    }
+  }
+  const rmsDb = 10 * Math.log10(sum / Math.max(1, count) || 1e-9)
+  const level = Math.min(10 ** ((TARGET_DB - rmsDb) / 20), 1 / Math.max(peak, 0.05), 3)
+  try {
+    localStorage.setItem(LEVEL_KEY + url, level.toFixed(3))
+  } catch {
+    // Not remembered; measured again next visit.
+  }
+  return level
+}
+
+const refused = () => Object.assign(new Error('Sound needs a tap first'), { name: 'NotAllowedError' })
+
+/** A looping track, played through a gain so every track sounds equally loud. */
+function webAudioTrack(url: string): AudioLike {
+  const el = new Audio()
+  el.preload = 'none'
+  el.loop = true
+  el.src = url
+  let volume = 1
+  let level: number | null = null
+  let gain: GainNode | null = null
+  let wired = false
+
+  const apply = () => {
+    const out = volume * (level ?? 0)
+    if (gain && context) gain.gain.setTargetAtTime(out, context.currentTime, 0.02)
+    else el.volume = Math.min(1, out)
+  }
+
+  return {
+    get volume() {
+      return volume
+    },
+    set volume(v: number) {
+      volume = v
+      apply()
+    },
+    play() {
+      // Runs inside the tap that turned sound on: browsers only let audio start from one.
+      const ctx = audioContext()
+      if (ctx && !wired) {
+        wired = true
+        try {
+          const source = ctx.createMediaElementSource(el)
+          gain = ctx.createGain()
+          gain.gain.value = 0
+          source.connect(gain).connect(ctx.destination)
+        } catch {
+          gain = null
+        }
+      }
+      if (level === null) {
+        // Silent until measured (well under a second), so a loud track never blasts out first.
+        apply()
+        const measuring = ctx ? levelFor(url, ctx) : Promise.resolve(0.6)
+        void measuring.then(
+          (l) => {
+            level = l
+            apply()
+          },
+          () => {
+            level = 0.6
+            apply()
+          },
+        )
+      }
+      const resumed = ctx && gain && ctx.state !== 'running' ? Promise.race([ctx.resume(), new Promise((r) => setTimeout(r, 400))]) : null
+      return Promise.all([el.play(), resumed]).then(() => {
+        // The page may play but keep Web Audio switched off until a tap: then it's silent, so ask for the tap.
+        if (ctx && gain && ctx.state !== 'running') {
+          el.pause()
+          throw refused()
+        }
+      })
+    },
+    pause() {
+      el.pause()
+    },
+  }
+}
+
 const KEY = 'eft-sound'
 let shared: SoundController | null = null
 
@@ -235,13 +366,7 @@ export function soundController(): SoundController {
   if (shared) return shared
   let waiting = false
   const controller = createSoundController({
-    makeAudio: (url) => {
-      const a = new Audio()
-      a.preload = 'none'
-      a.loop = true
-      a.src = url
-      return a
-    },
+    makeAudio: webAudioTrack,
     startOn: (() => {
       try {
         return sessionStorage.getItem(KEY) === '1'
