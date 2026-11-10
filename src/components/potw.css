@@ -146,6 +146,82 @@
   width: 100%;
 }
 
+/* The card's face (a link to the player when there is one), filling the card */
+.potw-card-face {
+  position: absolute;
+  inset: 0;
+  display: block;
+}
+
+/* The speaker for the card's background track, on its bottom-right corner, like Instagram's */
+.card-sound {
+  position: absolute;
+  z-index: 7;
+  right: -10px;
+  bottom: -10px;
+  display: grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  color: #fff;
+  border: 1px solid color-mix(in srgb, var(--bronze) 55%, transparent);
+  border-radius: 50%;
+  background: rgb(8 10 18 / 0.82);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.55);
+  cursor: pointer;
+  transition: transform 150ms ease;
+}
+
+.card-sound svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* The speaker takes the corner where the little logo sits */
+.potw-card.has-sound .epic-logo {
+  display: none;
+}
+
+.card-sound:hover {
+  transform: scale(1.06);
+}
+
+.card-sound:active {
+  transform: scale(0.94);
+}
+
+.card-sound:focus-visible {
+  outline: 2px solid var(--neon);
+  outline-offset: 2px;
+}
+
+/* A ring pulses out while the track is playing */
+.card-sound.is-playing {
+  color: var(--neon-bright);
+  border-color: var(--neon);
+}
+
+.card-sound.is-playing::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border: 2px solid var(--neon);
+  border-radius: 50%;
+  pointer-events: none;
+  animation: card-sound-pulse 1.6s ease-out infinite;
+}
+
+@keyframes card-sound-pulse {
+  from {
+    transform: scale(0.9);
+    opacity: 0.8;
+  }
+  to {
+    transform: scale(1.4);
+    opacity: 0;
+  }
+}
+
 .potw-card.is-mini::before {
   filter: blur(10px);
 }
@@ -832,5 +908,9 @@
   .epic-ring,
   .epic-core {
     animation-play-state: paused;
+  }
+  .card-sound.is-playing::after {
+    animation: none;
+    opacity: 0.6;
   }
 }

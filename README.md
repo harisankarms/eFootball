@@ -117,6 +117,7 @@ Without this step, Google sign-in sends people back to the wrong place.
 
 - **Who can do what**: only approved squad members can see anything. Squad members can log results. The submitter can delete their own result within 24 hours, and the other player can dispute it in that time. Admins can edit or delete anything, approve players and change the rules.
 - **Opens instantly**: each phone keeps the last results it loaded and shows them straight away while it fetches the latest. The saved copy is wiped on sign-out.
+- **Card sounds**: drop `potw.mp3` and/or `chenda.mp3` into [`src/assets/sounds/`](src/assets/sounds/README.md) and the big cards on Home get an Instagram-style speaker. Sound is off until someone taps it, then the card on screen plays its track until they mute it.
 - **Duplicate check**: if a result with the same two players and score was logged within the hour (both players logging the same game), the app asks before saving it again.
 - **Forgotten passwords**: the free email service can't send reset links to friends, so the admin sets a temporary password on the Admin page (**Squad → Password**). The friend signs in with it and picks their own under **Change password** in the account menu.
 - **Weeks** run Monday to Sunday in the group's timezone (India by default), so the week resets at the same moment for everyone. Change it under **Admin → Settings**.

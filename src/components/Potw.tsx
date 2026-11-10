@@ -7,6 +7,7 @@ import { cardRating, formatPerGame, formatPoints, sideOf, winnerOf, type Awards,
 import { addDays, durationLabel, startOfDay, weekLabel } from '../lib/time'
 import { roundLike, useCountUp } from '../lib/useCountUp'
 import { Avatar, initials } from './Avatar'
+import { SoundButton, useCardSound } from './CardSound'
 import { ChendaScene } from './ChendaScene'
 import { EMPTY_TUNNEL, EPIC_TUNNEL, TUNNEL_START, createTunnel, readyTunnelStill, tunnelStill } from './epicTunnel'
 import { FormChips } from './FormChips'
@@ -277,9 +278,11 @@ type CollectibleProps = {
 
 /** An eFootball 2026 Epic-style player card with the player's figure, photo or initials, rating and weekly stats. */
 export function CollectibleCard({ league, row, caption, mini = false, to, figureUrl, kind = 'potw' }: CollectibleProps) {
-  const ref = useRef<HTMLElement>(null)
+  const ref = useRef<HTMLDivElement>(null)
   const tilt = useTilt(ref)
   const onScreen = useOnScreen(ref, !mini)
+  // Only the big cards have a background track (if one has been added).
+  const sound = useCardSound(ref, mini ? null : kind)
   const [broken, setBroken] = useState(false)
   const [figureBroken, setFigureBroken] = useState(false)
   const chenda = kind === 'chenda'
@@ -389,7 +392,7 @@ export function CollectibleCard({ league, row, caption, mini = false, to, figure
     </div>
   )
 
-  const className = `potw-card ${mini ? 'is-mini' : ''} ${row ? '' : 'is-empty'} ${chenda ? 'is-chenda' : ''}`
+  const className = `potw-card ${mini ? 'is-mini' : ''} ${row ? '' : 'is-empty'} ${chenda ? 'is-chenda' : ''} ${sound ? 'has-sound' : ''}`
   const label = chenda
     ? row
       ? `${name}: chenda card, ${caption}, ${formatPerGame(row)} points a game`
@@ -397,24 +400,25 @@ export function CollectibleCard({ league, row, caption, mini = false, to, figure
     : row
       ? `${name}: ${caption}, card rating ${rating}, ${stars} stars`
       : 'Player of the Week card: up for grabs'
-  if (!to) {
-    return (
-      <div ref={ref as RefObject<HTMLDivElement>} className={className} role="img" aria-label={label}>
-        {inner}
-      </div>
-    )
-  }
+  // The card's face is the link; the speaker sits beside it (a button can't go inside a link).
   return (
-    <Link
-      to={to}
-      ref={ref as RefObject<HTMLAnchorElement>}
+    <div
+      ref={ref}
       className={className}
-      aria-label={label}
-      onPointerMove={tilt.onPointerMove}
-      onPointerLeave={tilt.onPointerLeave}
+      onPointerMove={to ? tilt.onPointerMove : undefined}
+      onPointerLeave={to ? tilt.onPointerLeave : undefined}
     >
-      {inner}
-    </Link>
+      {to ? (
+        <Link to={to} className="potw-card-face" aria-label={label}>
+          {inner}
+        </Link>
+      ) : (
+        <div className="potw-card-face" role="img" aria-label={label}>
+          {inner}
+        </div>
+      )}
+      {sound && <SoundButton sound={sound} />}
+    </div>
   )
 }
 
