@@ -195,6 +195,12 @@
   outline-offset: 2px;
 }
 
+/* The track couldn't be loaded */
+.card-sound.is-failed {
+  color: #ffb4a8;
+  border-color: #ff6b5b;
+}
+
 /* A ring pulses out while the track is playing */
 .card-sound.is-playing {
   color: var(--neon-bright);

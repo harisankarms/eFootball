@@ -7,6 +7,8 @@
  * card and chenda.mp3 for the chenda card. A card only shows its speaker once its file exists.
  */
 
+import { reloadOnce } from './reload'
+
 export type SoundName = 'potw' | 'chenda'
 
 const FILES = import.meta.glob('../assets/sounds/*.{mp3,m4a,aac,ogg,opus,wav}', {
@@ -35,6 +37,8 @@ export type SoundState = {
   playing: string | null
   /** Sound is on but the browser wants a tap first (after a reload). */
   blocked: boolean
+  /** A track that couldn't be loaded (for example an old version of the app asking for a replaced file). */
+  failed: string | null
 }
 
 const VOLUME = 0.6
@@ -51,9 +55,14 @@ type Options = {
   fadeMs?: number
   /** The browser refused to start sound without a tap. */
   onBlocked?: () => void
+  /** A track couldn't be loaded. */
+  onFailed?: (url: string) => void
 }
 
-export function createSoundController({ makeAudio, startOn = false, save, fadeMs = 0, onBlocked }: Options) {
+/** Errors that just mean "stopped before it started" (scrolled away, muted) rather than a broken track. */
+const HARMLESS = new Set(['AbortError', 'NotAllowedError'])
+
+export function createSoundController({ makeAudio, startOn = false, save, fadeMs = 0, onBlocked, onFailed }: Options) {
   const cards = new Map<string, { url: string; seen: number }>()
   const audios = new Map<string, AudioLike>()
   const fades = new Map<AudioLike, ReturnType<typeof setInterval>>()
@@ -64,11 +73,12 @@ export function createSoundController({ makeAudio, startOn = false, save, fadeMs
   let current: string | null = null
   let playing: string | null = null
   let blocked = false
-  let state: SoundState = { on, playing, blocked }
+  let failed: string | null = null
+  let state: SoundState = { on, playing, blocked, failed }
 
   const emit = () => {
-    if (state.on === on && state.playing === playing && state.blocked === blocked) return
-    state = { on, playing, blocked }
+    if (state.on === on && state.playing === playing && state.blocked === blocked && state.failed === failed) return
+    state = { on, playing, blocked, failed }
     listeners.forEach((f) => f())
   }
 
@@ -119,15 +129,21 @@ export function createSoundController({ makeAudio, startOn = false, save, fadeMs
         if (current !== url) return a.pause()
         playing = url
         blocked = false
+        if (failed === url) failed = null
         ramp(a, VOLUME)
         emit()
       },
       (e: unknown) => {
         if (current !== url) return
-        if (e instanceof Error && e.name === 'NotAllowedError') {
+        const name = e instanceof Error ? e.name : ''
+        if (name === 'NotAllowedError') {
           blocked = true
           emit()
           onBlocked?.()
+        } else if (!HARMLESS.has(name)) {
+          failed = url
+          emit()
+          onFailed?.(url)
         }
       },
     )
@@ -195,8 +211,9 @@ export function createSoundController({ makeAudio, startOn = false, save, fadeMs
     /** The card's speaker was tapped. */
     toggle(id: string) {
       const card = cards.get(id)
-      if (on && blocked) {
-        // Sound was already on but waiting for a tap: this is that tap, so play rather than mute.
+      if (on && card && (blocked || card.url !== current)) {
+        // Sound is on but this card isn't the one playing (or it was waiting for a tap):
+        // play this card rather than muting everything.
         blocked = false
         preferred = id
         if (card) card.seen = Math.max(card.seen, KEEP_AT)
@@ -382,6 +399,10 @@ export function soundController(): SoundController {
       }
     },
     fadeMs: 350,
+    // The usual reason: this is an old copy of the app (an installed app runs the version it has
+    // for one more open after an update) asking for a track that has since been replaced.
+    // Reloading picks up the new version; if that doesn't help, the speaker shows the failure.
+    onFailed: () => void reloadOnce(),
     onBlocked: () => {
       if (waiting) return
       waiting = true

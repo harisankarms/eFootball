@@ -3,14 +3,16 @@ import { createSoundController, type AudioLike } from './cardSound'
 
 type FakeAudio = AudioLike & { url: string; paused: boolean; plays: number }
 
-function setup({ startOn = false, refuse = false } = {}) {
+function setup({ startOn = false, refuse = false, missing = '' } = {}) {
   const audios: FakeAudio[] = []
   let blockedCalls = 0
+  const failures: string[] = []
   const saved: boolean[] = []
   const controller = createSoundController({
     startOn,
     save: (on) => saved.push(on),
     onBlocked: () => blockedCalls++,
+    onFailed: (url) => failures.push(url),
     makeAudio: (url) => {
       const a: FakeAudio = {
         url,
@@ -19,6 +21,7 @@ function setup({ startOn = false, refuse = false } = {}) {
         plays: 0,
         play() {
           a.plays++
+          if (url === missing) return Promise.reject(Object.assign(new Error('no supported sources'), { name: 'NotSupportedError' }))
           if (refuse) return Promise.reject(Object.assign(new Error('needs a tap'), { name: 'NotAllowedError' }))
           a.paused = false
           return Promise.resolve()
@@ -32,7 +35,7 @@ function setup({ startOn = false, refuse = false } = {}) {
     },
   })
   const playing = () => audios.filter((a) => !a.paused).map((a) => a.url)
-  return { controller, audios, playing, saved, blockedCalls: () => blockedCalls, allowTaps: () => (refuse = false) }
+  return { controller, audios, playing, saved, failures, blockedCalls: () => blockedCalls, allowTaps: () => (refuse = false) }
 }
 
 const settle = () => new Promise((r) => setTimeout(r, 0))
@@ -49,7 +52,7 @@ describe('card sound', () => {
     controller.toggle('potw')
     await settle()
     expect(playing()).toEqual(['/potw.mp3'])
-    expect(controller.snapshot()).toEqual({ on: true, playing: '/potw.mp3', blocked: false })
+    expect(controller.snapshot()).toEqual({ on: true, playing: '/potw.mp3', blocked: false, failed: null })
     expect(saved).toEqual([true])
 
     controller.toggle('potw')
@@ -87,6 +90,27 @@ describe('card sound', () => {
     expect(playing()).toEqual(['/potw.mp3'])
   })
 
+  it("tapping the speaker on a card that isn't playing switches to it; on the playing card it mutes", async () => {
+    const { controller, playing } = setup()
+    controller.add('potw', '/potw.mp3')
+    controller.add('chenda', '/chenda.mp3')
+    controller.seen('potw', 1)
+    controller.seen('chenda', 1)
+    controller.toggle('potw')
+    await settle()
+    expect(playing()).toEqual(['/potw.mp3'])
+
+    controller.toggle('chenda')
+    await settle()
+    expect(playing()).toEqual(['/chenda.mp3'])
+    expect(controller.snapshot().on).toBe(true)
+
+    controller.toggle('chenda')
+    await settle()
+    expect(playing()).toEqual([])
+    expect(controller.snapshot().on).toBe(false)
+  })
+
   it('stops when the app goes to the background or the card leaves the page', async () => {
     const { controller, playing } = setup()
     controller.add('potw', '/potw.mp3')
@@ -109,7 +133,7 @@ describe('card sound', () => {
     controller.add('potw', '/potw.mp3')
     controller.seen('potw', 1)
     await settle()
-    expect(controller.snapshot()).toEqual({ on: true, playing: null, blocked: true })
+    expect(controller.snapshot()).toEqual({ on: true, playing: null, blocked: true, failed: null })
     expect(blockedCalls()).toBe(1)
 
     allowTaps()
@@ -117,6 +141,24 @@ describe('card sound', () => {
     await settle()
     expect(playing()).toEqual(['/potw.mp3'])
     expect(controller.snapshot().blocked).toBe(false)
+  })
+
+  it('reports a track that will not load (an old copy of the app asking for a replaced file)', async () => {
+    const { controller, playing, failures } = setup({ missing: '/old-potw.mp3' })
+    controller.add('potw', '/old-potw.mp3')
+    controller.add('chenda', '/chenda.mp3')
+    controller.seen('potw', 1)
+    controller.toggle('potw')
+    await settle()
+    expect(playing()).toEqual([])
+    expect(failures).toEqual(['/old-potw.mp3'])
+    expect(controller.snapshot()).toEqual({ on: true, playing: null, blocked: false, failed: '/old-potw.mp3' })
+
+    // Another card's track still plays.
+    controller.seen('potw', 0)
+    controller.seen('chenda', 1)
+    await settle()
+    expect(playing()).toEqual(['/chenda.mp3'])
   })
 
   it('a tap on the speaker while waiting starts the sound rather than muting it', async () => {
