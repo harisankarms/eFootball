@@ -15,4 +15,5 @@ Tips:
 
 - **15 to 45 seconds** is plenty. The track loops, so trim it where it can repeat without a jump.
 - **Keep it under about 1 MB** (an MP3 at 128 kbps is about 1 MB a minute). Nothing downloads until someone taps the speaker.
+- **Match the loudness of the other track.** Tracks play exactly as they are (iPhones don't let a website change the volume), so a loud track next to a quiet one is jarring. The current two are evened out to about -21 dB on average; ask Claude to balance a new one.
 - **This repository is public**, so anyone can download what's in it. Your own recordings are fine; think twice before adding songs you don't own.
