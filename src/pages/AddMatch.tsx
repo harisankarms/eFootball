@@ -704,7 +704,7 @@ function MatchForm({ league, me, existing }: { league: League; me: Player; exist
         )}
       </section>
 
-      <div className="sticky bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-10 md:bottom-4">
+      <div className="sticky bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-10 lg:bottom-4">
         {formError && (
           <p role="alert" className="mb-2 rounded-xl border border-loss/40 bg-[#2a1216] px-3.5 py-2.5 text-sm text-[#ffd0d0]">
             {formError}

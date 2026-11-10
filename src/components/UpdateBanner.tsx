@@ -48,7 +48,7 @@ export function UpdateBanner() {
   return (
     <div
       role="status"
-      className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] left-4 right-[5.5rem] z-40 flex animate-rise items-center gap-3 rounded-2xl border border-accent/30 bg-surface-2 py-2 pr-2 pl-4 text-sm shadow-2xl md:right-6 md:bottom-6 md:left-auto md:w-80"
+      className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] left-4 right-[5.5rem] z-40 flex animate-rise items-center gap-3 rounded-2xl border border-accent/30 bg-surface-2 py-2 pr-2 pl-4 text-sm shadow-2xl lg:right-6 lg:bottom-6 lg:left-auto lg:w-80"
     >
       <span className="min-w-0 flex-1 font-medium">New version ready</span>
       <button

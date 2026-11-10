@@ -342,23 +342,33 @@ function Header() {
   }, [name])
   return (
     <header className="pt-safe sticky top-0 z-40 bg-bg/90">
-      <div className="mx-auto flex h-15 max-w-5xl items-center gap-3 px-4">
+      {/* The menu needs about 920px with short labels and 1030px with long ones, so it only
+          shows from 1024px wide (below that the bottom bar takes over), spells labels out from
+          1280px, and gets a little extra width there. A long group name shortens; the menu never wraps. */}
+      <div className="mx-auto flex h-15 max-w-5xl items-center gap-3 px-4 xl:max-w-6xl">
         <Link to="/" className="group flex min-w-0 items-center gap-2.5">
           <BallLogo className="h-9 w-9 shrink-0 drop-shadow-[0_0_12px_rgb(61_255_143/0.45)] transition duration-500 group-hover:rotate-[72deg]" />
           <Wordmark name={name} className="truncate text-[1.6rem] leading-none" />
         </Link>
-        <nav className={`ml-5 hidden items-center gap-1 ${isMember ? 'md:flex' : ''}`} aria-label="Main">
+        <nav className={`ml-5 hidden shrink-0 items-center gap-1 ${isMember ? 'lg:flex' : ''}`} aria-label="Main">
           {[...NAV, ...DESKTOP_EXTRA].map((n) => {
             const active = n.match(pathname)
             return (
               <NavLink
                 key={n.to}
                 to={n.to}
-                className={`relative rounded-lg px-3 py-2 text-sm font-semibold transition ${
+                className={`relative rounded-lg px-3 py-2 text-sm font-semibold whitespace-nowrap transition ${
                   active ? 'bg-white/[0.06] text-ink' : 'text-muted hover:bg-white/[0.04] hover:text-ink'
                 }`}
               >
-                {n.long ?? n.label}
+                {n.long ? (
+                  <>
+                    <span className="xl:hidden">{n.label}</span>
+                    <span className="hidden xl:inline">{n.long}</span>
+                  </>
+                ) : (
+                  n.label
+                )}
                 {active && (
                   <span
                     aria-hidden
@@ -371,7 +381,7 @@ function Header() {
         </nav>
         <div className="ml-auto flex shrink-0 items-center gap-2.5">
           {isMember && (
-            <div className="hidden md:block">
+            <div className="hidden lg:block">
               <Link to="/add" className={buttonClass('primary', 'sm')}>
                 <Plus className="h-4 w-4" aria-hidden strokeWidth={2.75} />
                 Add result
@@ -389,7 +399,7 @@ function Header() {
 function BottomNav() {
   const { pathname } = useLocation()
   return (
-    <nav aria-label="Main" className="pb-safe fixed inset-x-0 bottom-0 z-40 bg-[#060b1d]/95 md:hidden">
+    <nav aria-label="Main" className="pb-safe fixed inset-x-0 bottom-0 z-40 bg-[#060b1d]/95 lg:hidden">
       <div aria-hidden className="glow-line h-px opacity-60" />
       <div className="mx-auto grid h-16 max-w-lg grid-cols-6 items-center">
         {NAV.map((n) => {
@@ -424,7 +434,7 @@ function AddButton() {
     <Link
       to="/add"
       aria-label="Add result"
-      className="fixed right-4 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-40 grid h-14 w-14 place-items-center rounded-2xl bg-[linear-gradient(135deg,#3dff8f,#22d3ee)] text-accent-ink shadow-[0_14px_34px_-8px_rgb(61_255_143/0.8)] transition active:scale-95 md:hidden"
+      className="fixed right-4 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-40 grid h-14 w-14 place-items-center rounded-2xl bg-[linear-gradient(135deg,#3dff8f,#22d3ee)] text-accent-ink shadow-[0_14px_34px_-8px_rgb(61_255_143/0.8)] transition active:scale-95 lg:hidden"
     >
       <span aria-hidden className="absolute inset-0 animate-pulse-ring rounded-2xl bg-accent/50" />
       <Plus className="relative h-7 w-7" strokeWidth={2.75} />
@@ -476,7 +486,7 @@ export function Layout() {
       <Header />
       {isDemo && <DemoBanner />}
       {isMember && <StaleNotice />}
-      <main className="mx-auto w-full max-w-5xl px-4 pt-6 pb-[calc(8rem+env(safe-area-inset-bottom))] md:pt-9 md:pb-16">
+      <main className="mx-auto w-full max-w-5xl px-4 pt-6 pb-[calc(8rem+env(safe-area-inset-bottom))] md:pt-9 lg:pb-16">
         <div key={pathname} className="animate-page">
           <PageBoundary>
             <Suspense fallback={<PageSkeleton />}>{page}</Suspense>
