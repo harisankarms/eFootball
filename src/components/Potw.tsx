@@ -287,8 +287,7 @@ export function CollectibleCard({ league, row, caption, mini = false, to, figure
   const player = id ? league.byId.get(id) : undefined
   const color = id ? league.colorOf(id) : '#3b4566'
   const photo = player?.avatar_url && !broken ? player.avatar_url : null
-  // The chenda card puts the player's face on the drum, so it never shows a cut-out figure.
-  const figure = chenda ? null : figureUrl !== undefined ? figureUrl : player?.card_url && !figureBroken ? player.card_url : null
+  const figure = figureUrl !== undefined ? figureUrl : player?.card_url && !figureBroken ? player.card_url : null
   const name = player?.name ?? (chenda ? 'Nobody yet' : 'Up for grabs')
   const rating = row ? cardRating(row) : null
   const stats = chenda
@@ -307,9 +306,36 @@ export function CollectibleCard({ league, row, caption, mini = false, to, figure
 
   const stars = starsFor(rating)
 
+  const portrait = (
+    <div
+      className="potw-portrait"
+      style={photo ? undefined : { background: `radial-gradient(circle at 30% 25%, rgb(255 255 255 / 0.3), transparent 55%), ${color}` }}
+    >
+      {photo ? (
+        <img src={photo} alt="" referrerPolicy="no-referrer" onError={() => setBroken(true)} />
+      ) : (
+        <span className="potw-portrait-initials" style={{ color: row ? inkOn(color) : '#d6deef' }}>
+          {row ? initials(name) : '?'}
+        </span>
+      )}
+    </div>
+  )
+  // On the chenda card the player stands behind the drum, so the scene draws them.
+  const chendaFigure = chenda && row && figure ? figure : null
+  const art = chenda ? null : figure ? <img className="potw-figure" src={figure} alt="" onError={() => setFigureBroken(true)} /> : portrait
+
   const inner = (
     <div className="epic-clip" aria-hidden>
-      {chenda ? <ChendaScene /> : mini ? <StillTunnel empty={!row} /> : <LiveTunnel empty={!row} active={onScreen} />}
+      {chenda ? (
+        <ChendaScene
+          photo={!chendaFigure}
+          performer={chendaFigure ? <img className="chenda-figure" src={chendaFigure} alt="" onError={() => setFigureBroken(true)} /> : portrait}
+        />
+      ) : mini ? (
+        <StillTunnel empty={!row} />
+      ) : (
+        <LiveTunnel empty={!row} active={onScreen} />
+      )}
       <div className="epic-shade" />
       <div className="epic-content">
         <div className="potw-card-top">
@@ -317,26 +343,16 @@ export function CollectibleCard({ league, row, caption, mini = false, to, figure
             <div className="potw-rating">{rating ?? '??'}</div>
             <div className="potw-position">{chenda ? 'CHENDA' : 'POTW'}</div>
           </div>
-          <Badge className="potw-award-icon" />
-        </div>
-        <div className="potw-card-art">
-          {figure ? (
-            <img className="potw-figure" src={figure} alt="" onError={() => setFigureBroken(true)} />
-          ) : (
-            <div
-              className={`potw-portrait ${chenda ? 'chenda-anim' : ''}`}
-              style={photo ? undefined : { background: `radial-gradient(circle at 30% 25%, rgb(255 255 255 / 0.3), transparent 55%), ${color}` }}
-            >
-              {photo ? (
-                <img src={photo} alt="" referrerPolicy="no-referrer" onError={() => setBroken(true)} />
-              ) : (
-                <span className="potw-portrait-initials" style={{ color: row ? inkOn(color) : '#d6deef' }}>
-                  {row ? initials(name) : '?'}
-                </span>
-              )}
+          {chenda ? (
+            <div className="chenda-badge">
+              <Badge className="potw-award-icon" />
+              <span lang="ml">ചെണ്ട</span>
             </div>
+          ) : (
+            <Badge className="potw-award-icon" />
           )}
         </div>
+        <div className="potw-card-art">{art}</div>
         <div className="potw-card-player-name">{name}</div>
         <div className="potw-card-label">{caption}</div>
         <div className="potw-card-divider" />

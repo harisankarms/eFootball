@@ -37,11 +37,11 @@ export function ChendaSpotlight({ league, week, lastWeek }: Props) {
           caption={live ? 'Chenda of the week' : last ? "Last week's chenda" : 'Chenda of the week'}
           to={shown ? `/players/${shown.playerId}` : undefined}
         />
-        <div className="min-w-0">
+        <div className="chenda-details">
           <h3 className="chenda-name">{shown ? league.nameOf(shown.playerId) : 'Nobody yet'}</h3>
           {shown && (
             <>
-              <div className="chenda-figure">
+              <div className="chenda-figure-line">
                 {formatPerGame(shown)}
                 <small>pts a game</small>
               </div>

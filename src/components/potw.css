@@ -541,19 +541,7 @@
   transform: translateX(-50%) scale(1.04);
 }
 
-/* On the chenda card the face sits on the drum, below the head the sticks hit */
-.potw-card.is-chenda .potw-card-art {
-  place-items: end center;
-}
-
-.potw-card.is-chenda .potw-portrait {
-  width: 30%;
-}
-
-.potw-card.is-chenda .potw-portrait-initials {
-  font-size: clamp(11px, 12cqi, 40px);
-}
-
+/* The chenda card draws its player in the scene (see chenda.css) */
 .potw-card.is-chenda .potw-position {
   text-shadow: 0 1px 4px rgb(0 0 0 / 0.85);
 }
