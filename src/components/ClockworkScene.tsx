@@ -46,8 +46,10 @@ function cogPath(inner: number, outer: number, teeth: number) {
 }
 
 type PartKind = 'ring' | 'dial' | 'cog' | 'bars'
+/** Where a part goes when the whole scene is drawn as one picture (see ClockworkStill). */
+type Box = { x: number; y: number; width: number; height: number }
 
-function PartArt({ kind, id }: { kind: PartKind; id: string }) {
+function PartArt({ kind, id, box }: { kind: PartKind; id: string; box?: Box }) {
   const glow = `url(#${id}g)`
   const defs = (
     <defs>
@@ -63,7 +65,7 @@ function PartArt({ kind, id }: { kind: PartKind; id: string }) {
   if (kind === 'ring') {
     const teeth = radialBars(80, 72, 11, 3.4)
     return (
-      <svg viewBox="0 0 200 200" aria-hidden>
+      <svg viewBox="0 0 200 200" aria-hidden {...box}>
         {defs}
         <g filter={glow}>
           <circle cx={C} cy={C} r="76" fill="none" stroke="#ff7a00" strokeWidth="11" />
@@ -80,7 +82,7 @@ function PartArt({ kind, id }: { kind: PartKind; id: string }) {
     const blocks = radialBars(54, 14, 30, 13, Math.PI / 14)
     const ticks = radialBars(44, 56, 5, 1.6)
     return (
-      <svg viewBox="0 0 200 200" aria-hidden>
+      <svg viewBox="0 0 200 200" aria-hidden {...box}>
         {defs}
         <g filter={glow}>
           <path d={blocks} fill="none" stroke="#ff5a0a" strokeWidth="6" />
@@ -97,7 +99,7 @@ function PartArt({ kind, id }: { kind: PartKind; id: string }) {
   if (kind === 'cog') {
     const outline = cogPath(70, 88, 12)
     return (
-      <svg viewBox="0 0 200 200" aria-hidden>
+      <svg viewBox="0 0 200 200" aria-hidden {...box}>
         {defs}
         <path d={outline} fill="none" stroke="#ff6a12" strokeWidth="7" filter={glow} opacity="0.75" />
         <path d={outline} fill={`url(#${id}m)`} stroke="#ffa040" strokeWidth="2" strokeLinejoin="round" />
@@ -123,7 +125,7 @@ function PartArt({ kind, id }: { kind: PartKind; id: string }) {
   }
   // A row of glowing bars, like lit panels along a rail.
   return (
-    <svg viewBox="0 0 200 40" aria-hidden>
+    <svg viewBox="0 0 200 40" aria-hidden {...box}>
       {defs}
       <g filter={glow}>
         {Array.from({ length: 9 }, (_, i) => (
@@ -138,9 +140,9 @@ function PartArt({ kind, id }: { kind: PartKind; id: string }) {
 }
 
 /** Light running round a rim: a short bright arc turning faster than its ring. */
-function Sweep({ id }: { id: string }) {
+function Sweep({ id, box }: { id: string; box?: Box }) {
   return (
-    <svg viewBox="0 0 200 200" aria-hidden>
+    <svg viewBox="0 0 200 200" aria-hidden {...box}>
       <defs>
         <filter id={`${id}s`} x="-20%" y="-20%" width="140%" height="140%">
           <feGaussianBlur stdDeviation="4" />
@@ -153,9 +155,9 @@ function Sweep({ id }: { id: string }) {
 }
 
 /** A beaded chain: a line of dots that creeps along. */
-function Chain() {
+function Chain({ box }: { box?: Box }) {
   return (
-    <svg viewBox="0 0 400 10" preserveAspectRatio="none" aria-hidden>
+    <svg viewBox="0 0 400 10" preserveAspectRatio="none" aria-hidden {...box}>
       <line className="clock-chain-dots" x1="0" y1="5" x2="400" y2="5" stroke="#ff9a3a" strokeWidth="4" strokeDasharray="0.1 9" strokeLinecap="round" />
     </svg>
   )
@@ -196,6 +198,77 @@ const EMBERS = Array.from({ length: 12 }, (_, i) => ({
   duration: 3.6 + ((i * 7) % 5) * 0.5,
   size: 0.9 + ((i * 3) % 4) * 0.35,
 }))
+
+/**
+ * The same scene as one still picture (for share images): the plane's tilt drawn flat, the
+ * parts where the moving scene has them, a few embers frozen mid-air. 1000 x 1430, like a card.
+ */
+export function ClockworkStill() {
+  const id = useId().replace(/:/g, '')
+  const W = 1000
+  const H = 1430
+  const plane = W * 1.75
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox={`0 0 ${W} ${H}`} width={W} height={H}>
+      <defs>
+        <radialGradient id={`${id}bg`} cx="50%" cy="45%" r="75%">
+          <stop offset="0" stopColor="#651807" />
+          <stop offset="0.46" stopColor="#320812" />
+          <stop offset="1" stopColor="#0e0308" />
+        </radialGradient>
+        {[
+          ['h1', '#961c50', 0.45],
+          ['h2', '#6c167c', 0.5],
+          ['h3', '#ff6018', 0.22],
+          ['glow', '#ff8424', 0.32],
+        ].map(([key, color, alpha]) => (
+          <radialGradient key={key} id={`${id}${key}`}>
+            <stop offset="0" stopColor={color as string} stopOpacity={alpha} />
+            <stop offset="1" stopColor={color as string} stopOpacity="0" />
+          </radialGradient>
+        ))}
+        <filter id={`${id}e`} x="-200%" y="-200%" width="500%" height="500%">
+          <feGaussianBlur stdDeviation="5" />
+        </filter>
+      </defs>
+      <rect width={W} height={H} fill={`url(#${id}bg)`} />
+      <ellipse cx={W * 0.24} cy={H * 0.3} rx={W * 0.55} ry={H * 0.3} fill={`url(#${id}h1)`} />
+      <ellipse cx={W * 0.8} cy={H * 0.76} rx={W * 0.62} ry={H * 0.36} fill={`url(#${id}h2)`} />
+      <ellipse cx={W * 0.72} cy={H * 0.18} rx={W * 0.48} ry={H * 0.25} fill={`url(#${id}h3)`} />
+      <g transform={`translate(${W / 2} ${H * 0.46}) rotate(33) scale(1 0.59) translate(${-plane / 2} ${-plane / 2})`}>
+        {PARTS.map((p, i) => {
+          const size = (p.size / 100) * plane
+          const height = p.kind === 'bars' ? size / 5 : p.kind === 'chain' ? size / 40 : size
+          const cx = (p.x / 100) * plane
+          const cy = (p.y / 100) * plane
+          const box = { x: cx - size / 2, y: cy - height / 2, width: size, height }
+          return (
+            <g key={i} transform={`rotate(${p.start ?? 0} ${cx} ${cy})`}>
+              {p.kind === 'sweep' ? (
+                <Sweep id={`${id}${i}`} box={box} />
+              ) : p.kind === 'chain' ? (
+                <Chain box={box} />
+              ) : (
+                <PartArt kind={p.kind} id={`${id}${i}`} box={box} />
+              )}
+            </g>
+          )
+        })}
+      </g>
+      <ellipse cx={W / 2} cy={H / 2} rx={W * 0.46} ry={H * 0.34} fill={`url(#${id}glow)`} />
+      {EMBERS.map((e, i) => {
+        const cx = (e.left / 100) * W
+        const cy = H * (0.2 + ((i * 0.37) % 0.75))
+        return (
+          <g key={i}>
+            <circle cx={cx} cy={cy} r={e.size * 9} fill="#ff8828" opacity="0.8" filter={`url(#${id}e)`} />
+            <circle cx={cx} cy={cy} r={e.size * 4} fill="#ffd38c" />
+          </g>
+        )
+      })}
+    </svg>
+  )
+}
 
 export function ClockworkScene() {
   const id = useId().replace(/:/g, '')

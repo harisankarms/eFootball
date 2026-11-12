@@ -6,6 +6,7 @@ import { Avatar } from '../components/Avatar'
 import { MatchComments } from '../components/Comments'
 import { Lightbox } from '../components/Lightbox'
 import { MatchStatsCard } from '../components/MatchStatsCard'
+import { ShareButton } from '../components/Share'
 import { useToast } from '../components/Toast'
 import { BackButton, Button, EmptyState, ErrorState, PageSkeleton, Sheet, buttonClass } from '../components/ui'
 import { friendlyError } from '../lib/api'
@@ -104,7 +105,14 @@ export default function MatchDetail() {
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
-      <BackButton fallback="/matches" />
+      <div className="flex items-center justify-between gap-3">
+        <BackButton fallback="/matches" />
+        <ShareButton
+          name={`${nameOf(m.home_id)}-${m.home_goals}-${m.away_goals}-${nameOf(m.away_id)}`}
+          text={`${nameOf(m.home_id)} ${m.home_goals}–${m.away_goals} ${nameOf(m.away_id)}`}
+          make={(p) => p.matchPoster(league, m)}
+        />
+      </div>
 
       <section className="card p-5">
         <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-2">

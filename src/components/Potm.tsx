@@ -5,6 +5,7 @@ import { formatPoints, groupByMonth, monthMinimum, monthResult, type MonthResult
 import { addMonths, dayKey, durationLabel, monthCardLabel, monthKey, monthLabel, startOfDay } from '../lib/time'
 import { Avatar } from './Avatar'
 import { CollectibleCard } from './Potw'
+import { ShareButton } from './Share'
 
 export type MonthView = {
   /** This month so far. */
@@ -93,6 +94,25 @@ export function PotmSpotlight({ league, view, now }: { league: League; view: Mon
             {durationLabel(endsAt.getTime() - now.getTime())} left this month. Most points wins, with at least {min} games in the month.
             {!crowned && !current.winner && leader ? ` ${league.nameOf(leader.playerId)} needs ${leader.gamesNeeded} more.` : ''}
           </p>
+          <ShareButton
+            className="mt-4"
+            label="Share card"
+            name={`player-of-the-month-${shownMonth}`}
+            text={
+              crowned
+                ? `${league.nameOf(row.playerId)} is Player of the Month for ${monthLabel(shownMonth)} 🏆`
+                : `${league.nameOf(row.playerId)} leads the Player of the Month race`
+            }
+            make={(p) =>
+              p.cardPoster(league, {
+                kind: 'potm',
+                row,
+                month: shownMonth,
+                caption: monthCardLabel(shownMonth),
+                subtitle: crowned ? `${monthLabel(shownMonth)} champion` : `${monthLabel(shownMonth)} · live race`,
+              })
+            }
+          />
         </div>
       </div>
     </section>

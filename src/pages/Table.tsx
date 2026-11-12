@@ -2,6 +2,7 @@ import { CalendarDays, ChevronLeft, ChevronRight, Crown, Drum, Info, ListOrdered
 import { useMemo } from 'react'
 import { useSearchParams } from 'react-router'
 import { Avatar } from '../components/Avatar'
+import { ShareButton } from '../components/Share'
 import { StandingsTable } from '../components/StandingsTable'
 import { StatLeaders } from '../components/StatLeaders'
 import { EmptyState, ErrorState, PageSkeleton, PageTitle, SectionTitle, Segmented } from '../components/ui'
@@ -113,7 +114,27 @@ export default function Table() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <PageTitle title="Table" />
+      <PageTitle
+        title="Table"
+        action={
+          period.rows.length > 0 && (
+            <ShareButton
+              name={`table-${view}-${period.title}`}
+              text={`${league.settings.group_name}: ${view === 'all' ? 'all-time table' : `table, ${period.title}`}`}
+              make={(p) =>
+                p.tablePoster(league, {
+                  rows: period.rows,
+                  first: view === 'all' ? 'All-time' : view === 'month' ? 'Month' : 'Week',
+                  rest: 'table',
+                  subtitle: view === 'all' ? period.note ?? '' : `${period.title}${period.note ? ` · ${period.note}` : ''}`,
+                  crownId: view !== 'all' ? period.winner?.playerId : null,
+                  drumId: view === 'week' ? period.chenda?.playerId : null,
+                })
+              }
+            />
+          )
+        }
+      />
       <Segmented label="Period" value={view} options={VIEWS} onChange={(v) => go({ view: v, at: null })} />
 
       {view !== 'all' ? (

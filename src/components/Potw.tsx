@@ -3,11 +3,12 @@ import { useEffect, useId, useRef, useState, type PointerEvent, type RefObject }
 import { Link } from 'react-router'
 import { inkOn } from '../lib/colors'
 import { useAuth, type League } from '../lib/queries'
-import { cardRating, formatPerGame, formatPoints, sideOf, winnerOf, type Awards, type Row, type WeekResult } from '../lib/stats'
+import { cardRating, cardStars, formatPerGame, formatPoints, sideOf, winnerOf, type Awards, type Row, type WeekResult } from '../lib/stats'
 import { addDays, durationLabel, monthCardLabel, monthLabel, startOfDay, weekLabel } from '../lib/time'
 import { roundLike, useCountUp } from '../lib/useCountUp'
 import { Avatar, initials } from './Avatar'
 import { SoundButton, useCardSound } from './CardSound'
+import { ShareButton } from './Share'
 import { ChendaScene } from './ChendaScene'
 import { ClockworkScene } from './ClockworkScene'
 import { EMPTY_TUNNEL, EPIC_TUNNEL, TUNNEL_START, createTunnel, readyTunnelStill, tunnelStill } from './epicTunnel'
@@ -258,12 +259,6 @@ function EpicFrame() {
   )
 }
 
-/** One to five stars from the card rating. */
-function starsFor(rating: number | null) {
-  if (rating == null) return 0
-  return rating >= 95 ? 5 : rating >= 88 ? 4 : rating >= 80 ? 3 : rating >= 72 ? 2 : 1
-}
-
 type CollectibleProps = {
   league: League
   /** The player's numbers for the week, or null for an empty "up for grabs" card. */
@@ -311,7 +306,7 @@ export function CollectibleCard({ league, row, caption, mini = false, to, figure
   const Badge = chenda ? Drum : Crown
   const chips = chenda ? [Drum, Volume2] : potm ? [CalendarDays, Crown] : [Crown, Flame]
 
-  const stars = starsFor(rating)
+  const stars = cardStars(rating)
 
   const portrait = (
     <div
@@ -514,6 +509,20 @@ export function PotwHero({ league, week, lastWeek, now }: HeroProps) {
                   Needs {featured.gamesNeeded} more game{featured.gamesNeeded === 1 ? '' : 's'} to qualify (minimum {min} a week).
                 </p>
               )}
+              <ShareButton
+                className="mt-4"
+                label="Share card"
+                name={`player-of-the-week-${week.weekKey}`}
+                text={`${league.nameOf(featured.playerId)} ${qualified ? 'leads the Player of the Week race' : 'tops the table this week'} (${weekLabel(week.weekKey)})`}
+                make={(p) =>
+                  p.cardPoster(league, {
+                    kind: 'potw',
+                    row: featured,
+                    caption: qualified ? 'Player of the week' : 'Race leader',
+                    subtitle: `${weekLabel(week.weekKey)} · live race`,
+                  })
+                }
+              />
             </>
           ) : (
             <>

@@ -4,6 +4,8 @@ import type { League } from '../lib/queries'
 import { formatPerGame, type WeekResult } from '../lib/stats'
 import { Avatar } from './Avatar'
 import { CollectibleCard } from './Potw'
+import { ShareButton } from './Share'
+import { weekLabel } from '../lib/time'
 
 type Props = { league: League; week: WeekResult; lastWeek: WeekResult | null }
 
@@ -51,6 +53,22 @@ export function ChendaSpotlight({ league, week, lastWeek }: Props) {
             </>
           )}
           <p className="chenda-note">{note}</p>
+          {shown && (
+            <ShareButton
+              className="mt-4"
+              label="Share card"
+              name={`chenda-${(live ? week : lastWeek)?.weekKey ?? 'week'}`}
+              text={`${league.nameOf(shown.playerId)} ${live ? 'is on the chenda this week' : 'got the chenda last week'} 🥁`}
+              make={(p) =>
+                p.cardPoster(league, {
+                  kind: 'chenda',
+                  row: shown,
+                  caption: live ? 'Chenda of the week' : "Last week's chenda",
+                  subtitle: `${weekLabel((live ? week : lastWeek!).weekKey)}${live ? ' · live' : ''}`,
+                })
+              }
+            />
+          )}
         </div>
       </div>
 

@@ -567,6 +567,12 @@ export function cardRating(r: Row): number {
   return Math.max(60, Math.min(99, Math.round(raw)))
 }
 
+/** One to five stars from a card rating. */
+export function cardStars(rating: number | null): number {
+  if (rating == null) return 0
+  return rating >= 95 ? 5 : rating >= 88 ? 4 : rating >= 80 ? 3 : rating >= 72 ? 2 : 1
+}
+
 export function formatPoints(n: number): string {
   return String(Math.round(n * 100) / 100)
 }

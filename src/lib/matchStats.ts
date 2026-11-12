@@ -19,6 +19,19 @@ export const STAT_LABELS = {
 } as const
 
 export type StatKey = keyof typeof STAT_LABELS
+
+const HEADLINE_STATS: StatKey[] = ['possession', 'shots', 'shots_on_target', 'passes', 'tackles', 'saves', 'interceptions', 'corners']
+
+/** The match's main stats as display lines: label, each side's value, and the home side's share (0 to 1). */
+export function matchStatLines(m: Match): { label: string; home: string; away: string; share: number }[] {
+  const stats = m.details?.stats
+  if (!stats) return []
+  return HEADLINE_STATS.filter((k) => stats[k]).map((k) => {
+    const [home, away] = stats[k]!
+    const unit = k === 'possession' ? '%' : ''
+    return { label: STAT_LABELS[k], home: `${home}${unit}`, away: `${away}${unit}`, share: home + away ? home / (home + away) : 0.5 }
+  })
+}
 /** Home and away values for each stat that could be read. */
 export type MatchStats = Partial<Record<StatKey, [number, number]>>
 /** One side's numbers from a match's stats table. */

@@ -409,6 +409,22 @@ export function readyTunnelStill(colors: TunnelColors) {
   return readyStills.get(colors)
 }
 
+/** One frame at any size, made fresh (for share images); null without WebGL. */
+export function tunnelFrame(colors: TunnelColors, width: number, height: number): string | null {
+  const canvas = document.createElement('canvas')
+  const tunnel = createTunnel(canvas, colors, { preserveDrawingBuffer: true })
+  if (!tunnel) return null
+  try {
+    tunnel.resize(width, height)
+    tunnel.draw(STILL_AT)
+    return canvas.toDataURL('image/jpeg', 0.92)
+  } catch {
+    return null
+  } finally {
+    tunnel.destroy()
+  }
+}
+
 /** One frame of the background as an image, for the small collection cards (one WebGL context for all of them). */
 export function tunnelStill(colors: TunnelColors, width: number, height: number): Promise<string | null> {
   let still = stills.get(colors)
