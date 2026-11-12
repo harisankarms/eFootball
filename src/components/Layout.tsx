@@ -45,7 +45,7 @@ const NAV: NavItem[] = [
   { to: '/table', label: 'Table', icon: ListOrdered, match: (p) => p.startsWith('/table') },
   { to: '/tournaments', label: 'Cups', long: 'Tournaments', icon: Trophy, match: (p) => p.startsWith('/tournaments') },
   { to: '/h2h', label: 'H2H', long: 'Head to Head', icon: Swords, match: (p) => p.startsWith('/h2h') },
-  { to: '/players', label: 'Players', icon: Users, match: (p) => p.startsWith('/players') || p.startsWith('/hall-of-fame') },
+  { to: '/players', label: 'Players', icon: Users, match: (p) => p.startsWith('/players') || p.startsWith('/hall-of-fame') || p.startsWith('/records') },
 ]
 
 /** Extra links that fit in the desktop header but not the phone's bottom bar. */

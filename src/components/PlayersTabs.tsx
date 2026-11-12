@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router'
 const TABS = [
   { to: '/players', label: 'Squad' },
   { to: '/hall-of-fame', label: 'Hall of Fame' },
+  { to: '/records', label: 'Records' },
 ]
 
 export function PlayersTabs() {

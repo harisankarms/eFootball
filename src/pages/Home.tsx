@@ -4,6 +4,7 @@ import { Link } from 'react-router'
 import { AnnouncementCard, ComposerSheet } from '../components/Announcements'
 import { ChendaSpotlight } from '../components/ChendaSpotlight'
 import { MatchCard } from '../components/MatchCard'
+import { RecordNewsCard, useNewsFeed } from '../components/Records'
 import { AwardsStrip, PotwHero } from '../components/Potw'
 import { StandingsTable } from '../components/StandingsTable'
 import { useToast } from '../components/Toast'
@@ -77,10 +78,11 @@ function InviteCard() {
 
 function SquadNews({ league }: { league: League }) {
   const news = useAnnouncements()
+  const feed = useNewsFeed(league, news.data)
   const { isMember } = useAuth()
   const [composing, setComposing] = useState(false)
-  if (!news.data) return null
-  const latest = news.data.slice(0, 3)
+  if (!feed) return null
+  const latest = feed.slice(0, 3)
   if (!latest.length && !isMember) return null
   return (
     <section>
@@ -93,15 +95,19 @@ function SquadNews({ league }: { league: League }) {
                 <PenLine className="h-4 w-4" aria-hidden /> Post
               </button>
             )}
-            {news.data.length > 0 && <MoreLink to="/news">All news</MoreLink>}
+            {feed.length > 0 && <MoreLink to="/news">All news</MoreLink>}
           </div>
         }
       />
       {latest.length ? (
         <div className="space-y-2.5">
-          {latest.map((a) => (
-            <AnnouncementCard key={a.id} announcement={a} league={league} />
-          ))}
+          {latest.map((item) =>
+            item.kind === 'post' ? (
+              <AnnouncementCard key={item.post.id} announcement={item.post} league={league} />
+            ) : (
+              <RecordNewsCard key={`${item.record.key}-${item.at}`} item={item.record} league={league} />
+            ),
+          )}
         </div>
       ) : (
         <button onClick={() => setComposing(true)} className="card card-hover flex w-full items-center gap-3 p-4 text-left">

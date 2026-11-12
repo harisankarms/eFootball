@@ -19,6 +19,7 @@ const load = {
   newTournament: () => import('./pages/NewTournament'),
   tournament: () => import('./pages/Tournament'),
   hallOfFame: () => import('./pages/HallOfFame'),
+  records: () => import('./pages/Records'),
   achievements: () => import('./pages/Achievements'),
   news: () => import('./pages/News'),
   admin: () => import('./pages/Admin'),
@@ -42,6 +43,7 @@ const Tournaments = page(load.tournaments)
 const NewTournament = page(load.newTournament)
 const TournamentPage = page(load.tournament)
 const HallOfFame = page(load.hallOfFame)
+const Records = page(load.records)
 const Achievements = page(load.achievements)
 const News = page(load.news)
 const Admin = page(load.admin)
@@ -93,6 +95,7 @@ export default function App() {
         <Route path="tournaments/new" element={<NewTournament />} />
         <Route path="tournaments/:id" element={<TournamentPage />} />
         <Route path="hall-of-fame" element={<HallOfFame />} />
+        <Route path="records" element={<Records />} />
         <Route path="achievements" element={<Achievements />} />
         <Route path="news" element={<News />} />
         <Route path="admin" element={<Admin />} />
