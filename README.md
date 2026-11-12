@@ -6,6 +6,11 @@ A small, free website for a group of friends who play eFootball. Log every resul
 - **Tables** for this week, this month and all time, with form, goal difference and win %.
 - **Player of the Week**, decided by points: 3 per win, 1 per draw, 0.5 per goal, 1 per clean sheet, minimum 3 games. Ties go to win %, then goal difference, then goals, then head-to-head. The admin can change all of this.
 - **Weekly awards**: Golden Boot, The Wall, Biggest Win and the **Chenda**, a card showing the player as a chenda melam performer in front of a nettipattam, for whoever has the fewest points a game that week (among players with the minimum games, once at least three have them).
+- **Player of the Month**: the most points over the month (at least three times the weekly minimum of games), on its own clockwork card.
+- **Week in review**: after each week, a story like Instagram's runs through the winner, the awards, the chenda, any records that fell and the final table.
+- **Share as a picture**: the cards, any result, the table and every story slide turn into a picture for WhatsApp or Instagram.
+- **Form rating**: one number per player, like chess ratings. Beating someone rated higher earns more. Each profile has its rating over time.
+- **Records**: biggest win, longest streaks, most points in a week and more, with a news item when one falls.
 - **Head to Head**: pick any two players to see every result between them, their record, goals, streaks and form, plus a list of every rivalry in the group.
 - **Player profiles** and a **Hall of Fame** of every past winner.
 - **Disputes**: the other player can flag a wrong result within 24 hours. It stops counting until the admin sorts it out.

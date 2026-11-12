@@ -1,4 +1,4 @@
-import { BrickWall, CalendarDays, Crown, Drum, Footprints, Trophy } from 'lucide-react'
+import { BrickWall, CalendarDays, Crown, Drum, Footprints, Play, Trophy } from 'lucide-react'
 import { useMemo } from 'react'
 import { Link } from 'react-router'
 import { Avatar } from '../components/Avatar'
@@ -148,8 +148,11 @@ export default function HallOfFame() {
                     <Link to={`/table?at=${w.weekKey}`} className="font-semibold text-ink-2 hover:text-ink">
                       {weekLabel(w.weekKey)}
                     </Link>
-                    <span>
+                    <span className="flex items-center gap-3">
                       {w.matches.length} match{w.matches.length === 1 ? '' : 'es'}
+                      <Link to={`/?recap=${w.weekKey}`} className="flex items-center gap-1 font-semibold text-accent hover:text-cyan">
+                        <Play className="h-3 w-3" fill="currentColor" aria-hidden /> Recap
+                      </Link>
                     </span>
                   </div>
                   {w.winner ? (

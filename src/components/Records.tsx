@@ -73,7 +73,8 @@ export function breakSentence(league: League, b: RecordBreak): string {
       ? ` Beats their own ${info.unit(b.previous.value)}.`
       : ` The old record was ${info.unit(b.previous.value)} by ${league.nameOf(b.previous.holder)}.`
     : ''
-  return `${name} ${info.shame ? 'now holds an unwanted record' : 'set a new record'}: ${info.title.toLowerCase()}, ${now}.${was}`
+  const title = info.title[0].toLowerCase() + info.title.slice(1)
+  return `${name} ${info.shame ? 'now holds an unwanted record' : 'set a new record'}: ${title}, ${now}.${was}`
 }
 
 export type NewsItem = { kind: 'post'; at: string; post: Announcement } | { kind: 'record'; at: string; record: RecordBreak }

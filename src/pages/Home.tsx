@@ -1,6 +1,6 @@
-import { Camera, ChevronRight, Copy, Crown, Megaphone, PenLine, Plus, Share2, Trophy, UserPlus, Users } from 'lucide-react'
-import { useMemo, useState } from 'react'
-import { Link } from 'react-router'
+import { Camera, ChevronRight, Copy, Crown, Megaphone, PenLine, Play, Plus, Share2, Trophy, UserPlus, Users } from 'lucide-react'
+import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router'
 import { AnnouncementCard, ComposerSheet } from '../components/Announcements'
 import { ChendaSpotlight } from '../components/ChendaSpotlight'
 import { MatchCard } from '../components/MatchCard'
@@ -10,9 +10,9 @@ import { AwardsStrip, PotwHero } from '../components/Potw'
 import { StandingsTable } from '../components/StandingsTable'
 import { useToast } from '../components/Toast'
 import { BallLogo, Button, ErrorState, GlowIcon, PageSkeleton, SectionTitle, Wordmark, buttonClass, type Tint } from '../components/ui'
-import { formatPoints, groupByWeek, newestFirst, weekResult } from '../lib/stats'
+import { formatPoints, groupByWeek, newestFirst, weekResult, type WeekResult } from '../lib/stats'
 import { useAnnouncements, useAuth, useJoinRequests, useLeague, useNow, useTournaments, type League } from '../lib/queries'
-import { addDays, weekKey } from '../lib/time'
+import { addDays, startOfDay, weekKey, weekLabel } from '../lib/time'
 import { phaseLabel, tournamentState } from '../lib/tournaments'
 
 function MoreLink({ to, children }: { to: string; children: string }) {
@@ -242,10 +242,55 @@ function LiveTournaments({ league }: { league: League }) {
   )
 }
 
+// The story downloads when it's first opened.
+const Recap = lazy(() => import('../components/Recap').then((m) => ({ default: m.Recap })))
+
+const RECAP_SEEN = 'eft-recap-seen'
+
+function readSeen() {
+  try {
+    return localStorage.getItem(RECAP_SEEN)
+  } catch {
+    return null
+  }
+}
+
+function markSeen(week: string) {
+  try {
+    localStorage.setItem(RECAP_SEEN, week)
+  } catch {
+    // Private mode: it may show again next visit.
+  }
+}
+
+/** A button to watch last week's recap. */
+function RecapBanner({ week, onOpen }: { week: WeekResult; onOpen: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="card card-hover flex w-full items-center gap-3 border-accent/25 bg-[linear-gradient(90deg,rgb(61_255_143/0.1),rgb(34_211_238/0.04))] p-3.5 text-left"
+    >
+      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[linear-gradient(135deg,#3dff8f,#22d3ee)] text-accent-ink shadow-[0_0_20px_-4px_rgb(61_255_143/0.8)]">
+        <Play className="ml-0.5 h-4 w-4" fill="currentColor" aria-hidden />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block font-semibold">Week in review</span>
+        <span className="block truncate text-xs text-muted">
+          {weekLabel(week.weekKey)} · {week.matches.length} games · tap to watch
+        </span>
+      </span>
+      <ChevronRight className="h-4 w-4 shrink-0 text-muted" aria-hidden />
+    </button>
+  )
+}
+
 export default function Home() {
   const { league, error, refetch } = useLeague()
-  const { isAdmin } = useAuth()
+  const { isAdmin, isMember } = useAuth()
   const now = useNow()
+  const [params, setParams] = useSearchParams()
+  const [recapOpen, setRecapOpen] = useState(false)
 
   const view = useMemo(() => {
     if (!league) return null
@@ -253,13 +298,31 @@ export default function Home() {
     const current = weekKey(now, tz)
     const previous = addDays(current, -7)
     const byWeek = groupByWeek(matches, tz)
+    // A recap asked for by link (e.g. from the Hall of Fame), or last week's.
+    const asked = params.get('recap')
+    const recapKey = asked && /^\d{4}-\d{2}-\d{2}$/.test(asked) && asked < current ? weekKey(startOfDay(asked, tz), tz) : previous
     return {
       week: weekResult(byWeek.get(current) ?? [], settings, current, nameOf),
       lastWeek: weekResult(byWeek.get(previous) ?? [], settings, previous, nameOf),
+      recapWeek: weekResult(byWeek.get(recapKey) ?? [], settings, recapKey, nameOf),
       month: monthView(league, now),
       latest: newestFirst(matches).slice(0, 6),
     }
-  }, [league, now])
+  }, [league, now, params])
+
+  // Last week's recap opens by itself once, the first time a member opens the app after the week ends.
+  const lastKey = view?.lastWeek.weekKey
+  const lastPlayed = (view?.lastWeek.matches.length ?? 0) > 0
+  useEffect(() => {
+    if (params.get('recap')) setRecapOpen(true)
+    else if (isMember && lastKey && lastPlayed && readSeen() !== lastKey) setRecapOpen(true)
+  }, [params, isMember, lastKey, lastPlayed])
+
+  const closeRecap = () => {
+    setRecapOpen(false)
+    if (lastKey) markSeen(lastKey)
+    if (params.get('recap')) setParams({}, { replace: true })
+  }
 
   if (error) return <ErrorState error={error} onRetry={refetch} />
   if (!league || !view) return <PageSkeleton />
@@ -268,7 +331,13 @@ export default function Home() {
   return (
     <div className="space-y-7">
       {isAdmin && <WaitingBanner />}
+      {recapOpen && view.recapWeek.matches.length > 0 && (
+        <Suspense fallback={null}>
+          <Recap league={league} week={view.recapWeek} onClose={closeRecap} />
+        </Suspense>
+      )}
       <PotwHero league={league} week={view.week} lastWeek={view.lastWeek} now={now} />
+      {view.lastWeek.matches.length > 0 && <RecapBanner week={view.lastWeek} onOpen={() => setRecapOpen(true)} />}
       {/* In a month's first week, last month's winner has just been crowned: show them up top. */}
       {view.month.fresh && <PotmSpotlight league={league} view={view.month} now={now} />}
       <LiveTournaments league={league} />

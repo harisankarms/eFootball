@@ -1,0 +1,321 @@
+/* The week's recap: a full-screen story, like Instagram's. */
+
+/* z-index 50 like sheets, so a share sheet opened from a slide (added to the page later) sits on top */
+.recap {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  justify-content: center;
+  background: #02040c;
+  color: #f2f5ff;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.recap-frame {
+  position: relative;
+  display: flex;
+  width: 100%;
+  max-width: 480px;
+  height: 100%;
+  flex-direction: column;
+  overflow: hidden;
+  container-type: inline-size;
+  background: var(--recap-bg, linear-gradient(160deg, #0b1630, #050816 60%));
+  transition: background 500ms ease;
+}
+
+@media (min-width: 520px) {
+  .recap {
+    align-items: center;
+    background: rgb(2 4 12 / 0.92);
+  }
+  .recap-frame {
+    height: min(100%, 860px);
+    border-radius: 24px;
+    box-shadow: 0 30px 90px -20px rgb(0 0 0 / 0.9);
+  }
+}
+
+.recap-frame[data-theme='potw'] {
+  --recap-bg: radial-gradient(90% 60% at 50% 35%, rgb(61 255 122 / 0.18), transparent 70%), linear-gradient(160deg, #04180c, #020a05 70%);
+  --recap-accent: #f6d77a;
+}
+.recap-frame[data-theme='chenda'] {
+  --recap-bg: radial-gradient(90% 60% at 50% 35%, rgb(255 138 61 / 0.22), transparent 70%), linear-gradient(160deg, #2b0b06, #130302 70%);
+  --recap-accent: #ffad6b;
+}
+.recap-frame[data-theme='boot'] {
+  --recap-bg: radial-gradient(80% 55% at 50% 30%, rgb(255 207 77 / 0.2), transparent 70%), linear-gradient(160deg, #1d1606, #07060a 70%);
+  --recap-accent: #ffcf4d;
+}
+.recap-frame[data-theme='wall'] {
+  --recap-bg: radial-gradient(80% 55% at 50% 30%, rgb(34 211 238 / 0.2), transparent 70%), linear-gradient(160deg, #061a24, #03070d 70%);
+  --recap-accent: #67e8f9;
+}
+.recap-frame[data-theme='win'] {
+  --recap-bg: radial-gradient(80% 55% at 50% 38%, rgb(61 255 143 / 0.18), transparent 70%), linear-gradient(160deg, #071a14, #03080a 70%);
+  --recap-accent: #3dff8f;
+}
+.recap-frame[data-theme='records'] {
+  --recap-bg: radial-gradient(80% 55% at 50% 25%, rgb(139 92 246 / 0.24), transparent 70%), linear-gradient(160deg, #140c2c, #05050f 70%);
+  --recap-accent: #c4b5fd;
+}
+.recap-frame[data-theme='intro'],
+.recap-frame[data-theme='table'],
+.recap-frame[data-theme='outro'] {
+  --recap-accent: #3dff8f;
+}
+
+/* Progress bars and the close button */
+.recap-top {
+  position: relative;
+  z-index: 3;
+  padding: calc(10px + env(safe-area-inset-top)) 12px 0;
+}
+
+.recap-bars {
+  display: flex;
+  gap: 4px;
+}
+
+.recap-bar {
+  height: 3px;
+  flex: 1;
+  overflow: hidden;
+  border-radius: 3px;
+  background: rgb(255 255 255 / 0.25);
+}
+
+.recap-bar > span {
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: inherit;
+  background: #fff;
+}
+
+.recap-bar.is-done > span {
+  width: 100%;
+}
+
+.recap-bar.is-now > span {
+  animation: recap-fill var(--recap-ms, 6000ms) linear forwards;
+}
+
+@keyframes recap-fill {
+  to {
+    width: 100%;
+  }
+}
+
+.recap-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  color: rgb(242 245 255 / 0.8);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+.recap-close {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: rgb(255 255 255 / 0.08);
+}
+
+/* The slide */
+.recap-stage {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 12px 22px;
+  text-align: center;
+}
+
+.recap-kicker {
+  color: var(--recap-accent);
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+}
+
+.recap-title {
+  font-family: var(--font-display);
+  font-size: clamp(40px, 13cqi, 64px);
+  line-height: 0.92;
+  font-weight: 700;
+  font-style: italic;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+.recap-sub {
+  color: #b9c3e4;
+  font-size: 15px;
+  line-height: 1.4;
+}
+
+.recap-big {
+  color: var(--recap-accent);
+  font-family: var(--font-display);
+  font-size: clamp(64px, 26cqi, 120px);
+  line-height: 0.9;
+  font-weight: 700;
+  font-style: italic;
+}
+
+.recap-card {
+  width: min(64cqi, 280px, 42dvh);
+}
+
+.recap-card .potw-card {
+  width: 100%;
+}
+
+.recap-tiles {
+  display: grid;
+  width: 100%;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.recap-tile {
+  padding: 14px 6px;
+  border: 1px solid rgb(255 255 255 / 0.08);
+  border-radius: 18px;
+  background: rgb(255 255 255 / 0.04);
+}
+
+.recap-tile strong {
+  display: block;
+  font-family: var(--font-display);
+  font-size: 40px;
+  line-height: 1;
+  font-weight: 700;
+  font-style: italic;
+}
+
+.recap-tile span {
+  color: #8090b8;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.recap-list {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+}
+
+.recap-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid rgb(255 255 255 / 0.08);
+  border-radius: 16px;
+  background: rgb(255 255 255 / 0.045);
+}
+
+/* Bottom bar: share and next */
+.recap-bottom {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 16px calc(14px + env(safe-area-inset-bottom));
+}
+
+/* Entrances, staggered */
+.recap-in {
+  animation: recap-in 600ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation-delay: calc(var(--i, 0) * 110ms + 80ms);
+}
+
+@keyframes recap-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.recap-pop {
+  animation: recap-pop 700ms cubic-bezier(0.2, 1.4, 0.4, 1) both;
+  animation-delay: calc(var(--i, 0) * 110ms + 80ms);
+}
+
+@keyframes recap-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6) rotate(-4deg);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.recap-glow {
+  position: absolute;
+  z-index: 1;
+  left: 50%;
+  top: 40%;
+  width: 120cqi;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--recap-accent) 22%, transparent), transparent);
+  transform: translate(-50%, -50%);
+  animation: recap-breathe 3s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+@keyframes recap-breathe {
+  from {
+    opacity: 0.6;
+    transform: translate(-50%, -50%) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1.05);
+  }
+}
+
+.recap[data-paused] .recap-bar.is-now > span,
+.recap[data-paused] .recap-glow {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .recap-in,
+  .recap-pop,
+  .recap-glow {
+    animation: none;
+  }
+}
