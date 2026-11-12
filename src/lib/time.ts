@@ -119,6 +119,12 @@ export function shortDate(date: Date | string, tz: string): string {
   return `${WEEKDAYS_LONG[weekdayOf(key)].slice(0, 3)} ${d} ${MONTHS[m - 1]}`
 }
 
+/** "20 Oct" */
+export function dayMonth(date: Date | string | number, tz: string): string {
+  const [, m, d] = splitKey(dayKey(new Date(date), tz))
+  return `${d} ${MONTHS[m - 1]}`
+}
+
 /** "20 Oct 2026" */
 export function longDate(date: Date | string, tz: string): string {
   const [y, m, d] = splitKey(dayKey(date, tz))

@@ -31,10 +31,12 @@ import { FormChips } from '../components/FormChips'
 import { LevelBadge, XpBar } from '../components/Level'
 import { MatchCard } from '../components/MatchCard'
 import { CollectibleCard } from '../components/Potw'
+import { RatingPanel } from '../components/Rating'
 import { BackButton, Badge, Button, EmptyState, ErrorState, PageSkeleton, SectionTitle, StatTile, buttonClass, type Tint } from '../components/ui'
 import { api } from '../lib/backend'
 import { formatStat, playerStats, type StatSummary } from '../lib/matchStats'
 import { useAuth, useLeague, useNow, useProgress } from '../lib/queries'
+import { ratings } from '../lib/rating'
 import { formatPct, involves, newestFirst, pastWeeks, playerSummary, signed, trophyCounts, type Outcome } from '../lib/stats'
 import { longDate, weekKey, weekLabel } from '../lib/time'
 
@@ -101,6 +103,7 @@ export default function PlayerProfile() {
       chendaWeeks: weeks.filter((w) => w.awards.chenda?.playerId === id),
       recent: mine.slice(0, 5),
       gallery: mine.filter((m) => m.thumb_path || m.screenshot_path).slice(0, 9),
+      ratings: ratings(matches),
     }
   }, [league, id, now])
 
@@ -231,6 +234,8 @@ export default function PlayerProfile() {
             <div className="mb-3 text-xs font-medium text-muted">Last {s.form.length} games, oldest to newest</div>
             <FormChips form={s.form} size="md" />
           </section>
+
+          <RatingPanel league={league} id={id} all={data.ratings} now={now} />
 
           {data.stats.matches > 0 && (
             <section>

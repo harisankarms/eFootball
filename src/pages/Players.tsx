@@ -4,8 +4,10 @@ import { Link } from 'react-router'
 import { Avatar } from '../components/Avatar'
 import { LevelBadge } from '../components/Level'
 import { PlayersTabs } from '../components/PlayersTabs'
+import { RatingsCard } from '../components/Rating'
 import { Badge, EmptyState, ErrorState, PageSkeleton, PageTitle } from '../components/ui'
 import { useAuth, useLeague, useNow, useProgress } from '../lib/queries'
+import { ratings } from '../lib/rating'
 import { buildTable, formatPct, pastWeeks, trophyCounts } from '../lib/stats'
 import { weekKey } from '../lib/time'
 
@@ -31,6 +33,7 @@ export default function Players() {
           a.player.name.localeCompare(b.player.name),
       )
   }, [league, now])
+  const all = useMemo(() => (league ? ratings(league.matches) : null), [league])
 
   if (error) return <ErrorState error={error} onRetry={refetch} />
   if (!league) return <PageSkeleton />
@@ -39,6 +42,7 @@ export default function Players() {
     <div className="mx-auto max-w-3xl">
       <PageTitle title="Players" subtitle={`${squad.filter((s) => s.player.active).length} in the squad`} />
       <PlayersTabs />
+      {all && <RatingsCard league={league} all={all} now={now} />}
       {squad.length === 0 ? (
         <EmptyState icon={Users} title="No players yet">
           The first person to sign in becomes the admin and can add everyone else.
