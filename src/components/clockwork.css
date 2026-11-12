@@ -5,17 +5,20 @@
   position: absolute;
   inset: 0;
   overflow: hidden;
-  background: radial-gradient(120% 80% at 50% 45%, #651807 0%, #320812 46%, #0e0308 100%);
+  /* Deep red, warmer in the middle, so the neon rims stand out bright against it */
+  background: radial-gradient(110% 80% at 50% 40%, #c8340a 0%, #961a07 32%, #5c0c06 64%, #2a0408 100%);
 }
 
-/* Smoky red and purple haze, drifting slowly */
+/* Smoke drifting slowly: darker red patches for depth, a little warmth here and there */
 .clock-haze {
   position: absolute;
   inset: -20%;
   background:
-    radial-gradient(38% 28% at 24% 30%, rgb(150 28 80 / 0.45), transparent 70%),
-    radial-gradient(44% 34% at 80% 76%, rgb(108 22 124 / 0.5), transparent 70%),
-    radial-gradient(34% 24% at 72% 18%, rgb(255 96 24 / 0.22), transparent 70%);
+    radial-gradient(34% 26% at 26% 80%, rgb(96 22 80 / 0.5), transparent 70%),
+    radial-gradient(30% 22% at 22% 62%, rgb(60 4 2 / 0.5), transparent 70%),
+    radial-gradient(28% 20% at 82% 30%, rgb(70 6 2 / 0.5), transparent 70%),
+    radial-gradient(36% 26% at 70% 62%, rgb(255 150 50 / 0.14), transparent 70%),
+    radial-gradient(30% 22% at 30% 26%, rgb(255 140 40 / 0.12), transparent 70%);
   animation: clock-haze 18s ease-in-out infinite alternate;
 }
 
@@ -120,11 +123,14 @@
   }
 }
 
-/* Warm light behind the player */
+/* Bloom: the light of the rims spilling over everything, brightest behind the player */
 .clock-glow {
   position: absolute;
   inset: 0;
-  background: radial-gradient(46% 34% at 50% 50%, rgb(255 132 36 / 0.32), transparent 72%);
+  background:
+    radial-gradient(46% 32% at 50% 44%, rgb(255 130 50 / 0.26), transparent 72%),
+    radial-gradient(80% 60% at 50% 50%, rgb(255 80 20 / 0.1), transparent 80%);
+  mix-blend-mode: screen;
   animation: clock-breathe 3.2s ease-in-out infinite alternate;
 }
 
@@ -214,42 +220,146 @@
   );
 }
 
-/* The month, where a nation's flag would go */
+/* Light shading only: the fire stays bright, the text carries its own dark outline */
+.potw-card.is-potm .epic-shade {
+  background: linear-gradient(
+    180deg,
+    rgb(40 4 0 / 0.3) 0%,
+    transparent 18%,
+    transparent 64%,
+    rgb(40 5 0 / 0.38) 82%,
+    rgb(24 3 0 / 0.62) 100%
+  );
+}
+
+/* The date and name sit about three quarters of the way down, over the player */
+.potw-card.is-potm .epic-content {
+  padding: 7% 8% 29%;
+}
+
+/* Big upright white rating and position in a heavy face, outlined in black */
+.potw-card.is-potm .potw-rating {
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: clamp(22px, 19cqi, 64px);
+  font-style: normal;
+  font-weight: 900;
+  letter-spacing: -0.05em;
+  line-height: 0.95;
+  text-shadow:
+    0 0 0.5cqi #000,
+    0 0 0.5cqi #000,
+    0 0.6cqi 2.4cqi rgb(0 0 0 / 0.75);
+}
+
+.potw-card.is-potm .potw-position {
+  margin-top: 0.6cqi;
+  color: #fff;
+  font-family: var(--font-sans);
+  font-size: clamp(10px, 8.6cqi, 29px);
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: -0.03em;
+  text-shadow:
+    0 0 0.5cqi #000,
+    0 0.5cqi 2cqi rgb(0 0 0 / 0.75);
+}
+
+/* The month, where a player's flag would go: a small flag-shaped plate */
 .potm-badge {
   display: grid;
+  width: 19cqi;
+  aspect-ratio: 3 / 2;
   place-items: center;
-  margin-top: 1cqi;
-  padding: 1.1cqi 2.4cqi;
-  border-radius: 1.4cqi;
+  margin-top: 3cqi;
+  border-radius: 0.8cqi;
   color: #2a0c02;
-  background: linear-gradient(135deg, #ffe6a8, #ff9a2e 70%, #e0661a);
+  background: linear-gradient(135deg, #fff1c4, #ffb340 55%, #e8641a);
   box-shadow:
-    0 0 0 0.45cqi #5a2208,
-    0 0 3cqi rgb(255 140 40 / 0.55);
+    0 0 0 0.45cqi #f4f1ea,
+    0 0 0 0.8cqi rgb(0 0 0 / 0.35),
+    0 0.6cqi 2cqi rgb(0 0 0 / 0.5);
   font-family: var(--font-display);
-  font-size: clamp(7px, 4.4cqi, 14px);
+  font-size: clamp(8px, 6.4cqi, 20px);
   line-height: 1;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
+}
+
+/* Hexagonal chips on the plate, as on the reference: an outlined hexagon, one glowing cyan, one
+   dark grey, with the icon in a dark middle */
+.potw-card.is-potm .epic-chip {
+  position: relative;
+  border-radius: 0;
+  clip-path: polygon(25% 3%, 75% 3%, 100% 50%, 75% 97%, 25% 97%, 0 50%);
+  color: #7ff3ff;
+  background: linear-gradient(160deg, #a6f8ff, #22c4d8 50%, #0b7f90);
+  box-shadow: none;
+}
+
+.potw-card.is-potm .epic-chip::before {
+  content: '';
+  position: absolute;
+  inset: 13%;
+  clip-path: polygon(25% 3%, 75% 3%, 100% 50%, 75% 97%, 25% 97%, 0 50%);
+  background: radial-gradient(circle at 45% 35%, #0f3b44, #071a20);
+}
+
+.potw-card.is-potm .epic-chip svg {
+  position: relative;
+  width: 52%;
+  height: 52%;
+}
+
+.potw-card.is-potm .epic-chip:nth-child(2) {
+  color: #8d94a3;
+  background: linear-gradient(160deg, #8b92a0, #4a505c 50%, #2a2e36);
+}
+
+.potw-card.is-potm .epic-chip:nth-child(2)::before {
+  background: radial-gradient(circle at 45% 35%, #20242c, #111318);
+}
+
+/* A big figure: from near the top of the card down past the name */
+.potw-card.is-potm .potw-figure {
+  bottom: -62%;
+  width: 165%;
+  height: 218%;
+  filter: drop-shadow(0 0.8cqi 2.4cqi rgb(0 0 0 / 0.55)) drop-shadow(0 0 4cqi rgb(255 170 60 / 0.4));
+  mask-image: linear-gradient(to bottom, #000 82%, transparent 100%);
+}
+
+/* Date and name, centred at the bottom */
+.potm-foot {
+  position: relative;
+  z-index: 3;
+  text-align: center;
 }
 
 .potm-date {
-  position: relative;
-  z-index: 3;
-  margin-top: 1cqi;
   color: #fff;
-  font-size: clamp(8px, 4.6cqi, 15px);
+  font-size: clamp(8px, 5.6cqi, 18px);
   line-height: 1.1;
   font-weight: 800;
-  text-shadow: 0 2px 8px #000;
+  text-shadow:
+    0 0 0.4cqi #000,
+    0 0.4cqi 1.8cqi rgb(0 0 0 / 0.85);
 }
 
-.potw-card.is-potm .potw-card-player-name {
-  margin-top: 0.6cqi;
-}
-
-.potw-card.is-potm .potw-card-stat span {
-  color: #e2c2a6;
+.potm-card-name {
+  margin-top: 0.4cqi;
+  overflow: hidden;
+  color: #fff;
+  font-size: clamp(11px, 8.6cqi, 29px);
+  line-height: 1.12;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-shadow:
+    0 0 0.5cqi #000,
+    0 0 0.5cqi #000,
+    0 0.5cqi 2.2cqi rgb(0 0 0 / 0.85);
 }
 
 /* ------------------------------------------------------------------

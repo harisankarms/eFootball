@@ -165,11 +165,81 @@ const CORNERS: Pt[][] = [
   [[83, 140.2], [91, 140.2], [97.2, 134], [97.2, 127]],
 ]
 const PLATE: Pt[] = [[33, 143], [33, 132.4], [36, 129.4], [64, 129.4], [67, 132.4], [67, 143]]
+/** The month card's wide plate with stepped wings. */
+const WIDE_PLATE: Pt[] = [[18, 143], [23, 138.2], [28.5, 138.2], [32, 129], [68, 129], [71.5, 138.2], [77, 138.2], [82, 143]]
 
 function poly(ctx: Ctx, pts: Pt[], x: number, y: number, w: number, h: number, close: boolean) {
   ctx.beginPath()
   pts.forEach(([u, v], i) => (i ? ctx.lineTo(x + (u * w) / 100, y + (v * h) / 143) : ctx.moveTo(x + (u * w) / 100, y + (v * h) / 143)))
   if (close) ctx.closePath()
+}
+
+/**
+ * The month card's face, like a special-edition card: a big outlined rating and position, the
+ * month on a small plate where a flag would be, and the date and name centred at the bottom.
+ */
+function drawMonthFace(ctx: Ctx, spec: CardSpec, name: string, rating: number | null, x: number, y: number, w: number, h: number) {
+  const pad = 0.08 * w
+  const outlined = (text: string, tx: number, ty: number, px: number) => {
+    ctx.lineJoin = 'round'
+    ctx.lineWidth = Math.max(2, px * 0.09)
+    ctx.strokeStyle = 'rgba(0,0,0,0.85)'
+    withShadow(ctx, 'rgba(0,0,0,0.7)', px * 0.25, () => ctx.strokeText(text, tx, ty), px * 0.04)
+    ctx.fillStyle = '#fff'
+    ctx.fillText(text, tx, ty)
+  }
+
+  ctx.textAlign = 'left'
+  ctx.textBaseline = 'top'
+  const top = y + 0.07 * w
+  const ratingPx = 0.19 * w
+  ctx.font = `900 ${ratingPx}px ${SANS}`
+  spacing(ctx, -0.05 * ratingPx)
+  outlined(rating == null ? '??' : String(rating), x + pad, top, ratingPx)
+  const posPx = 0.086 * w
+  const posY = top + ratingPx * 0.98
+  ctx.font = `900 ${posPx}px ${SANS}`
+  spacing(ctx, -0.03 * posPx)
+  outlined('POTM', x + pad, posY, posPx)
+  spacing(ctx, 0)
+
+  const label = spec.month ? monthCardLabel(spec.month).slice(0, 3).toUpperCase() : 'POTM'
+  const bw = 0.19 * w
+  const bh = 0.1267 * w
+  const bx = x + pad
+  const by = posY + posPx + 0.03 * w
+  const plate = ctx.createLinearGradient(bx, by, bx + bw, by + bh)
+  plate.addColorStop(0, '#fff1c4')
+  plate.addColorStop(0.55, '#ffb340')
+  plate.addColorStop(1, '#e8641a')
+  withShadow(
+    ctx,
+    'rgba(0,0,0,0.5)',
+    0.02 * w,
+    () => {
+      roundRect(ctx, bx, by, bw, bh, 0.008 * w)
+      ctx.fillStyle = plate
+      ctx.fill()
+    },
+    0.006 * w,
+  )
+  ctx.lineWidth = 0.0045 * w
+  ctx.strokeStyle = '#f4f1ea'
+  roundRect(ctx, bx, by, bw, bh, 0.008 * w)
+  ctx.stroke()
+  ctx.fillStyle = '#2a0c02'
+  ctx.font = `800 ${0.064 * w}px ${DISPLAY}`
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText(label, bx + bw / 2, by + bh / 2 + 1)
+
+  ctx.textBaseline = 'alphabetic'
+  const nameBase = y + h - 0.31 * w
+  const namePx = fitFont(ctx, name, w - 2 * pad, 0.086 * w, (px) => `800 ${px}px ${SANS}`, 0.05 * w)
+  outlined(name, x + w / 2, nameBase, namePx)
+  const datePx = 0.056 * w
+  ctx.font = `800 ${datePx}px ${SANS}`
+  outlined(clip(ctx, spec.caption, w - 2 * pad), x + w / 2, nameBase - namePx * 1.1, datePx)
 }
 
 async function drawCard(ctx: Ctx, league: League, spec: CardSpec, x: number, y: number, w: number, h: number) {
@@ -200,7 +270,9 @@ async function drawCard(ctx: Ctx, league: League, spec: CardSpec, x: number, y: 
     row ? loadImage(player?.card_url) : Promise.resolve(null),
     row ? loadImage(player?.avatar_url) : Promise.resolve(null),
     kind === 'potw' ? iconImage(Crown, t.bronze, Math.round(w * 0.09)) : kind === 'chenda' ? iconImage(Drum, t.bronze, Math.round(w * 0.07)) : Promise.resolve(null),
-    ...chipIcons.map((I) => iconImage(I, '#fff1dc', Math.round(w * 0.04))),
+    ...chipIcons.map((I, i) =>
+      iconImage(I, kind === 'potm' ? (i === 0 ? '#7ff3ff' : '#8d94a3') : '#fff1dc', Math.round(w * (kind === 'potm' ? 0.034 : 0.04))),
+    ),
   ])
 
   // Glow and shadow behind the card
@@ -238,129 +310,116 @@ async function drawCard(ctx: Ctx, league: League, spec: CardSpec, x: number, y: 
     } else portrait(x + w / 2, y + 0.355 * h, 0.155 * h)
     if (art.front) ctx.drawImage(art.front, x, y, w, h)
   } else if (figure) {
-    const b = containBox(figure, x - 0.175 * w, y + 0.06 * h, 1.35 * w, 0.76 * h)
+    // The month card's figure is bigger: from near the top down past the name.
+    const b =
+      kind === 'potm'
+        ? containBox(figure, x - 0.3 * w, y + 0.12 * h, 1.6 * w, 0.82 * h)
+        : containBox(figure, x - 0.175 * w, y + 0.06 * h, 1.35 * w, 0.76 * h)
     const off = newCanvas(Math.max(1, Math.ceil(b.w)), Math.max(1, Math.ceil(b.h)))
     off.ctx.drawImage(figure, 0, 0, b.w, b.h)
     off.ctx.globalCompositeOperation = 'destination-in'
     const fade = off.ctx.createLinearGradient(0, 0, 0, b.h)
     fade.addColorStop(0, '#000')
-    fade.addColorStop(0.74, '#000')
+    fade.addColorStop(kind === 'potm' ? 0.82 : 0.74, '#000')
     fade.addColorStop(1, 'rgba(0,0,0,0)')
     off.ctx.fillStyle = fade
     off.ctx.fillRect(0, 0, b.w, b.h)
-    withShadow(ctx, withAlpha(t.neon, 0.35), 40, () => ctx.drawImage(off.canvas, b.x, b.y))
+    if (kind === 'potm') withShadow(ctx, 'rgba(0,0,0,0.55)', 0.04 * w, () => ctx.drawImage(off.canvas, b.x, b.y), 0.012 * w)
+    withShadow(ctx, withAlpha(kind === 'potm' ? '#ffaa3c' : t.neon, 0.4), 40, () => ctx.drawImage(off.canvas, b.x, b.y))
   } else portrait(x + w / 2, y + 0.4 * h, 0.28 * w)
 
-  // Shade so the text reads over the light
+  // Shade so the text reads over the light (only a touch on the month card: its fire stays bright)
   const shade = ctx.createLinearGradient(0, y, 0, y + h)
-  shade.addColorStop(0, withAlpha(t.tunnel3, 0.6))
-  shade.addColorStop(0.22, withAlpha(t.tunnel3, 0))
-  shade.addColorStop(0.52, withAlpha(t.tunnel3, 0))
-  shade.addColorStop(0.78, withAlpha(t.tunnel3, 0.86))
-  shade.addColorStop(1, withAlpha(t.tunnel3, 0.96))
+  if (kind === 'potm') {
+    shade.addColorStop(0, 'rgba(40,4,0,0.3)')
+    shade.addColorStop(0.18, 'rgba(40,4,0,0)')
+    shade.addColorStop(0.64, 'rgba(40,5,0,0)')
+    shade.addColorStop(0.82, 'rgba(40,5,0,0.38)')
+    shade.addColorStop(1, 'rgba(24,3,0,0.62)')
+  } else {
+    shade.addColorStop(0, withAlpha(t.tunnel3, 0.6))
+    shade.addColorStop(0.22, withAlpha(t.tunnel3, 0))
+    shade.addColorStop(0.52, withAlpha(t.tunnel3, 0))
+    shade.addColorStop(0.78, withAlpha(t.tunnel3, 0.86))
+    shade.addColorStop(1, withAlpha(t.tunnel3, 0.96))
+  }
   ctx.fillStyle = shade
   ctx.fillRect(x, y, w, h)
 
-  const pad = 0.09 * w
-  ctx.textAlign = 'left'
-  ctx.textBaseline = 'top'
-  // Rating and position
-  ctx.font = `italic 700 ${0.18 * w}px ${DISPLAY}`
-  withShadow(ctx, '#000', 14, () => {
-    ctx.fillStyle = '#fff6dc'
-    ctx.fillText(rating == null ? '??' : String(rating), x + pad, y + pad)
-  })
-  ctx.font = `900 ${0.036 * w}px ${SANS}`
-  spacing(ctx, 0.008 * w)
-  ctx.fillStyle = t.bronze
-  ctx.fillText(kind === 'chenda' ? 'CHENDA' : kind === 'potm' ? 'POTM' : 'POTW', x + pad, y + pad + 0.18 * w * 0.92)
-  spacing(ctx, 0)
-  // The badge, top right
-  if (kind === 'potm') {
-    const text = spec.month ? monthCardLabel(spec.month).slice(0, 3).toUpperCase() : 'POTM'
-    ctx.font = `800 ${0.044 * w}px ${DISPLAY}`
-    const bw = ctx.measureText(text).width + 0.048 * w
-    const bh = 0.066 * w
-    const bx = x + w - pad - bw
-    const by = y + pad + 0.01 * w
-    const g = ctx.createLinearGradient(bx, by, bx + bw, by + bh)
-    g.addColorStop(0, '#ffe6a8')
-    g.addColorStop(0.7, '#ff9a2e')
-    g.addColorStop(1, '#e0661a')
-    withShadow(ctx, 'rgba(255,140,40,0.55)', 20, () => {
-      roundRect(ctx, bx, by, bw, bh, 0.014 * w)
-      ctx.fillStyle = g
-      ctx.fill()
-    })
-    ctx.fillStyle = '#2a0c02'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    ctx.fillText(text, bx + bw / 2, by + bh / 2 + 1)
+  if (kind === 'potm') drawMonthFace(ctx, spec, name, rating, x, y, w, h)
+  else drawFace()
+  ctx.restore()
+
+  function drawFace() {
+    const pad = 0.09 * w
     ctx.textAlign = 'left'
     ctx.textBaseline = 'top'
-  } else if (badge) {
-    const s = badge.width
-    ctx.drawImage(badge, x + w - pad - s, y + pad)
-    if (kind === 'chenda') {
-      ctx.font = `700 ${0.04 * w}px ${SANS}`
-      ctx.fillStyle = t.bronze
-      ctx.textAlign = 'right'
-      ctx.fillText('ചെണ്ട', x + w - pad, y + pad + s + 0.012 * w)
-      ctx.textAlign = 'left'
-    }
-  }
-
-  // Name, caption and stats, from the bottom up
-  ctx.textBaseline = 'alphabetic'
-  const statsBottom = y + h - 0.15 * w
-  const labelPx = 0.029 * w
-  const valuePx = 0.076 * w
-  const valueBase = statsBottom - labelPx - 0.015 * w
-  const statsTop = valueBase - valuePx
-  const dividerY = statsTop - 0.03 * w
-  const cols = stats.map((s) => {
-    ctx.font = `800 ${valuePx}px ${SANS}`
-    const vw = ctx.measureText(String(s.value ?? '–')).width
-    ctx.font = `800 ${labelPx}px ${SANS}`
-    return Math.max(vw, ctx.measureText(s.label).width + labelPx * 0.1 * s.label.length)
-  })
-  const inner = w - 2 * pad
-  const gapTotal = inner - cols.reduce((a, b) => a + b, 0)
-  let cx = x + pad
-  stats.forEach((s, i) => {
-    ctx.fillStyle = '#fff'
-    ctx.font = `800 ${valuePx}px ${SANS}`
-    ctx.fillText(String(s.value ?? '–'), cx, valueBase)
-    ctx.fillStyle = t.statLabel
-    ctx.font = `800 ${labelPx}px ${SANS}`
-    spacing(ctx, labelPx * 0.1)
-    ctx.fillText(s.label, cx, statsBottom)
+    // Rating and position
+    ctx.font = `italic 700 ${0.18 * w}px ${DISPLAY}`
+    withShadow(ctx, '#000', 14, () => {
+      ctx.fillStyle = '#fff6dc'
+      ctx.fillText(rating == null ? '??' : String(rating), x + pad, y + pad)
+    })
+    ctx.font = `900 ${0.036 * w}px ${SANS}`
+    spacing(ctx, 0.008 * w)
+    ctx.fillStyle = t.bronze
+    ctx.fillText(kind === 'chenda' ? 'CHENDA' : 'POTW', x + pad, y + pad + 0.18 * w * 0.92)
     spacing(ctx, 0)
-    cx += cols[i] + gapTotal / 2
-  })
-  const div = ctx.createLinearGradient(x + pad, 0, x + w - pad, 0)
-  div.addColorStop(0, t.bronze)
-  div.addColorStop(1, withAlpha(t.bronze, 0))
-  ctx.fillStyle = div
-  ctx.fillRect(x + pad, dividerY, inner, Math.max(1, 0.002 * w))
+    // The badge, top right
+    if (badge) {
+      const s = badge.width
+      ctx.drawImage(badge, x + w - pad - s, y + pad)
+      if (kind === 'chenda') {
+        ctx.font = `700 ${0.04 * w}px ${SANS}`
+        ctx.fillStyle = t.bronze
+        ctx.textAlign = 'right'
+        ctx.fillText('ചെണ്ട', x + w - pad, y + pad + s + 0.012 * w)
+        ctx.textAlign = 'left'
+      }
+    }
 
-  const nameFont = (px: number) => `italic 700 ${px}px ${DISPLAY}`
-  const drawName = (baseline: number) => {
-    fitFont(ctx, name.toUpperCase(), inner, 0.105 * w, nameFont, 0.06 * w)
-    withShadow(ctx, '#000', 12, () => {
-      ctx.fillStyle = '#fff'
-      ctx.fillText(name.toUpperCase(), x + pad, baseline)
+    // Name, caption and stats, from the bottom up
+    ctx.textBaseline = 'alphabetic'
+    const statsBottom = y + h - 0.15 * w
+    const labelPx = 0.029 * w
+    const valuePx = 0.076 * w
+    const valueBase = statsBottom - labelPx - 0.015 * w
+    const statsTop = valueBase - valuePx
+    const dividerY = statsTop - 0.03 * w
+    const cols = stats.map((s) => {
+      ctx.font = `800 ${valuePx}px ${SANS}`
+      const vw = ctx.measureText(String(s.value ?? '–')).width
+      ctx.font = `800 ${labelPx}px ${SANS}`
+      return Math.max(vw, ctx.measureText(s.label).width + labelPx * 0.1 * s.label.length)
     })
-  }
-  if (kind === 'potm') {
-    const nameBase = dividerY - 0.035 * w
-    drawName(nameBase)
-    ctx.font = `800 ${0.046 * w}px ${SANS}`
-    withShadow(ctx, '#000', 8, () => {
+    const inner = w - 2 * pad
+    const gapTotal = inner - cols.reduce((a, b) => a + b, 0)
+    let cx = x + pad
+    stats.forEach((s, i) => {
       ctx.fillStyle = '#fff'
-      ctx.fillText(clip(ctx, spec.caption, inner), x + pad, nameBase - 0.105 * w * 0.98)
+      ctx.font = `800 ${valuePx}px ${SANS}`
+      ctx.fillText(String(s.value ?? '–'), cx, valueBase)
+      ctx.fillStyle = t.statLabel
+      ctx.font = `800 ${labelPx}px ${SANS}`
+      spacing(ctx, labelPx * 0.1)
+      ctx.fillText(s.label, cx, statsBottom)
+      spacing(ctx, 0)
+      cx += cols[i] + gapTotal / 2
     })
-  } else {
+    const div = ctx.createLinearGradient(x + pad, 0, x + w - pad, 0)
+    div.addColorStop(0, t.bronze)
+    div.addColorStop(1, withAlpha(t.bronze, 0))
+    ctx.fillStyle = div
+    ctx.fillRect(x + pad, dividerY, inner, Math.max(1, 0.002 * w))
+
+    const nameFont = (px: number) => `italic 700 ${px}px ${DISPLAY}`
+    const drawName = (baseline: number) => {
+      fitFont(ctx, name.toUpperCase(), inner, 0.105 * w, nameFont, 0.06 * w)
+      withShadow(ctx, '#000', 12, () => {
+        ctx.fillStyle = '#fff'
+        ctx.fillText(name.toUpperCase(), x + pad, baseline)
+      })
+    }
     const capBase = dividerY - 0.035 * w
     ctx.font = `900 ${0.032 * w}px ${SANS}`
     spacing(ctx, 0.006 * w)
@@ -369,7 +428,6 @@ async function drawCard(ctx: Ctx, league: League, spec: CardSpec, x: number, y: 
     spacing(ctx, 0)
     drawName(capBase - 0.032 * w - 0.015 * w)
   }
-  ctx.restore()
 
   // Bronze frame, corner accents and the bottom plate
   const frame = ctx.createLinearGradient(x, y, x + w, y + h)
@@ -389,7 +447,7 @@ async function drawCard(ctx: Ctx, league: League, spec: CardSpec, x: number, y: 
     poly(ctx, c, x, y, w, h, false)
     ctx.stroke()
   }
-  poly(ctx, PLATE, x, y, w, h, true)
+  poly(ctx, kind === 'potm' ? WIDE_PLATE : PLATE, x, y, w, h, true)
   ctx.fillStyle = withAlpha(t.tunnel3, 0.92)
   ctx.fill()
   ctx.lineWidth = 0.0035 * w
@@ -404,18 +462,42 @@ async function drawCard(ctx: Ctx, league: League, spec: CardSpec, x: number, y: 
   chips.forEach((icon, i) => {
     const ccx = x + w / 2 + (i - 0.5) * (chipD + 0.026 * w)
     const ccy = top + chipD / 2
-    const g = ctx.createRadialGradient(ccx - chipD * 0.15, ccy - chipD * 0.2, 0, ccx, ccy, chipD / 2)
-    g.addColorStop(0, t.tunnel1)
-    g.addColorStop(1, t.tunnel3)
-    withShadow(ctx, withAlpha(t.neon, 0.35), 0.02 * w, () => {
-      ctx.beginPath()
-      ctx.arc(ccx, ccy, chipD / 2, 0, Math.PI * 2)
+    const g = ctx.createRadialGradient(ccx - chipD * 0.1, ccy - chipD * 0.15, 0, ccx, ccy, chipD / 2)
+    if (kind === 'potm') {
+      // Outlined hexagons, as on the reference card: one glowing cyan, one dark grey.
+      const hex = (r: number) => {
+        ctx.beginPath()
+        ;[[-0.5, -0.94], [0.5, -0.94], [1, 0], [0.5, 0.94], [-0.5, 0.94], [-1, 0]].forEach(([u, v], k) =>
+          k ? ctx.lineTo(ccx + u * r, ccy + v * r) : ctx.moveTo(ccx + u * r, ccy + v * r),
+        )
+        ctx.closePath()
+      }
+      const ring = ctx.createLinearGradient(ccx - chipD / 2, ccy - chipD / 2, ccx + chipD / 2, ccy + chipD / 2)
+      const [a, b2, c] = i === 0 ? ['#a6f8ff', '#22c4d8', '#0b7f90'] : ['#8b92a0', '#4a505c', '#2a2e36']
+      ring.addColorStop(0, a)
+      ring.addColorStop(0.5, b2)
+      ring.addColorStop(1, c)
+      hex(chipD / 2)
+      ctx.fillStyle = ring
+      ctx.fill()
+      g.addColorStop(0, i === 0 ? '#0f3b44' : '#20242c')
+      g.addColorStop(1, i === 0 ? '#071a20' : '#111318')
+      hex(chipD * 0.37)
       ctx.fillStyle = g
       ctx.fill()
-    })
-    ctx.lineWidth = 0.0045 * w
-    ctx.strokeStyle = withAlpha(t.neon, 0.6)
-    ctx.stroke()
+    } else {
+      g.addColorStop(0, t.tunnel1)
+      g.addColorStop(1, t.tunnel3)
+      withShadow(ctx, withAlpha(t.neon, 0.35), 0.02 * w, () => {
+        ctx.beginPath()
+        ctx.arc(ccx, ccy, chipD / 2, 0, Math.PI * 2)
+        ctx.fillStyle = g
+        ctx.fill()
+      })
+      ctx.lineWidth = 0.0045 * w
+      ctx.strokeStyle = withAlpha(t.neon, 0.6)
+      ctx.stroke()
+    }
     if (icon) ctx.drawImage(icon, ccx - icon.width / 2, ccy - icon.height / 2)
   })
   ctx.font = `700 ${starPx}px ${SANS}`

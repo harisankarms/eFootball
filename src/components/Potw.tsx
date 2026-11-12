@@ -218,7 +218,13 @@ function EpicTunnel() {
 }
 
 /** Bronze frame lines, corner accents and the bottom plate, drawn over the card. */
-function EpicFrame() {
+/** The plate: compact, or wide with stepped wings (the month card, like the reference card). */
+const PLATE = {
+  compact: 'M33 143 V132.4 L36 129.4 H64 L67 132.4 V143 Z',
+  wide: 'M18 143 L23 138.2 H28.5 L32 129 H68 L71.5 138.2 H77 L82 143 Z',
+}
+
+function EpicFrame({ wide = false }: { wide?: boolean }) {
   const id = useId()
   const bronze = `url(#${id}bronze)`
   return (
@@ -248,7 +254,7 @@ function EpicFrame() {
         <path d="M83 140.2 H91 L97.2 134 V127" vectorEffect="non-scaling-stroke" />
       </g>
       <path
-        d="M33 143 V132.4 L36 129.4 H64 L67 132.4 V143 Z"
+        d={wide ? PLATE.wide : PLATE.compact}
         style={{ fill: 'var(--tunnel-3)' }}
         fillOpacity="0.92"
         stroke={bronze}
@@ -346,33 +352,42 @@ export function CollectibleCard({ league, row, caption, mini = false, to, figure
           <div>
             <div className="potw-rating">{rating ?? '??'}</div>
             <div className="potw-position">{chenda ? 'CHENDA' : potm ? 'POTM' : 'POTW'}</div>
+            {/* The month sits under the position, where a player's flag would be. */}
+            {potm && <div className="potm-badge">{month ? monthCardLabel(month).slice(0, 3).toUpperCase() : 'POTM'}</div>}
           </div>
           {chenda ? (
             <div className="chenda-badge">
               <Badge className="potw-award-icon" />
               <span lang="ml">ചെണ്ട</span>
             </div>
-          ) : potm ? (
-            <div className="potm-badge">{month ? monthCardLabel(month).slice(0, 3).toUpperCase() : 'POTM'}</div>
-          ) : (
+          ) : potm ? null : (
             <Badge className="potw-award-icon" />
           )}
         </div>
         <div className="potw-card-art">{art}</div>
-        {potm && <div className="potm-date">{caption}</div>}
-        <div className="potw-card-player-name">{name}</div>
-        {!potm && <div className="potw-card-label">{caption}</div>}
-        <div className="potw-card-divider" />
-        <div className="potw-card-stats">
-          {stats.map((s) => (
-            <div key={s.label} className="potw-card-stat">
-              <strong>{s.value ?? '–'}</strong>
-              <span>{s.label.toUpperCase()}</span>
+        {potm ? (
+          // Just the date and the name, centred, like a special edition card.
+          <div className="potm-foot">
+            <div className="potm-date">{caption}</div>
+            <div className="potm-card-name">{name}</div>
+          </div>
+        ) : (
+          <>
+            <div className="potw-card-player-name">{name}</div>
+            <div className="potw-card-label">{caption}</div>
+            <div className="potw-card-divider" />
+            <div className="potw-card-stats">
+              {stats.map((s) => (
+                <div key={s.label} className="potw-card-stat">
+                  <strong>{s.value ?? '–'}</strong>
+                  <span>{s.label.toUpperCase()}</span>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </>
+        )}
       </div>
-      <EpicFrame />
+      <EpicFrame wide={potm} />
       <div className="epic-plate">
         <div className="epic-chips">
           {chips.map((Chip, i) => (

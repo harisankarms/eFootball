@@ -53,28 +53,28 @@ function PartArt({ kind, id, box }: { kind: PartKind; id: string; box?: Box }) {
   const glow = `url(#${id}g)`
   const defs = (
     <defs>
-      <filter id={`${id}g`} x="-20%" y="-20%" width="140%" height="140%">
-        <feGaussianBlur stdDeviation="3.2" />
+      <filter id={`${id}g`} x="-30%" y="-30%" width="160%" height="160%">
+        <feGaussianBlur stdDeviation="4.5" />
       </filter>
       <radialGradient id={`${id}m`} cx="45%" cy="40%" r="65%">
-        <stop offset="0" stopColor="#5a1d0a" />
-        <stop offset="1" stopColor="#1a0604" />
+        <stop offset="0" stopColor="#c8400c" stopOpacity="0.55" />
+        <stop offset="1" stopColor="#6a1405" stopOpacity="0.6" />
       </radialGradient>
     </defs>
   )
   if (kind === 'ring') {
-    const teeth = radialBars(80, 72, 11, 3.4)
+    const teeth = radialBars(80, 56, 18, 6.2)
     return (
       <svg viewBox="0 0 200 200" aria-hidden {...box}>
         {defs}
         <g filter={glow}>
-          <circle cx={C} cy={C} r="76" fill="none" stroke="#ff7a00" strokeWidth="11" />
-          <path d={teeth} fill="#ff8c10" />
+          <circle cx={C} cy={C} r="76" fill="none" stroke="#ff5200" strokeWidth="26" />
+          <path d={teeth} fill="#ff6a0a" />
         </g>
-        <circle cx={C} cy={C} r="76" fill="none" stroke="#ffa526" strokeWidth="6" />
-        <circle cx={C} cy={C} r="76" fill="none" stroke="#fff0bc" strokeWidth="1.8" />
-        <circle cx={C} cy={C} r="66" fill="none" stroke="#ff9a2a" strokeWidth="1.6" strokeDasharray="2 3" />
-        <path d={teeth} fill="#ffc444" />
+        <circle cx={C} cy={C} r="76" fill="none" stroke="#ff9a24" strokeWidth="11" />
+        <circle cx={C} cy={C} r="76" fill="none" stroke="#ffe49a" strokeWidth="4.2" />
+        <circle cx={C} cy={C} r="66" fill="none" stroke="#ff8a2a" strokeWidth="2" strokeDasharray="2 3" />
+        <path d={teeth} fill="#ffb440" />
       </svg>
     )
   }
@@ -85,14 +85,14 @@ function PartArt({ kind, id, box }: { kind: PartKind; id: string; box?: Box }) {
       <svg viewBox="0 0 200 200" aria-hidden {...box}>
         {defs}
         <g filter={glow}>
-          <path d={blocks} fill="none" stroke="#ff5a0a" strokeWidth="6" />
-          <circle cx={C} cy={C} r="92" fill="none" stroke="#ff7a00" strokeWidth="6" />
+          <path d={blocks} fill="none" stroke="#ff4600" strokeWidth="13" />
+          <circle cx={C} cy={C} r="92" fill="none" stroke="#ff5200" strokeWidth="9" />
         </g>
-        <path d={blocks} fill="rgb(255 120 30 / 0.16)" stroke="#ffa03a" strokeWidth="2.6" strokeLinejoin="round" />
-        <circle cx={C} cy={C} r="92" fill="none" stroke="#ffd27a" strokeWidth="2" />
-        <circle cx={C} cy={C} r="96" fill="none" stroke="#ff8a2a" strokeWidth="1" strokeDasharray="1.5 4" />
-        <path d={ticks} fill="#ffcf7a" opacity="0.9" />
-        <circle cx={C} cy={C} r="42" fill="none" stroke="#ff9a3a" strokeWidth="1.4" />
+        <path d={blocks} fill="rgb(255 110 30 / 0.22)" stroke="#ffa83a" strokeWidth="4.6" strokeLinejoin="round" />
+        <circle cx={C} cy={C} r="92" fill="none" stroke="#ffc878" strokeWidth="2.6" />
+        <circle cx={C} cy={C} r="96" fill="none" stroke="#ff8a30" strokeWidth="1.4" strokeDasharray="1.5 4" />
+        <path d={ticks} fill="#ffb048" />
+        <circle cx={C} cy={C} r="42" fill="none" stroke="#ff9a36" strokeWidth="2" />
       </svg>
     )
   }
@@ -101,9 +101,9 @@ function PartArt({ kind, id, box }: { kind: PartKind; id: string; box?: Box }) {
     return (
       <svg viewBox="0 0 200 200" aria-hidden {...box}>
         {defs}
-        <path d={outline} fill="none" stroke="#ff6a12" strokeWidth="7" filter={glow} opacity="0.75" />
-        <path d={outline} fill={`url(#${id}m)`} stroke="#ffa040" strokeWidth="2" strokeLinejoin="round" />
-        <circle cx={C} cy={C} r="52" fill="none" stroke="#c4561c" strokeWidth="3" />
+        <path d={outline} fill="none" stroke="#ff4a00" strokeWidth="10" filter={glow} />
+        <path d={outline} fill={`url(#${id}m)`} stroke="#ffa040" strokeWidth="3" strokeLinejoin="round" />
+        <circle cx={C} cy={C} r="52" fill="none" stroke="#ff8a30" strokeWidth="3" />
         {[0, 1, 2, 3, 4].map((i) => {
           const a = (i / 5) * Math.PI * 2
           return (
@@ -113,13 +113,13 @@ function PartArt({ kind, id, box }: { kind: PartKind; id: string; box?: Box }) {
               y1={f(C + Math.sin(a) * 18)}
               x2={f(C + Math.cos(a) * 52)}
               y2={f(C + Math.sin(a) * 52)}
-              stroke="#a8461a"
-              strokeWidth="6"
+              stroke="#ff7a20"
+              strokeWidth="5"
               strokeLinecap="round"
             />
           )
         })}
-        <circle cx={C} cy={C} r="18" fill="#2a0c05" stroke="#ffb050" strokeWidth="2.4" />
+        <circle cx={C} cy={C} r="18" fill="#7a1a06" stroke="#ffb050" strokeWidth="3" />
       </svg>
     )
   }
@@ -129,11 +129,11 @@ function PartArt({ kind, id, box }: { kind: PartKind; id: string; box?: Box }) {
       {defs}
       <g filter={glow}>
         {Array.from({ length: 9 }, (_, i) => (
-          <rect key={i} x={6 + i * 21.5} y="11" width="13" height="18" rx="2" fill="#ff7a1a" />
+          <rect key={i} x={6 + i * 21.5} y="11" width="13" height="18" rx="2" fill="#ff5000" />
         ))}
       </g>
       {Array.from({ length: 9 }, (_, i) => (
-        <rect key={i} x={6 + i * 21.5} y="11" width="13" height="18" rx="2" fill="#ffc062" stroke="#fff0c8" strokeWidth="0.8" />
+        <rect key={i} x={6 + i * 21.5} y="11" width="13" height="18" rx="2" fill="#ffb048" stroke="#ffe0a8" strokeWidth="1" />
       ))}
     </svg>
   )
@@ -148,7 +148,7 @@ function Sweep({ id, box }: { id: string; box?: Box }) {
           <feGaussianBlur stdDeviation="4" />
         </filter>
       </defs>
-      <circle cx={C} cy={C} r="77" fill="none" stroke="#ffd27a" strokeWidth="12" strokeDasharray="70 414" filter={`url(#${id}s)`} />
+      <circle cx={C} cy={C} r="77" fill="none" stroke="#ffb848" strokeWidth="12" strokeDasharray="70 414" filter={`url(#${id}s)`} />
       <circle cx={C} cy={C} r="77" fill="none" stroke="#fff6dc" strokeWidth="3" strokeDasharray="56 428" strokeLinecap="round" />
     </svg>
   )
@@ -158,7 +158,7 @@ function Sweep({ id, box }: { id: string; box?: Box }) {
 function Chain({ box }: { box?: Box }) {
   return (
     <svg viewBox="0 0 400 10" preserveAspectRatio="none" aria-hidden {...box}>
-      <line className="clock-chain-dots" x1="0" y1="5" x2="400" y2="5" stroke="#ff9a3a" strokeWidth="4" strokeDasharray="0.1 9" strokeLinecap="round" />
+      <line className="clock-chain-dots" x1="0" y1="5" x2="400" y2="5" stroke="#ff9a3a" strokeWidth="4.5" strokeDasharray="0.1 9" strokeLinecap="round" />
     </svg>
   )
 }
@@ -167,29 +167,33 @@ type Part = { kind: PartKind | 'sweep' | 'chain'; x: number; y: number; size: nu
 
 // Positions on the plane (percent of its width), sizes, and seconds per turn (0 = still).
 const PARTS: Part[] = [
-  { kind: 'dial', x: 26, y: 66, size: 38, turn: 40, start: 10 },
+  { kind: 'dial', x: 24, y: 66, size: 48, turn: 40, start: 10 },
   { kind: 'chain', x: 50, y: 34, size: 120, turn: 0, start: 4 },
   { kind: 'chain', x: 50, y: 57, size: 120, turn: 0, start: -3 },
   { kind: 'chain', x: 50, y: 90, size: 120, turn: 0, start: 2 },
-  { kind: 'ring', x: 22, y: 22, size: 24, turn: 16, reverse: true },
-  { kind: 'sweep', x: 22, y: 22, size: 24, turn: 3.2 },
-  { kind: 'ring', x: 50, y: 18, size: 20, turn: 13 },
-  { kind: 'ring', x: 78, y: 28, size: 24, turn: 18, reverse: true },
-  { kind: 'sweep', x: 78, y: 28, size: 24, turn: 3.6, reverse: true },
-  { kind: 'cog', x: 38, y: 37, size: 12, turn: 8 },
-  { kind: 'cog', x: 14, y: 45, size: 11, turn: 7, reverse: true },
-  { kind: 'ring', x: 61, y: 42, size: 19, turn: 14 },
-  { kind: 'sweep', x: 61, y: 42, size: 19, turn: 2.8 },
-  { kind: 'cog', x: 87, y: 52, size: 14, turn: 9, reverse: true },
-  { kind: 'ring', x: 54, y: 64, size: 14, turn: 9 },
-  { kind: 'ring', x: 74, y: 74, size: 30, turn: 22, reverse: true },
-  { kind: 'sweep', x: 74, y: 74, size: 30, turn: 4, reverse: true },
-  { kind: 'cog', x: 46, y: 82, size: 14, turn: 10, reverse: true },
-  { kind: 'ring', x: 90, y: 88, size: 18, turn: 12 },
-  { kind: 'ring', x: 12, y: 88, size: 16, turn: 11, reverse: true },
-  { kind: 'bars', x: 64, y: 10, size: 30, turn: 0, start: -8 },
-  { kind: 'bars', x: 92, y: 14, size: 20, turn: 0, start: -8 },
-  { kind: 'bars', x: 26, y: 94, size: 24, turn: 0, start: 6 },
+  { kind: 'ring', x: 20, y: 22, size: 32, turn: 16, reverse: true },
+  { kind: 'sweep', x: 20, y: 22, size: 32, turn: 3.2 },
+  { kind: 'ring', x: 50, y: 15, size: 24, turn: 13 },
+  { kind: 'ring', x: 80, y: 30, size: 32, turn: 18, reverse: true },
+  { kind: 'sweep', x: 80, y: 30, size: 32, turn: 3.6, reverse: true },
+  { kind: 'cog', x: 38, y: 36, size: 15, turn: 8 },
+  { kind: 'cog', x: 10, y: 46, size: 13, turn: 7, reverse: true },
+  { kind: 'ring', x: 58, y: 46, size: 32, turn: 14 },
+  { kind: 'sweep', x: 58, y: 46, size: 32, turn: 2.8 },
+  { kind: 'cog', x: 90, y: 56, size: 17, turn: 9, reverse: true },
+  { kind: 'ring', x: 50, y: 70, size: 20, turn: 9 },
+  { kind: 'ring', x: 32, y: 50, size: 22, turn: 12, reverse: true },
+  { kind: 'ring', x: 66, y: 22, size: 18, turn: 10 },
+  { kind: 'ring', x: 88, y: 72, size: 22, turn: 15, reverse: true },
+  { kind: 'ring', x: 60, y: 92, size: 26, turn: 17 },
+  { kind: 'ring', x: 76, y: 78, size: 42, turn: 22, reverse: true },
+  { kind: 'sweep', x: 76, y: 78, size: 42, turn: 4, reverse: true },
+  { kind: 'cog', x: 42, y: 86, size: 17, turn: 10, reverse: true },
+  { kind: 'ring', x: 94, y: 94, size: 24, turn: 12 },
+  { kind: 'ring', x: 8, y: 92, size: 22, turn: 11, reverse: true },
+  { kind: 'bars', x: 64, y: 8, size: 32, turn: 0, start: -8 },
+  { kind: 'bars', x: 94, y: 14, size: 22, turn: 0, start: -8 },
+  { kind: 'bars', x: 26, y: 96, size: 26, turn: 0, start: 6 },
 ]
 
 const EMBERS = Array.from({ length: 12 }, (_, i) => ({
@@ -211,16 +215,19 @@ export function ClockworkStill() {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox={`0 0 ${W} ${H}`} width={W} height={H}>
       <defs>
-        <radialGradient id={`${id}bg`} cx="50%" cy="45%" r="75%">
-          <stop offset="0" stopColor="#651807" />
-          <stop offset="0.46" stopColor="#320812" />
-          <stop offset="1" stopColor="#0e0308" />
+        <radialGradient id={`${id}bg`} cx="50%" cy="42%" r="78%">
+          <stop offset="0" stopColor="#c8340a" />
+          <stop offset="0.3" stopColor="#961a07" />
+          <stop offset="0.62" stopColor="#5c0c06" />
+          <stop offset="1" stopColor="#2a0408" />
         </radialGradient>
         {[
-          ['h1', '#961c50', 0.45],
-          ['h2', '#6c167c', 0.5],
-          ['h3', '#ff6018', 0.22],
-          ['glow', '#ff8424', 0.32],
+          ['h5', '#601650', 0.5],
+          ['h1', '#3c0402', 0.5],
+          ['h2', '#460602', 0.5],
+          ['h3', '#ff9632', 0.14],
+          ['h4', '#ff8c28', 0.12],
+          ['glow', '#ff8a3a', 0.25],
         ].map(([key, color, alpha]) => (
           <radialGradient key={key} id={`${id}${key}`}>
             <stop offset="0" stopColor={color as string} stopOpacity={alpha} />
@@ -232,9 +239,11 @@ export function ClockworkStill() {
         </filter>
       </defs>
       <rect width={W} height={H} fill={`url(#${id}bg)`} />
-      <ellipse cx={W * 0.24} cy={H * 0.3} rx={W * 0.55} ry={H * 0.3} fill={`url(#${id}h1)`} />
-      <ellipse cx={W * 0.8} cy={H * 0.76} rx={W * 0.62} ry={H * 0.36} fill={`url(#${id}h2)`} />
-      <ellipse cx={W * 0.72} cy={H * 0.18} rx={W * 0.48} ry={H * 0.25} fill={`url(#${id}h3)`} />
+      <ellipse cx={W * 0.26} cy={H * 0.8} rx={W * 0.48} ry={H * 0.36} fill={`url(#${id}h5)`} />
+      <ellipse cx={W * 0.22} cy={H * 0.62} rx={W * 0.42} ry={H * 0.31} fill={`url(#${id}h1)`} />
+      <ellipse cx={W * 0.82} cy={H * 0.3} rx={W * 0.39} ry={H * 0.28} fill={`url(#${id}h2)`} />
+      <ellipse cx={W * 0.7} cy={H * 0.62} rx={W * 0.5} ry={H * 0.36} fill={`url(#${id}h3)`} />
+      <ellipse cx={W * 0.3} cy={H * 0.26} rx={W * 0.42} ry={H * 0.31} fill={`url(#${id}h4)`} />
       <g transform={`translate(${W / 2} ${H * 0.46}) rotate(33) scale(1 0.59) translate(${-plane / 2} ${-plane / 2})`}>
         {PARTS.map((p, i) => {
           const size = (p.size / 100) * plane
@@ -255,7 +264,7 @@ export function ClockworkStill() {
           )
         })}
       </g>
-      <ellipse cx={W / 2} cy={H / 2} rx={W * 0.46} ry={H * 0.34} fill={`url(#${id}glow)`} />
+      <ellipse cx={W / 2} cy={H * 0.46} rx={W * 0.5} ry={H * 0.36} fill={`url(#${id}glow)`} />
       {EMBERS.map((e, i) => {
         const cx = (e.left / 100) * W
         const cy = H * (0.2 + ((i * 0.37) % 0.75))
