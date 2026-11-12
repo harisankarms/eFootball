@@ -9,7 +9,7 @@
 
 import { reloadOnce } from './reload'
 
-export type SoundName = 'potw' | 'chenda'
+export type SoundName = 'potw' | 'chenda' | 'potm'
 
 const FILES = import.meta.glob('../assets/sounds/*.{mp3,m4a,aac,ogg,opus,wav}', {
   eager: true,

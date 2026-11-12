@@ -1,5 +1,6 @@
 import {
   BrickWall,
+  CalendarDays,
   Camera,
   ChartPie,
   ChevronRight,
@@ -37,8 +38,8 @@ import { api } from '../lib/backend'
 import { formatStat, playerStats, type StatSummary } from '../lib/matchStats'
 import { useAuth, useLeague, useNow, useProgress } from '../lib/queries'
 import { ratings } from '../lib/rating'
-import { formatPct, involves, newestFirst, pastWeeks, playerSummary, signed, trophyCounts, type Outcome } from '../lib/stats'
-import { longDate, weekKey, weekLabel } from '../lib/time'
+import { formatPct, involves, newestFirst, pastMonths, pastWeeks, playerSummary, signed, trophyCounts, type Outcome } from '../lib/stats'
+import { longDate, monthCardLabel, monthKey, weekKey, weekLabel } from '../lib/time'
 
 const streakWords: Record<Outcome, [string, string]> = {
   W: ['win', 'wins'],
@@ -94,12 +95,14 @@ export default function PlayerProfile() {
     if (!league || !league.byId.has(id)) return null
     const { matches, settings, tz, nameOf } = league
     const weeks = pastWeeks(matches, settings, weekKey(now, tz), nameOf)
+    const months = pastMonths(matches, settings, monthKey(now, tz), nameOf)
     const mine = newestFirst(matches.filter((m) => involves(m, id)))
     return {
       summary: playerSummary(matches, id),
       stats: playerStats(matches, id),
       trophies: trophyCounts(weeks).get(id) ?? { potw: 0, goldenBoots: 0, walls: 0, chendas: 0 },
       potwWeeks: weeks.filter((w) => w.winner?.playerId === id),
+      potmMonths: months.filter((m) => m.winner?.playerId === id),
       chendaWeeks: weeks.filter((w) => w.awards.chenda?.playerId === id),
       recent: mine.slice(0, 5),
       gallery: mine.filter((m) => m.thumb_path || m.screenshot_path).slice(0, 9),
@@ -120,7 +123,7 @@ export default function PlayerProfile() {
     )
   }
 
-  const { summary: s, trophies, potwWeeks, chendaWeeks } = data
+  const { summary: s, trophies, potwWeeks, potmMonths, chendaWeeks } = data
   const streak = s.currentStreak
   const canEditPhoto = me?.id === id || isAdmin
   const statuses = progress?.statusesOf(id) ?? []
@@ -129,6 +132,7 @@ export default function PlayerProfile() {
     .filter((x) => x.unlocked)
     .sort((a, b) => Date.parse(b.unlockedAt ?? '') - Date.parse(a.unlockedAt ?? ''))
   const trophyChips = [
+    { n: potmMonths.length, icon: CalendarDays, label: 'Player of the Month', cls: 'border-[#ff8a1c]/45 bg-[#ff8a1c]/10 text-[#ffa040]' },
     { n: trophies.potw, icon: Crown, label: 'Player of the Week', cls: 'border-gold/40 bg-gold/10 text-gold' },
     { n: trophies.goldenBoots, icon: Footprints, label: 'Golden Boot', cls: 'border-line-strong bg-surface-2 text-ink-2' },
     { n: trophies.walls, icon: BrickWall, label: 'The Wall', cls: 'border-line-strong bg-surface-2 text-ink-2' },
@@ -298,6 +302,27 @@ export default function PlayerProfile() {
             </div>
           </section>
         </>
+      )}
+
+      {potmMonths.length > 0 && (
+        <section>
+          <SectionTitle title={`Player of the Month · ${potmMonths.length}`} />
+          <div className="no-scrollbar -mx-4 flex snap-x gap-3 overflow-x-auto px-4 pt-1 pb-3">
+            {potmMonths.map((m) => (
+              <div key={m.monthKey} className="w-[150px] shrink-0 snap-start sm:w-[170px]">
+                <CollectibleCard
+                  kind="potm"
+                  league={league}
+                  row={m.winner}
+                  month={m.monthKey}
+                  caption={monthCardLabel(m.monthKey)}
+                  mini
+                  to={`/table?view=month&at=${m.monthKey}`}
+                />
+              </div>
+            ))}
+          </div>
+        </section>
       )}
 
       {potwWeeks.length > 0 && (

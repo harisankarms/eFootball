@@ -1,4 +1,4 @@
-import { BrickWall, Crown, Drum, Footprints, Trophy } from 'lucide-react'
+import { BrickWall, CalendarDays, Crown, Drum, Footprints, Trophy } from 'lucide-react'
 import { useMemo } from 'react'
 import { Link } from 'react-router'
 import { Avatar } from '../components/Avatar'
@@ -6,8 +6,8 @@ import { PlayersTabs } from '../components/PlayersTabs'
 import { CollectibleCard, awardItems } from '../components/Potw'
 import { EmptyState, ErrorState, PageSkeleton, PageTitle, SectionTitle } from '../components/ui'
 import { useLeague, useNow } from '../lib/queries'
-import { formatPoints, pastWeeks, trophyCounts } from '../lib/stats'
-import { weekKey, weekLabel } from '../lib/time'
+import { formatPoints, pastMonths, pastWeeks, trophyCounts } from '../lib/stats'
+import { monthCardLabel, monthKey, weekKey, weekLabel } from '../lib/time'
 
 export default function HallOfFame() {
   const { league, error, refetch } = useLeague()
@@ -17,13 +17,19 @@ export default function HallOfFame() {
     if (!league) return null
     const { matches, settings, tz, nameOf } = league
     const weeks = pastWeeks(matches, settings, weekKey(now, tz), nameOf)
-    const cabinet = [...trophyCounts(weeks).entries()]
-      .filter(([, t]) => t.potw + t.goldenBoots + t.walls + t.chendas > 0)
+    const months = pastMonths(matches, settings, monthKey(now, tz), nameOf).filter((m) => m.winner)
+    const counts = trophyCounts(weeks)
+    const potm = new Map<string, number>()
+    for (const m of months) potm.set(m.winner!.playerId, (potm.get(m.winner!.playerId) ?? 0) + 1)
+    const none = { potw: 0, goldenBoots: 0, walls: 0, chendas: 0 }
+    const cabinet = [...new Set([...counts.keys(), ...potm.keys()])]
+      .map((id) => [id, { ...(counts.get(id) ?? none), potm: potm.get(id) ?? 0 }] as const)
+      .filter(([, t]) => t.potm + t.potw + t.goldenBoots + t.walls + t.chendas > 0)
       .sort(
         ([ia, a], [ib, b]) =>
-          b.potw - a.potw || b.goldenBoots - a.goldenBoots || b.walls - a.walls || nameOf(ia).localeCompare(nameOf(ib)),
+          b.potm - a.potm || b.potw - a.potw || b.goldenBoots - a.goldenBoots || b.walls - a.walls || nameOf(ia).localeCompare(nameOf(ib)),
       )
-    return { weeks, cabinet }
+    return { weeks, months, cabinet }
   }, [league, now])
 
   if (error) return <ErrorState error={error} onRetry={refetch} />
@@ -48,9 +54,15 @@ export default function HallOfFame() {
               {data.cabinet.map(([id, t], i) => (
                 <Link key={id} to={`/players/${id}`} className="flex items-center gap-3 px-4 py-3 transition hover:bg-surface-2/50">
                   <span className={`w-5 text-center text-xs font-semibold tabular-nums ${i === 0 ? 'text-gold' : 'text-muted'}`}>{i + 1}</span>
-                  <Avatar league={league} id={id} size={36} ring={i === 0 && t.potw > 0 ? 'gold' : undefined} />
+                  <Avatar league={league} id={id} size={36} ring={i === 0 && t.potw + t.potm > 0 ? 'gold' : undefined} />
                   <span className="min-w-0 flex-1 truncate font-semibold">{league.nameOf(id)}</span>
                   <span className="flex items-center gap-2.5 text-sm font-semibold tabular-nums">
+                    {data.months.length > 0 && (
+                      <span className={`flex items-center gap-1 ${t.potm ? 'text-[#ffa040]' : 'text-muted/50'}`} title="Player of the Month">
+                        <CalendarDays className="h-4 w-4" aria-label="Player of the Month" />
+                        {t.potm}
+                      </span>
+                    )}
                     <span className={`flex items-center gap-1 ${t.potw ? 'text-gold' : 'text-muted/50'}`} title="Player of the Week">
                       <Crown className="h-4 w-4" aria-label="Player of the Week" />
                       {t.potw}
@@ -72,6 +84,26 @@ export default function HallOfFame() {
               ))}
             </div>
           </section>
+
+          {data.months.length > 0 && (
+            <section>
+              <SectionTitle title="Player of the Month" />
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                {data.months.map((m) => (
+                  <CollectibleCard
+                    key={m.monthKey}
+                    kind="potm"
+                    league={league}
+                    row={m.winner}
+                    month={m.monthKey}
+                    caption={monthCardLabel(m.monthKey)}
+                    mini
+                    to={`/table?view=month&at=${m.monthKey}`}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
 
           {data.weeks.some((w) => w.winner) && (
             <section>

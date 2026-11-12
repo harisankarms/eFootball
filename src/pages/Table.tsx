@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Crown, Drum, Info, ListOrdered } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, Crown, Drum, Info, ListOrdered } from 'lucide-react'
 import { useMemo } from 'react'
 import { useSearchParams } from 'react-router'
 import { Avatar } from '../components/Avatar'
@@ -7,7 +7,7 @@ import { StatLeaders } from '../components/StatLeaders'
 import { EmptyState, ErrorState, PageSkeleton, PageTitle, SectionTitle, Segmented } from '../components/ui'
 import { statLeaders } from '../lib/matchStats'
 import { useLeague, useNow } from '../lib/queries'
-import { buildTable, formatPerGame, formatPoints, isCounted, weekResult, type Row } from '../lib/stats'
+import { buildTable, formatPerGame, formatPoints, isCounted, monthMinimum, monthResult, weekResult, type Row } from '../lib/stats'
 import { addDays, addMonths, monthKey, monthLabel, startOfDay, weekKey, weekLabel } from '../lib/time'
 import type { Match } from '../lib/types'
 
@@ -70,12 +70,13 @@ export default function Table() {
       const key = at && /^\d{4}-\d{2}$/.test(at) ? at : current
       const first = earliest ? monthKey(earliest, tz) : current
       const matches = counted.filter((m) => monthKey(m.played_at, tz) === key)
+      const res = monthResult(matches, settings, key, nameOf)
       return {
         title: monthLabel(key),
         note: key === current ? 'This month' : null,
         matches,
-        rows: buildTable(matches, settings, 0, nameOf),
-        winner: null,
+        rows: res.rows,
+        winner: res.winner,
         chenda: null,
         isCurrent: key === current,
         prev: key > first ? addMonths(key, -1) : null,
@@ -147,6 +148,21 @@ export default function Table() {
         </div>
       )}
 
+      {view === 'month' && period.winner && (
+        <div className="mb-4 flex items-center gap-3 rounded-2xl border border-[#ff8a1c]/35 bg-[#ff8a1c]/[0.08] p-3.5">
+          <Avatar league={league} id={period.winner.playerId} size={36} ring="gold" />
+          <div className="min-w-0 flex-1">
+            <div className="text-[11px] font-semibold tracking-wider text-[#ffa040] uppercase">
+              {period.isCurrent ? 'Leading the Player of the Month race' : 'Player of the Month'}
+            </div>
+            <div className="truncate font-semibold">
+              {league.nameOf(period.winner.playerId)} · {formatPoints(period.winner.points)} pts
+            </div>
+          </div>
+          <CalendarDays className="h-6 w-6 shrink-0 text-[#ffa040]" aria-hidden />
+        </div>
+      )}
+
       {view === 'week' && period.chenda && (
         <div className="mb-4 flex items-center gap-3 rounded-2xl border border-ember/30 bg-ember/[0.07] p-3.5">
           <Avatar league={league} id={period.chenda.playerId} size={36} />
@@ -166,9 +182,9 @@ export default function Table() {
         <StandingsTable
           league={league}
           rows={period.rows}
-          crownId={view === 'week' ? period.winner?.playerId : null}
+          crownId={view !== 'all' ? period.winner?.playerId : null}
           drumId={view === 'week' ? period.chenda?.playerId : null}
-          showQualification={view === 'week'}
+          showQualification={view !== 'all'}
           sortable
         />
       ) : (
@@ -195,7 +211,8 @@ export default function Table() {
           <span className="font-semibold text-ink">Points:</span> {formatPoints(s.potw_win)} per win, {formatPoints(s.potw_draw)} per
           draw, {formatPoints(s.potw_goal)} per goal, {formatPoints(s.potw_clean_sheet)} per clean sheet. Player of the Week needs at
           least {s.potw_min_matches} games in the week. Ties go to win %, goal difference, goals, then head-to-head. The chenda goes to
-          whoever has the fewest points a game among players with {s.potw_min_matches}+ games, once at least three have them. Disputed
+          whoever has the fewest points a game among players with {s.potw_min_matches}+ games, once at least three have them. Player
+          of the Month goes to the most points in the month, with at least {monthMinimum(s)} games. Disputed
           results don't count until they're resolved. Tap a column to sort.
         </p>
       </div>

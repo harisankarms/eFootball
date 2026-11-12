@@ -3,7 +3,10 @@ import {
   buildTable,
   cardRating,
   headToHead,
+  monthMinimum,
+  monthResult,
   outcomeFor,
+  pastMonths,
   pastWeeks,
   playerSummary,
   rivalries,
@@ -264,5 +267,33 @@ describe('head to head', () => {
     expect(list).toHaveLength(2)
     expect(list[0]).toMatchObject({ a: 'b', b: 'a', played: 3, aWins: 2, bWins: 0, draws: 1 })
     expect(list[1]).toMatchObject({ a: 'c', b: 'a', played: 1, aWins: 1, bWins: 0 })
+  })
+})
+
+describe('Player of the Month', () => {
+  const on = (day: number, hour = 12) => new Date(Date.UTC(2026, 9, day, hour)).toISOString() // October 2026
+  it('needs three times the weekly minimum, then goes to the most points', () => {
+    expect(monthMinimum(S)).toBe(9)
+    // a: 9 games, 5 wins. b: 8 games and more points, but not enough games.
+    const ms = [
+      ...Array.from({ length: 5 }, (_, i) => mk('a', 'c', 1, 0, { at: on(i + 1) })),
+      ...Array.from({ length: 4 }, (_, i) => mk('a', 'c', 0, 1, { at: on(i + 10) })),
+      ...Array.from({ length: 8 }, (_, i) => mk('b', 'c', 5, 0, { at: on(i + 15) })),
+    ]
+    const res = monthResult(ms, S, '2026-10')
+    expect(res.rows[0].playerId).toBe('b')
+    expect(res.rows[0].qualified).toBe(false)
+    expect(res.winner?.playerId).toBe('a')
+  })
+
+  it('lists finished months, newest first, in the group timezone', () => {
+    const tz = { ...S, timezone: 'Asia/Kolkata' }
+    // 31 Oct 20:00 UTC is already 1 Nov in India.
+    const ms = [mk('a', 'b', 1, 0, { at: on(5) }), mk('a', 'b', 1, 0, { at: on(31, 20) }), mk('a', 'b', 1, 0, { at: '2026-09-10T12:00:00.000Z' })]
+    const months = pastMonths(ms, tz, '2026-11')
+    expect(months.map((m) => [m.monthKey, m.matches.length])).toEqual([
+      ['2026-10', 1],
+      ['2026-09', 1],
+    ])
   })
 })

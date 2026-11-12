@@ -5,6 +5,7 @@ import { AnnouncementCard, ComposerSheet } from '../components/Announcements'
 import { ChendaSpotlight } from '../components/ChendaSpotlight'
 import { MatchCard } from '../components/MatchCard'
 import { RecordNewsCard, useNewsFeed } from '../components/Records'
+import { PotmSpotlight, monthView } from '../components/Potm'
 import { AwardsStrip, PotwHero } from '../components/Potw'
 import { StandingsTable } from '../components/StandingsTable'
 import { useToast } from '../components/Toast'
@@ -255,6 +256,7 @@ export default function Home() {
     return {
       week: weekResult(byWeek.get(current) ?? [], settings, current, nameOf),
       lastWeek: weekResult(byWeek.get(previous) ?? [], settings, previous, nameOf),
+      month: monthView(league, now),
       latest: newestFirst(matches).slice(0, 6),
     }
   }, [league, now])
@@ -267,10 +269,13 @@ export default function Home() {
     <div className="space-y-7">
       {isAdmin && <WaitingBanner />}
       <PotwHero league={league} week={view.week} lastWeek={view.lastWeek} now={now} />
+      {/* In a month's first week, last month's winner has just been crowned: show them up top. */}
+      {view.month.fresh && <PotmSpotlight league={league} view={view.month} now={now} />}
       <LiveTournaments league={league} />
       <div className="grid grid-cols-1 gap-7 md:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] md:items-start">
         <div className="min-w-0 space-y-7">
           <ChendaSpotlight league={league} week={view.week} lastWeek={view.lastWeek} />
+          {!view.month.fresh && <PotmSpotlight league={league} view={view.month} now={now} />}
           <section>
             <SectionTitle title="This week's awards" />
             <AwardsStrip league={league} awards={view.week.awards} />

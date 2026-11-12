@@ -2,7 +2,7 @@
 // editing or deleting a match automatically corrects every table and award.
 // Disputed matches are left out until an admin resolves them.
 import type { Match, Settings } from './types'
-import { weekKey as toWeekKey } from './time'
+import { monthKey as toMonthKey, weekKey as toWeekKey } from './time'
 
 export type Outcome = 'W' | 'D' | 'L'
 
@@ -264,6 +264,45 @@ export function pastWeeks(
     .sort()
     .reverse()
     .map((k) => weekResult(byWeek.get(k)!, s, k, nameOf))
+}
+
+/** Player of the Month needs three weeks' worth of the weekly minimum: 9 games with the usual 3. */
+export const monthMinimum = (s: Settings) => s.potw_min_matches * 3
+
+export type MonthResult = {
+  monthKey: string
+  matches: Match[]
+  rows: Row[]
+  /** Most points in the month among players with enough games, ranked like the weekly table. */
+  winner: Row | null
+}
+
+export function monthResult(monthMatches: Match[], s: Settings, monthKey: string, nameOf?: (id: string) => string): MonthResult {
+  const counted = monthMatches.filter(isCounted)
+  const rows = buildTable(counted, s, monthMinimum(s), nameOf)
+  return { monthKey, matches: counted, rows, winner: rows.find((r) => r.qualified && r.played > 0) ?? null }
+}
+
+export function groupByMonth(matches: Match[], tz: string): Map<string, Match[]> {
+  const out = new Map<string, Match[]>()
+  for (const m of matches) {
+    if (!isCounted(m)) continue
+    const k = toMonthKey(m.played_at, tz)
+    const list = out.get(k)
+    if (list) list.push(m)
+    else out.set(k, [m])
+  }
+  return out
+}
+
+/** Finished months that had at least one match, newest first. */
+export function pastMonths(matches: Match[], s: Settings, currentMonthKey: string, nameOf?: (id: string) => string): MonthResult[] {
+  const byMonth = groupByMonth(matches, s.timezone)
+  return [...byMonth.keys()]
+    .filter((k) => k < currentMonthKey)
+    .sort()
+    .reverse()
+    .map((k) => monthResult(byMonth.get(k)!, s, k, nameOf))
 }
 
 export type Trophies = { potw: number; goldenBoots: number; walls: number; chendas: number }

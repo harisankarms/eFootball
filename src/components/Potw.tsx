@@ -1,14 +1,15 @@
-import { BrickWall, ChevronRight, Clock, Crown, Drum, Flame, Footprints, Plus, Volume2, Zap, type LucideIcon } from 'lucide-react'
+import { BrickWall, CalendarDays, ChevronRight, Clock, Crown, Drum, Flame, Footprints, Plus, Volume2, Zap, type LucideIcon } from 'lucide-react'
 import { useEffect, useId, useRef, useState, type PointerEvent, type RefObject } from 'react'
 import { Link } from 'react-router'
 import { inkOn } from '../lib/colors'
 import { useAuth, type League } from '../lib/queries'
 import { cardRating, formatPerGame, formatPoints, sideOf, winnerOf, type Awards, type Row, type WeekResult } from '../lib/stats'
-import { addDays, durationLabel, startOfDay, weekLabel } from '../lib/time'
+import { addDays, durationLabel, monthCardLabel, monthLabel, startOfDay, weekLabel } from '../lib/time'
 import { roundLike, useCountUp } from '../lib/useCountUp'
 import { Avatar, initials } from './Avatar'
 import { SoundButton, useCardSound } from './CardSound'
 import { ChendaScene } from './ChendaScene'
+import { ClockworkScene } from './ClockworkScene'
 import { EMPTY_TUNNEL, EPIC_TUNNEL, TUNNEL_START, createTunnel, readyTunnelStill, tunnelStill } from './epicTunnel'
 import { FormChips } from './FormChips'
 import { GlowIcon, buttonClass, type Tint } from './ui'
@@ -272,12 +273,14 @@ type CollectibleProps = {
   to?: string
   /** Shows this figure instead of the player's saved one (used for previews); null shows none. */
   figureUrl?: string | null
-  /** A Player of the Week card, or the chenda card for the week's last place. */
-  kind?: 'potw' | 'chenda'
+  /** A Player of the Week card, the chenda card for the week's last place, or a Player of the Month card. */
+  kind?: 'potw' | 'chenda' | 'potm'
+  /** Player of the Month: the month's key ('2026-10'), shown on the card. */
+  month?: string
 }
 
 /** An eFootball 2026 Epic-style player card with the player's figure, photo or initials, rating and weekly stats. */
-export function CollectibleCard({ league, row, caption, mini = false, to, figureUrl, kind = 'potw' }: CollectibleProps) {
+export function CollectibleCard({ league, row, caption, mini = false, to, figureUrl, kind = 'potw', month }: CollectibleProps) {
   const ref = useRef<HTMLDivElement>(null)
   const tilt = useTilt(ref)
   const onScreen = useOnScreen(ref, !mini)
@@ -286,6 +289,7 @@ export function CollectibleCard({ league, row, caption, mini = false, to, figure
   const [broken, setBroken] = useState(false)
   const [figureBroken, setFigureBroken] = useState(false)
   const chenda = kind === 'chenda'
+  const potm = kind === 'potm'
   const id = row?.playerId
   const player = id ? league.byId.get(id) : undefined
   const color = id ? league.colorOf(id) : '#3b4566'
@@ -305,7 +309,7 @@ export function CollectibleCard({ league, row, caption, mini = false, to, figure
         { label: mini ? 'CS' : 'Clean sheets', value: row?.cleanSheets },
       ]
   const Badge = chenda ? Drum : Crown
-  const chips = chenda ? [Drum, Volume2] : [Crown, Flame]
+  const chips = chenda ? [Drum, Volume2] : potm ? [CalendarDays, Crown] : [Crown, Flame]
 
   const stars = starsFor(rating)
 
@@ -334,6 +338,8 @@ export function CollectibleCard({ league, row, caption, mini = false, to, figure
           photo={!chendaFigure}
           performer={chendaFigure ? <img className="chenda-figure" src={chendaFigure} alt="" onError={() => setFigureBroken(true)} /> : portrait}
         />
+      ) : potm ? (
+        <ClockworkScene />
       ) : mini ? (
         <StillTunnel empty={!row} />
       ) : (
@@ -344,20 +350,23 @@ export function CollectibleCard({ league, row, caption, mini = false, to, figure
         <div className="potw-card-top">
           <div>
             <div className="potw-rating">{rating ?? '??'}</div>
-            <div className="potw-position">{chenda ? 'CHENDA' : 'POTW'}</div>
+            <div className="potw-position">{chenda ? 'CHENDA' : potm ? 'POTM' : 'POTW'}</div>
           </div>
           {chenda ? (
             <div className="chenda-badge">
               <Badge className="potw-award-icon" />
               <span lang="ml">ചെണ്ട</span>
             </div>
+          ) : potm ? (
+            <div className="potm-badge">{month ? monthCardLabel(month).slice(0, 3).toUpperCase() : 'POTM'}</div>
           ) : (
             <Badge className="potw-award-icon" />
           )}
         </div>
         <div className="potw-card-art">{art}</div>
+        {potm && <div className="potm-date">{caption}</div>}
         <div className="potw-card-player-name">{name}</div>
-        <div className="potw-card-label">{caption}</div>
+        {!potm && <div className="potw-card-label">{caption}</div>}
         <div className="potw-card-divider" />
         <div className="potw-card-stats">
           {stats.map((s) => (
@@ -392,12 +401,16 @@ export function CollectibleCard({ league, row, caption, mini = false, to, figure
     </div>
   )
 
-  const className = `potw-card ${mini ? 'is-mini' : ''} ${row ? '' : 'is-empty'} ${chenda ? 'is-chenda' : ''} ${sound ? 'has-sound' : ''}`
+  const className = `potw-card ${mini ? 'is-mini' : ''} ${row ? '' : 'is-empty'} ${chenda ? 'is-chenda' : ''} ${potm ? 'is-potm' : ''} ${sound ? 'has-sound' : ''}`
   const label = chenda
     ? row
       ? `${name}: chenda card, ${caption}, ${formatPerGame(row)} points a game`
       : 'Chenda card: nobody yet'
-    : row
+    : potm
+      ? row
+        ? `${name}: Player of the Month, ${month ? monthLabel(month) : caption}, card rating ${rating}, ${stars} stars`
+        : 'Player of the Month card: up for grabs'
+      : row
       ? `${name}: ${caption}, card rating ${rating}, ${stars} stars`
       : 'Player of the Week card: up for grabs'
   // The card's face is the link; the speaker sits beside it (a button can't go inside a link).

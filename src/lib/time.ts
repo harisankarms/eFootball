@@ -103,6 +103,12 @@ export function monthLabel(key: string): string {
   return `${MONTHS_LONG[m - 1]} ${y}`
 }
 
+/** "Oct. '26", as printed on a card */
+export function monthCardLabel(key: string): string {
+  const [y, m] = splitKey(key)
+  return `${MONTHS[m - 1]}. '${String(y).slice(-2)}`
+}
+
 /** "Today", "Yesterday", or "Monday 20 Oct" (with the year when it isn't this year). */
 export function dayHeading(key: string, todayKey: string): string {
   if (key === todayKey) return 'Today'
