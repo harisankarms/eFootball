@@ -144,7 +144,27 @@ export type Comment = {
   created_at: string
 }
 
-export type LiveTable = 'matches' | 'match_comments' | 'announcements' | 'tournaments'
+/** "Fancy a game?" from one player to another. Accepted ones are settled by their next result. */
+export type Challenge = {
+  id: string
+  from_id: string
+  to_id: string
+  message: string | null
+  status: 'open' | 'accepted' | 'declined' | 'cancelled'
+  created_at: string
+  responded_at: string | null
+}
+
+/** A player's guess for one week's Player of the Week. */
+export type Prediction = {
+  player_id: string
+  /** The Monday the week starts ('YYYY-MM-DD'). */
+  week_key: string
+  pick_id: string
+  updated_at: string
+}
+
+export type LiveTable = 'matches' | 'match_comments' | 'announcements' | 'tournaments' | 'challenges' | 'predictions'
 
 export type Session = { userId: string; email: string | null }
 

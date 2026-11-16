@@ -15,6 +15,8 @@ import { keys, useAuth, useLeague, useNow, useTournaments, type League } from '.
 import { involves, winnerOf } from '../lib/stats'
 import { clockTime, longDate, relativeTime } from '../lib/time'
 import { STAGE_LABELS } from '../lib/tournaments'
+import { disputeMessage, resolvedMessage } from '../lib/notifications'
+import { sendPush } from '../lib/push'
 
 function Side({ league, id, team, gameName, won }: { league: League; id: string; team: string | null; gameName?: string | null; won: boolean }) {
   return (
@@ -194,7 +196,12 @@ export default function MatchDetail() {
               variant="primary"
               icon={<CircleCheck className="h-4 w-4" />}
               loading={busy}
-              onClick={() => run(() => api.resolveDispute(m.id), 'Dispute resolved: the result counts again')}
+              onClick={() =>
+                run(async () => {
+                  await api.resolveDispute(m.id)
+                  if (me) sendPush([resolvedMessage(league, m, me.id)])
+                }, 'Dispute resolved: the result counts again')
+              }
             >
               Resolve: result stands
             </Button>
@@ -233,7 +240,10 @@ export default function MatchDetail() {
           className="space-y-4"
           onSubmit={(e) => {
             e.preventDefault()
-            void run(() => api.disputeMatch(m.id, reason), 'Result flagged. The admin will sort it out.')
+            void run(async () => {
+              await api.disputeMatch(m.id, reason)
+              if (me) sendPush([disputeMessage(league, m, me.id, reason)])
+            }, 'Result flagged. The admin will sort it out.')
           }}
         >
           <p className="text-sm text-ink-2">The result stops counting until the admin checks the screenshot and fixes or confirms it.</p>

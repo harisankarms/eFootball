@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import {
   Award,
+  Bell,
   Camera,
   Gamepad2,
   House,
@@ -28,6 +29,8 @@ import { keys, useAuth, useLeague, useLiveUpdates, useProgress, useSettings } fr
 import { DEFAULT_SETTINGS } from '../lib/types'
 import { Avatar } from './Avatar'
 import { AvatarEditor } from './AvatarEditor'
+import { NotificationsSheet } from './Notifications'
+import { turnOff as turnOffPush } from '../lib/push'
 import { CardFigureEditor } from './CardFigureEditor'
 import { WaitingForApproval } from './Guards'
 import { LevelBadge } from './Level'
@@ -220,6 +223,7 @@ function AccountMenu() {
   const [editingPhoto, setEditingPhoto] = useState(false)
   const [editingCard, setEditingCard] = useState(false)
   const [changingPassword, setChangingPassword] = useState(false)
+  const [notifications, setNotifications] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   const level = me && progress ? progress.levelOf(me.id) : null
 
@@ -300,6 +304,15 @@ function AccountMenu() {
                 >
                   <KeyRound className="h-4 w-4" aria-hidden /> Change password
                 </button>
+                <button
+                  onClick={() => {
+                    setOpen(false)
+                    setNotifications(true)
+                  }}
+                  className={item}
+                >
+                  <Bell className="h-4 w-4" aria-hidden /> Notifications
+                </button>
               </>
             )}
             {isAdmin && (
@@ -311,6 +324,8 @@ function AccountMenu() {
               onClick={async () => {
                 setOpen(false)
                 try {
+                  // This phone shouldn't keep getting this player's notifications once they've gone.
+                  await turnOffPush().catch(() => undefined)
                   await api.signOut()
                   navigate('/')
                 } catch (e) {
@@ -326,6 +341,7 @@ function AccountMenu() {
       )}
       {me && <EditNameSheet open={editing} onClose={() => setEditing(false)} current={me.name} />}
       {me && <ChangePasswordSheet open={changingPassword} onClose={() => setChangingPassword(false)} />}
+      {me && <NotificationsSheet open={notifications} onClose={() => setNotifications(false)} />}
       {me && league && <AvatarEditor open={editingPhoto} onClose={() => setEditingPhoto(false)} league={league} player={me} self />}
       {me && league && <CardFigureEditor open={editingCard} onClose={() => setEditingCard(false)} league={league} player={me} self />}
     </div>

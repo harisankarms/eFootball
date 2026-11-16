@@ -90,6 +90,10 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
         globIgnores: ['**/ocr/**'],
         navigateFallback: '/index.html',
+        // The site's own server routes (see api/) are never answered by the cached app.
+        navigateFallbackDenylist: [/^\/api\//],
+        // Push notifications: showing them and opening the right page on a tap.
+        importScripts: ['push-handler.js'],
       },
     }),
   ],

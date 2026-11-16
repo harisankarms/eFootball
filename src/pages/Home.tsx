@@ -4,6 +4,7 @@ import { Link, useSearchParams } from 'react-router'
 import { AnnouncementCard, ComposerSheet } from '../components/Announcements'
 import { ChendaSpotlight } from '../components/ChendaSpotlight'
 import { MatchCard } from '../components/MatchCard'
+import { NotificationsPrompt } from '../components/Notifications'
 import { RecordNewsCard, useNewsFeed } from '../components/Records'
 import { PotmSpotlight, monthView } from '../components/Potm'
 import { AwardsStrip, PotwHero } from '../components/Potw'
@@ -12,7 +13,9 @@ import { useToast } from '../components/Toast'
 import { BallLogo, Button, ErrorState, GlowIcon, PageSkeleton, SectionTitle, Wordmark, buttonClass, type Tint } from '../components/ui'
 import { formatPoints, groupByWeek, newestFirst, weekResult, type WeekResult } from '../lib/stats'
 import { useAnnouncements, useAuth, useJoinRequests, useLeague, useNow, useTournaments, type League } from '../lib/queries'
-import { addDays, startOfDay, weekKey, weekLabel } from '../lib/time'
+import { monthMessage, weekMessage } from '../lib/notifications'
+import { sendPush, type PushMessage } from '../lib/push'
+import { addDays, dayKey, startOfDay, weekKey, weekLabel } from '../lib/time'
 import { phaseLabel, tournamentState } from '../lib/tournaments'
 
 function MoreLink({ to, children }: { to: string; children: string }) {
@@ -318,6 +321,22 @@ export default function Home() {
     else if (isMember && lastKey && lastPlayed && readSeen() !== lastKey) setRecapOpen(true)
   }, [params, isMember, lastKey, lastPlayed])
 
+  // Just after a week or month ends, tell the squad who won. Whoever opens the app first sends
+  // it; the server makes sure it only ever goes out once.
+  const announce = useMemo(() => {
+    if (!league || !view) return []
+    const out: PushMessage[] = []
+    const weekStarted = startOfDay(weekKey(now, league.tz), league.tz).getTime()
+    if (now.getTime() - weekStarted < 3 * 86_400_000) out.push(...[weekMessage(league, view.lastWeek)].filter((m) => m !== null))
+    if (Number(dayKey(now, league.tz).slice(8)) <= 3) out.push(...[monthMessage(league, view.month.last)].filter((m) => m !== null))
+    return out
+  }, [league, view, now])
+  const announceKeys = announce.map((m) => m.key).join()
+  useEffect(() => {
+    if (isMember && announce.length) sendPush(announce)
+    // Sent when the set of announcements changes, not every minute the clock ticks.
+  }, [isMember, announceKeys])
+
   const closeRecap = () => {
     setRecapOpen(false)
     if (lastKey) markSeen(lastKey)
@@ -338,6 +357,7 @@ export default function Home() {
       )}
       <PotwHero league={league} week={view.week} lastWeek={view.lastWeek} now={now} />
       {view.lastWeek.matches.length > 0 && <RecapBanner week={view.lastWeek} onOpen={() => setRecapOpen(true)} />}
+      <NotificationsPrompt />
       {/* In a month's first week, last month's winner has just been crowned: show them up top. */}
       {view.month.fresh && <PotmSpotlight league={league} view={view.month} now={now} />}
       <LiveTournaments league={league} />

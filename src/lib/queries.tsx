@@ -29,11 +29,22 @@ export const keys = {
   announcements: ['announcements'] as const,
   comments: ['comments'] as const,
   tournaments: ['tournaments'] as const,
+  challenges: ['challenges'] as const,
+  predictions: ['predictions'] as const,
   me: (userId: string | null) => ['me', userId] as const,
 }
 
 export function useTournaments() {
   return useQuery({ queryKey: keys.tournaments, queryFn: () => api.getTournaments() })
+}
+
+/** Challenges and predictions need the database update; until then they're just empty. */
+export function useChallenges() {
+  return useQuery({ queryKey: keys.challenges, queryFn: () => api.getChallenges().catch(() => []) })
+}
+
+export function usePredictions() {
+  return useQuery({ queryKey: keys.predictions, queryFn: () => api.getPredictions().catch(() => []) })
 }
 
 export function useAchievements() {
@@ -77,6 +88,8 @@ const liveKeys: Record<LiveTable, readonly string[]> = {
   match_comments: keys.comments,
   announcements: keys.announcements,
   tournaments: keys.tournaments,
+  challenges: keys.challenges,
+  predictions: keys.predictions,
 }
 
 /** Refresh everyone's screen when a friend adds a result, comment, announcement or tournament. */

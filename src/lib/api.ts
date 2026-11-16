@@ -3,12 +3,14 @@ import type {
   AchievementInput,
   Announcement,
   Award,
+  Challenge,
   Comment,
   JoinRequest,
   LiveTable,
   Match,
   MatchInput,
   Player,
+  Prediction,
   Session,
   Settings,
   Shot,
@@ -84,6 +86,21 @@ export interface Api {
   updateSettings(patch: Partial<Settings>): Promise<void>
 
   imageUrl(path: string | null): string | null
+
+  /** The signed-in account's access token, for the site's own server (api/). */
+  accessToken(): Promise<string | null>
+  /** Saves this phone's push address, and the kinds of notification it wants, for the signed-in player. */
+  savePushSubscription(sub: { endpoint: string; p256dh: string; auth: string; topics: string[] }): Promise<void>
+  removePushSubscription(endpoint: string): Promise<void>
+  /** The kinds of notification this phone gets, or null if it isn't saved. */
+  getPushTopics(endpoint: string): Promise<string[] | null>
+
+  getChallenges(): Promise<Challenge[]>
+  sendChallenge(toId: string, message: string | null, fromId: string): Promise<Challenge>
+  answerChallenge(id: string, status: 'accepted' | 'declined' | 'cancelled'): Promise<void>
+  getPredictions(): Promise<Prediction[]>
+  /** This week's guess for Player of the Week (open until the end of Tuesday). */
+  makePrediction(pickId: string, playerId: string): Promise<void>
 }
 
 export function friendlyError(e: unknown): string {
@@ -101,5 +118,8 @@ export function friendlyError(e: unknown): string {
     return 'The database needs an update for this: run supabase/setup.sql in the Supabase SQL Editor.'
   }
   if (/should be different from the old password/i.test(message)) return "That's already your password. Pick a new one."
+  if (/challenges_different_players/.test(message)) return "You can't challenge yourself."
+  // Messages the database functions raise on purpose are already written for people.
+  if (/^(Only |That |Predictions |Pick someone|Unknown answer)/.test(message)) return message
   return message
 }

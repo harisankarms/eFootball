@@ -1,6 +1,7 @@
 import type { Api } from './api'
 import { DEMO_EMAIL, DEMO_USER_ID, makeDemoData } from './demo-data'
-import type { LiveTable, Match, MatchInput, Player, Session, Shot, Tournament } from './types'
+import { addDays, startOfDay, weekKey } from './time'
+import type { Challenge, LiveTable, Match, MatchInput, Player, Prediction, Session, Shot, Tournament } from './types'
 
 /** In-memory backend with sample data. Changes last until the page is reloaded. */
 export function createDemoApi(): Api {
@@ -23,6 +24,23 @@ export function createDemoApi(): Api {
     if (!m.is_admin) throw deny()
     return m
   }
+  // A challenge waiting for the demo player, and a couple of guesses for this week.
+  const others = () => db.players.filter((p) => p.active && p.user_id !== DEMO_USER_ID)
+  const thisWeek = () => weekKey(new Date(), db.settings.timezone)
+  const challenges: Challenge[] = (() => {
+    const [a, b] = others()
+    const mine = db.players.find((p) => p.user_id === DEMO_USER_ID)
+    if (!a || !b || !mine) return []
+    const ago = (h: number) => new Date(Date.now() - h * 3600_000).toISOString()
+    return [
+      { id: crypto.randomUUID(), from_id: a.id, to_id: mine.id, message: 'Rematch tonight? Bring your best team.', status: 'open', created_at: ago(3), responded_at: null },
+      { id: crypto.randomUUID(), from_id: mine.id, to_id: b.id, message: null, status: 'accepted', created_at: ago(30), responded_at: ago(28) },
+    ]
+  })()
+  const predictions: Prediction[] = others()
+    .slice(0, 3)
+    .map((p, i, list) => ({ player_id: p.id, week_key: thisWeek(), pick_id: list[(i + 1) % list.length].id, updated_at: new Date().toISOString() }))
+
   const findMatch = (id: string) => {
     const m = db.matches.find((x) => x.id === id)
     if (!m) throw new Error('Match not found.')
@@ -377,6 +395,59 @@ export function createDemoApi(): Api {
 
     imageUrl(path) {
       return path
+    },
+
+    // Push notifications only work on the live site.
+    async accessToken() {
+      return null
+    },
+    async savePushSubscription() {},
+    async removePushSubscription() {},
+    async getPushTopics() {
+      return null
+    },
+
+    async getChallenges() {
+      await pause(60)
+      return copy(challenges).sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
+    },
+    async sendChallenge(toId, message, fromId) {
+      await pause(300)
+      const p = requireMe()
+      if (p.id !== fromId) throw deny()
+      if (toId === fromId) throw new Error("You can't challenge yourself.")
+      const c: Challenge = { id: crypto.randomUUID(), from_id: fromId, to_id: toId, message: message?.trim() || null, status: 'open', created_at: new Date().toISOString(), responded_at: null }
+      challenges.push(c)
+      changed('challenges')
+      return copy(c)
+    },
+    async answerChallenge(id, status) {
+      await pause(250)
+      const p = requireMe()
+      const c = challenges.find((x) => x.id === id)
+      if (!c) throw new Error('That challenge is gone')
+      if (c.status !== 'open') throw new Error('That challenge has already been answered')
+      if (status === 'cancelled' ? c.from_id !== p.id : c.to_id !== p.id) throw deny()
+      c.status = status
+      c.responded_at = new Date().toISOString()
+      changed('challenges')
+    },
+    async getPredictions() {
+      await pause(60)
+      return copy(predictions)
+    },
+    async makePrediction(pickId, playerId) {
+      await pause(250)
+      const p = requireMe()
+      if (p.id !== playerId) throw deny()
+      const week = thisWeek()
+      if (Date.now() >= startOfDay(addDays(week, 2), db.settings.timezone).getTime()) {
+        throw new Error('Predictions for this week closed at the end of Tuesday')
+      }
+      const existing = predictions.find((x) => x.player_id === p.id && x.week_key === week)
+      if (existing) Object.assign(existing, { pick_id: pickId, updated_at: new Date().toISOString() })
+      else predictions.push({ player_id: p.id, week_key: week, pick_id: pickId, updated_at: new Date().toISOString() })
+      changed('predictions')
     },
   }
 }

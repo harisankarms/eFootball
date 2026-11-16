@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Api } from './api'
-import type { Achievement, Announcement, Award, Comment, JoinRequest, LiveTable, Match, Player, Session, Settings, Shot, Tournament } from './types'
+import type { Achievement, Announcement, Award, Challenge, Comment, JoinRequest, LiveTable, Match, Player, Prediction, Session, Settings, Shot, Tournament } from './types'
 
 type TournamentRow = Omit<Tournament, 'players'> & { tournament_players: { player_id: string; position: number }[] }
 
@@ -177,13 +177,19 @@ export function createSupabaseApi(url: string, key: string): Api {
       return toSettings(must(await sb.from('settings').select('*').eq('id', 1).single()))
     },
     subscribe(onChange) {
-      const channel = sb.channel('live-changes')
-      for (const table of ['matches', 'match_comments', 'announcements', 'tournaments'] as LiveTable[]) {
-        channel.on('postgres_changes', { event: '*', schema: 'public', table }, () => onChange(table))
-      }
-      channel.subscribe()
+      // Challenges and predictions listen on their own channel, so a database that hasn't been
+      // updated for them yet can't stop results and comments from refreshing live.
+      const groups: LiveTable[][] = [
+        ['matches', 'match_comments', 'announcements', 'tournaments'],
+        ['challenges', 'predictions'],
+      ]
+      const channels = groups.map((tables, i) => {
+        const channel = sb.channel(i ? 'live-extras' : 'live-changes')
+        for (const table of tables) channel.on('postgres_changes', { event: '*', schema: 'public', table }, () => onChange(table))
+        return channel.subscribe()
+      })
       return () => {
-        void sb.removeChannel(channel)
+        for (const channel of channels) void sb.removeChannel(channel)
       }
     },
 
@@ -364,6 +370,39 @@ export function createSupabaseApi(url: string, key: string): Api {
 
     imageUrl(path) {
       return path ? bucket().getPublicUrl(path).data.publicUrl : null
+    },
+
+    async accessToken() {
+      const { data } = await sb.auth.getSession()
+      return data.session?.access_token ?? null
+    },
+    async savePushSubscription(sub) {
+      must(await sb.rpc('save_push_subscription', { p_endpoint: sub.endpoint, p_p256dh: sub.p256dh, p_auth: sub.auth, p_topics: sub.topics }))
+    },
+    async removePushSubscription(endpoint) {
+      must(await sb.rpc('remove_push_subscription', { p_endpoint: endpoint }))
+    },
+    async getPushTopics(endpoint) {
+      const row = must(await sb.from('push_subscriptions').select('topics').eq('endpoint', endpoint).maybeSingle()) as { topics: string[] } | null
+      return row?.topics ?? null
+    },
+
+    async getChallenges() {
+      return must(await sb.from('challenges').select('*').order('created_at', { ascending: false }).limit(200)) as Challenge[]
+    },
+    async sendChallenge(toId, message, fromId) {
+      return must(
+        await sb.from('challenges').insert({ from_id: fromId, to_id: toId, message: message?.trim() || null }).select().single(),
+      ) as Challenge
+    },
+    async answerChallenge(id, status) {
+      must(await sb.rpc('answer_challenge', { p_id: id, p_status: status }))
+    },
+    async getPredictions() {
+      return must(await sb.from('predictions').select('*').order('week_key', { ascending: false }).limit(1000)) as Prediction[]
+    },
+    async makePrediction(pickId) {
+      must(await sb.rpc('make_prediction', { p_pick: pickId }))
     },
   }
 }

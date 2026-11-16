@@ -20,6 +20,8 @@ import { POPULAR_TEAMS, clubName } from '../lib/teams'
 import { relativeTime, toLocalInputValue, weekKey } from '../lib/time'
 import { STAGE_LABELS, stageFor, tournamentState } from '../lib/tournaments'
 import type { Match, MatchInput, Player, Shot, Stage, Tournament } from '../lib/types'
+import { recordMessages, resultMessages } from '../lib/notifications'
+import { sendPush } from '../lib/push'
 
 /** A tournament this result could count for, and the stage it would be. */
 type CupOption = { tournament: Tournament; stage: Stage }
@@ -423,6 +425,8 @@ function MatchForm({ league, me, existing }: { league: League; me: Player; exist
         const matchesBefore = league.matches
         const created = await api.addMatch(input, shot?.data ?? null, me.id)
         await qc.invalidateQueries({ queryKey: keys.matches })
+        // Tell the other player (and anyone following every result), and the squad about any record it broke.
+        sendPush([...resultMessages(league, created, me.id), ...recordMessages(league, [...matchesBefore, created], created, new Date())])
         const winner = winnerOf(created)
         if (winner) celebrate()
         toast.success(winner ? `${nameOf(winner)} takes the win!` : 'Draw saved')
