@@ -11,7 +11,7 @@ import { AwardsStrip, PotwHero } from '../components/Potw'
 import { StandingsTable } from '../components/StandingsTable'
 import { useToast } from '../components/Toast'
 import { BallLogo, Button, ErrorState, GlowIcon, PageSkeleton, SectionTitle, Wordmark, buttonClass, type Tint } from '../components/ui'
-import { formatPoints, groupByWeek, newestFirst, weekResult, type WeekResult } from '../lib/stats'
+import { formatPoints, groupByMonth, groupByWeek, monthResult, newestFirst, weekResult, type WeekResult } from '../lib/stats'
 import { useAnnouncements, useAuth, useJoinRequests, useLeague, useNow, useTournaments, type League } from '../lib/queries'
 import { monthMessage, weekMessage } from '../lib/notifications'
 import { sendPush, type PushMessage } from '../lib/push'
@@ -248,19 +248,22 @@ function LiveTournaments({ league }: { league: League }) {
 // The story downloads when it's first opened.
 const Recap = lazy(() => import('../components/Recap').then((m) => ({ default: m.Recap })))
 
-const RECAP_SEEN = 'eft-recap-seen'
+const MonthWrapped = lazy(() => import('../components/MonthWrapped').then((m) => ({ default: m.MonthWrapped })))
 
-function readSeen() {
+const RECAP_SEEN = 'eft-recap-seen'
+const WRAPPED_SEEN = 'eft-wrapped-seen'
+
+function readSeen(key = RECAP_SEEN) {
   try {
-    return localStorage.getItem(RECAP_SEEN)
+    return localStorage.getItem(key)
   } catch {
     return null
   }
 }
 
-function markSeen(week: string) {
+function markSeen(value: string, key = RECAP_SEEN) {
   try {
-    localStorage.setItem(RECAP_SEEN, week)
+    localStorage.setItem(key, value)
   } catch {
     // Private mode: it may show again next visit.
   }
@@ -294,6 +297,7 @@ export default function Home() {
   const now = useNow()
   const [params, setParams] = useSearchParams()
   const [recapOpen, setRecapOpen] = useState(false)
+  const [wrappedOpen, setWrappedOpen] = useState(false)
 
   const view = useMemo(() => {
     if (!league) return null
@@ -304,22 +308,45 @@ export default function Home() {
     // A recap asked for by link (e.g. from the Hall of Fame), or last week's.
     const asked = params.get('recap')
     const recapKey = asked && /^\d{4}-\d{2}-\d{2}$/.test(asked) && asked < current ? weekKey(startOfDay(asked, tz), tz) : previous
+    // A month's story asked for by link, or last month's.
+    const month = monthView(league, now)
+    const askedMonth = params.get('wrapped')
+    const wrapped =
+      askedMonth && /^\d{4}-\d{2}$/.test(askedMonth) && askedMonth < month.current.monthKey
+        ? monthResult(groupByMonth(matches, tz).get(askedMonth) ?? [], settings, askedMonth, nameOf)
+        : month.last
     return {
       week: weekResult(byWeek.get(current) ?? [], settings, current, nameOf),
       lastWeek: weekResult(byWeek.get(previous) ?? [], settings, previous, nameOf),
       recapWeek: weekResult(byWeek.get(recapKey) ?? [], settings, recapKey, nameOf),
-      month: monthView(league, now),
+      month,
+      wrapped,
       latest: newestFirst(matches).slice(0, 6),
     }
   }, [league, now, params])
 
-  // Last week's recap opens by itself once, the first time a member opens the app after the week ends.
+  // In a month's first week, last month's story (with the card reveal) opens by itself first, once.
+  // Last week's recap opens by itself once too, the first time a member opens the app after the week ends.
   const lastKey = view?.lastWeek.weekKey
   const lastPlayed = (view?.lastWeek.matches.length ?? 0) > 0
+  const lastMonthKey = view?.month.last.monthKey
+  const [wrappedSeen, setWrappedSeen] = useState(() => readSeen(WRAPPED_SEEN))
+  const monthPending = !!view && isMember && view.month.fresh && view.month.last.matches.length > 0 && wrappedSeen !== lastMonthKey
   useEffect(() => {
-    if (params.get('recap')) setRecapOpen(true)
+    if (params.get('wrapped')) setWrappedOpen(true)
+    else if (params.get('recap')) setRecapOpen(true)
+    else if (monthPending) setWrappedOpen(true)
     else if (isMember && lastKey && lastPlayed && readSeen() !== lastKey) setRecapOpen(true)
-  }, [params, isMember, lastKey, lastPlayed])
+  }, [params, isMember, lastKey, lastPlayed, monthPending])
+
+  const closeWrapped = () => {
+    setWrappedOpen(false)
+    if (lastMonthKey) {
+      markSeen(lastMonthKey, WRAPPED_SEEN)
+      setWrappedSeen(lastMonthKey)
+    }
+    if (params.get('wrapped')) setParams({}, { replace: true })
+  }
 
   // Just after a week or month ends, tell the squad who won. Whoever opens the app first sends
   // it; the server makes sure it only ever goes out once.
@@ -350,7 +377,12 @@ export default function Home() {
   return (
     <div className="space-y-7">
       {isAdmin && <WaitingBanner />}
-      {recapOpen && view.recapWeek.matches.length > 0 && (
+      {wrappedOpen && view.wrapped.matches.length > 0 && (
+        <Suspense fallback={null}>
+          <MonthWrapped league={league} month={view.wrapped} onClose={closeWrapped} />
+        </Suspense>
+      )}
+      {!wrappedOpen && recapOpen && view.recapWeek.matches.length > 0 && (
         <Suspense fallback={null}>
           <Recap league={league} week={view.recapWeek} onClose={closeRecap} />
         </Suspense>
@@ -359,12 +391,12 @@ export default function Home() {
       {view.lastWeek.matches.length > 0 && <RecapBanner week={view.lastWeek} onOpen={() => setRecapOpen(true)} />}
       <NotificationsPrompt />
       {/* In a month's first week, last month's winner has just been crowned: show them up top. */}
-      {view.month.fresh && <PotmSpotlight league={league} view={view.month} now={now} />}
+      {view.month.fresh && <PotmSpotlight league={league} view={view.month} now={now} onWatch={() => setWrappedOpen(true)} />}
       <LiveTournaments league={league} />
       <div className="grid grid-cols-1 gap-7 md:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] md:items-start">
         <div className="min-w-0 space-y-7">
           <ChendaSpotlight league={league} week={view.week} lastWeek={view.lastWeek} />
-          {!view.month.fresh && <PotmSpotlight league={league} view={view.month} now={now} />}
+          {!view.month.fresh && <PotmSpotlight league={league} view={view.month} now={now} onWatch={() => setWrappedOpen(true)} />}
           <section>
             <SectionTitle title="This week's awards" />
             <AwardsStrip league={league} awards={view.week.awards} />

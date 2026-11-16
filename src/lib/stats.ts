@@ -275,12 +275,14 @@ export type MonthResult = {
   rows: Row[]
   /** Most points in the month among players with enough games, ranked like the weekly table. */
   winner: Row | null
+  /** The month's Golden Boot, The Wall, biggest win and chenda (judged like a week's, with the monthly minimum). */
+  awards: Awards
 }
 
 export function monthResult(monthMatches: Match[], s: Settings, monthKey: string, nameOf?: (id: string) => string): MonthResult {
   const counted = monthMatches.filter(isCounted)
   const rows = buildTable(counted, s, monthMinimum(s), nameOf)
-  return { monthKey, matches: counted, rows, winner: rows.find((r) => r.qualified && r.played > 0) ?? null }
+  return { monthKey, matches: counted, rows, winner: rows.find((r) => r.qualified && r.played > 0) ?? null, awards: weeklyAwards(rows, counted) }
 }
 
 export function groupByMonth(matches: Match[], tz: string): Map<string, Match[]> {

@@ -1,4 +1,4 @@
-import { ChevronRight, Clock, Crown } from 'lucide-react'
+import { ChevronRight, Clock, Crown, Play } from 'lucide-react'
 import { Link } from 'react-router'
 import type { League } from '../lib/queries'
 import { formatPoints, groupByMonth, monthMinimum, monthResult, type MonthResult } from '../lib/stats'
@@ -30,7 +30,7 @@ export function monthView(league: League, now: Date): MonthView {
 }
 
 /** Player of the Month on Home: last month's winner (or this month's leader), and the race for this month. */
-export function PotmSpotlight({ league, view, now }: { league: League; view: MonthView; now: Date }) {
+export function PotmSpotlight({ league, view, now, onWatch }: { league: League; view: MonthView; now: Date; onWatch?: () => void }) {
   const { current, last } = view
   const leader = current.winner ?? current.rows[0] ?? null
   const crowned = last.winner
@@ -94,6 +94,15 @@ export function PotmSpotlight({ league, view, now }: { league: League; view: Mon
             {durationLabel(endsAt.getTime() - now.getTime())} left this month. Most points wins, with at least {min} games in the month.
             {!crowned && !current.winner && leader ? ` ${league.nameOf(leader.playerId)} needs ${leader.gamesNeeded} more.` : ''}
           </p>
+          {crowned && onWatch && (
+            <button
+              type="button"
+              onClick={onWatch}
+              className="mt-4 mr-2 inline-flex h-9 items-center gap-2 rounded-lg bg-[linear-gradient(135deg,#ffb052,#e8641a)] px-3 text-sm font-semibold text-[#2a0c02] shadow-[0_8px_24px_-10px_rgb(255_140_40/0.9)] transition hover:brightness-105"
+            >
+              <Play className="h-3.5 w-3.5" fill="currentColor" aria-hidden /> {monthLabel(last.monthKey).split(' ')[0]} wrapped
+            </button>
+          )}
           <ShareButton
             className="mt-4"
             label="Share card"

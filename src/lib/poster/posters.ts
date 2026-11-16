@@ -1,6 +1,6 @@
 // The share pictures: 1080 x 1350 posters drawn on a canvas, so they come out the same on every
 // phone. Each returns a PNG.
-import { BrickWall, CalendarDays, Crown, Drum, Flame, Footprints, Volume2, Zap, type LucideIcon } from 'lucide-react'
+import { BrickWall, CalendarDays, Crown, Drum, Flame, Footprints, Gamepad2, Trophy, TrendingUp, Volume2, Zap, type LucideIcon } from 'lucide-react'
 import type { League } from '../queries'
 import { matchStatLines } from '../matchStats'
 import { cardRating, cardStars, formatPerGame, formatPoints, headToHead, sideOf, signed, winnerOf, type Row, type WeekResult } from '../stats'
@@ -706,11 +706,14 @@ export async function tablePoster(
   return toBlob(canvas)
 }
 
-export type AwardIcon = 'boot' | 'wall' | 'win'
+export type AwardIcon = 'boot' | 'wall' | 'win' | 'rating' | 'games' | 'trophy'
 const AWARD_ICONS: Record<AwardIcon, { icon: LucideIcon; color: string }> = {
   boot: { icon: Footprints, color: '#ffcf4d' },
   wall: { icon: BrickWall, color: '#22d3ee' },
   win: { icon: Zap, color: '#3dff8f' },
+  rating: { icon: TrendingUp, color: '#3dff8f' },
+  games: { icon: Gamepad2, color: '#22d3ee' },
+  trophy: { icon: Trophy, color: '#ffcf4d' },
 }
 
 /** One award: its icon, the winner (or winners) and what they did. */
@@ -744,17 +747,22 @@ export async function awardPoster(league: League, opts: { icon: AwardIcon; first
 }
 
 /** The week in one picture: every award and how much was played. */
-export async function weekPoster(league: League, week: WeekResult, subtitle: string) {
+export async function weekPoster(
+  league: League,
+  week: Pick<WeekResult, 'matches' | 'winner' | 'awards'>,
+  subtitle: string,
+  period: 'week' | 'month' | 'season' = 'week',
+) {
   await ensureFonts()
   const { canvas, ctx } = newCanvas()
   const t = THEMES.plain
   backdrop(ctx, t)
-  heading(ctx, t, league.settings.group_name, 'Week', 'in review', subtitle)
+  heading(ctx, t, league.settings.group_name, period === 'week' ? 'Week' : period === 'month' ? 'Month' : 'Season', 'in review', subtitle)
   const a = week.awards
   const big = a.biggestWin
   const bigWinner = big ? winnerOf(big) : null
   const items: { icon: LucideIcon; color: string; label: string; ids: string[]; detail: string }[] = [
-    { icon: Crown, color: '#ffcf4d', label: 'Player of the Week', ids: week.winner ? [week.winner.playerId] : [], detail: week.winner ? `${formatPoints(week.winner.points)} pts` : '' },
+    { icon: Crown, color: '#ffcf4d', label: period === 'week' ? 'Player of the Week' : period === 'month' ? 'Player of the Month' : 'Season champion', ids: week.winner ? [week.winner.playerId] : [], detail: week.winner ? `${formatPoints(week.winner.points)} pts` : '' },
     { icon: Footprints, color: '#ffcf4d', label: 'Golden Boot', ids: a.goldenBoot?.ids ?? [], detail: a.goldenBoot ? `${a.goldenBoot.goals} goals` : '' },
     { icon: BrickWall, color: '#22d3ee', label: 'The Wall', ids: a.wall?.ids ?? [], detail: a.wall ? `${a.wall.cleanSheets} clean sheets` : '' },
     {
