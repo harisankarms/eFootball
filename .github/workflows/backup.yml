@@ -1,0 +1,73 @@
+# Weekly backup of the whole league: every table and every uploaded file, encrypted with a
+# password only you know, kept as a download on this repository's Actions page for 90 days.
+#
+# Needs three repository secrets (Settings -> Secrets and variables -> Actions):
+#   SUPABASE_URL         the project URL, e.g. https://abcd1234.supabase.co
+#   SUPABASE_SECRET_KEY  Supabase -> Project Settings -> API Keys -> Secret key
+#   BACKUP_PASSWORD      any long password; keep it somewhere safe, it unlocks the backups
+#
+# To open a backup: download it from Actions -> Weekly backup -> a run -> Artifacts, unzip it, then
+#   openssl enc -d -aes-256-cbc -pbkdf2 -iter 200000 -in backup.tar.gz.enc -out backup.tar.gz -pass pass:YOUR_PASSWORD
+#   tar xzf backup.tar.gz
+
+name: Weekly backup
+
+on:
+  schedule:
+    - cron: '30 20 * * 0' # Sunday 20:30 UTC, just after the week ends in India
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check the secrets are set
+        id: check
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          BACKUP_PASSWORD: ${{ secrets.BACKUP_PASSWORD }}
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_SECRET_KEY" ] || [ -z "$BACKUP_PASSWORD" ]; then
+            echo "::warning::Backups are off: add SUPABASE_URL, SUPABASE_SECRET_KEY and BACKUP_PASSWORD as repository secrets."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.check.outputs.ready == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.check.outputs.ready == 'true'
+        with:
+          node-version: 20
+
+      - name: Copy the database and files
+        if: steps.check.outputs.ready == 'true'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+        run: node scripts/backup.mjs backup
+
+      - name: Pack and encrypt
+        if: steps.check.outputs.ready == 'true'
+        env:
+          BACKUP_PASSWORD: ${{ secrets.BACKUP_PASSWORD }}
+        run: |
+          tar czf backup.tar.gz backup
+          openssl enc -aes-256-cbc -pbkdf2 -iter 200000 -salt -in backup.tar.gz -out backup.tar.gz.enc -pass env:BACKUP_PASSWORD
+          rm -rf backup backup.tar.gz
+          echo "STAMP=$(date -u +%Y-%m-%d)" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        if: steps.check.outputs.ready == 'true'
+        with:
+          name: efootball-backup-${{ env.STAMP }}
+          path: backup.tar.gz.enc
+          retention-days: 90
+          if-no-files-found: error

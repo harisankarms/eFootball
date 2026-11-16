@@ -816,6 +816,219 @@ $$;
 
 
 -- ---------------------------------------------------------------------
+--  Keeping the free project awake
+--  The site calls this once a day (api/daily.ts), because Supabase pauses
+--  a free project after a week without any activity.
+-- ---------------------------------------------------------------------
+
+create or replace function public.ping()
+returns text
+language sql stable
+as $$ select 'ok'::text $$;
+
+
+-- ---------------------------------------------------------------------
+--  Notifications
+--  Each phone that turns notifications on saves its push address here,
+--  with the kinds it wants. The site's server (api/notify.ts) sends them
+--  with the secret key; notifications_sent stops anything going out twice.
+-- ---------------------------------------------------------------------
+
+create table if not exists public.push_subscriptions (
+  endpoint text primary key,
+  player_id uuid not null references public.players(id) on delete cascade,
+  p256dh text not null,
+  auth text not null,
+  topics text[] not null default '{results,disputes,winners,records,challenges}',
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.notifications_sent (
+  key text primary key,
+  sender_id uuid references public.players(id) on delete set null,
+  recipients int not null default 0,
+  sent_at timestamptz not null default now()
+);
+
+alter table public.push_subscriptions enable row level security;
+alter table public.notifications_sent enable row level security;
+
+drop policy if exists "Players view their own phones" on public.push_subscriptions;
+create policy "Players view their own phones" on public.push_subscriptions
+  for select to authenticated using (player_id = (select public.my_player_id()));
+-- notifications_sent has no rules on purpose: only the server, with the secret key, uses it.
+
+grant select on public.push_subscriptions to authenticated;
+revoke all on public.push_subscriptions, public.notifications_sent from anon;
+revoke all on public.notifications_sent from authenticated;
+
+-- Saves (or moves to the signed-in player) this phone's push address and the kinds it wants.
+create or replace function public.save_push_subscription(p_endpoint text, p_p256dh text, p_auth text, p_topics text[])
+returns void
+language plpgsql security definer
+set search_path = public
+as $$
+declare
+  me uuid := public.my_player_id();
+begin
+  if me is null then
+    raise exception 'Only squad members can turn on notifications';
+  end if;
+  if p_endpoint !~ '^https://' or char_length(p_endpoint) > 1000 or char_length(p_p256dh) > 200 or char_length(p_auth) > 100 then
+    raise exception 'That push address does not look right';
+  end if;
+  insert into public.push_subscriptions (endpoint, player_id, p256dh, auth, topics, updated_at)
+  values (p_endpoint, me, p_p256dh, p_auth, coalesce(p_topics, '{}'), now())
+  on conflict (endpoint) do update
+    set player_id = excluded.player_id,
+        p256dh = excluded.p256dh,
+        auth = excluded.auth,
+        topics = excluded.topics,
+        updated_at = now();
+end;
+$$;
+
+create or replace function public.remove_push_subscription(p_endpoint text)
+returns void
+language sql security definer
+set search_path = public
+as $$
+  delete from public.push_subscriptions where endpoint = p_endpoint and player_id = public.my_player_id();
+$$;
+
+
+-- ---------------------------------------------------------------------
+--  Challenges: "fancy a game?" sent to one player, who accepts or declines.
+--  An accepted challenge is settled by the next result between the two.
+-- ---------------------------------------------------------------------
+
+create table if not exists public.challenges (
+  id uuid primary key default gen_random_uuid(),
+  from_id uuid not null references public.players(id) on delete cascade,
+  to_id uuid not null references public.players(id) on delete cascade,
+  message text check (message is null or char_length(message) <= 140),
+  status text not null default 'open' check (status in ('open', 'accepted', 'declined', 'cancelled')),
+  created_at timestamptz not null default now(),
+  responded_at timestamptz,
+  constraint challenges_different_players check (from_id <> to_id)
+);
+
+alter table public.challenges enable row level security;
+
+drop policy if exists "Squad members view challenges" on public.challenges;
+create policy "Squad members view challenges" on public.challenges
+  for select to authenticated using ((select public.is_member()));
+
+drop policy if exists "Squad members send challenges" on public.challenges;
+create policy "Squad members send challenges" on public.challenges
+  for insert to authenticated
+  with check (from_id = (select public.my_player_id()) and status = 'open' and responded_at is null);
+
+drop policy if exists "Admins delete challenges" on public.challenges;
+create policy "Admins delete challenges" on public.challenges
+  for delete to authenticated using ((select public.is_admin()));
+
+grant select, insert, delete on public.challenges to authenticated;
+revoke all on public.challenges from anon;
+
+-- The challenged player accepts or declines; the sender can call it off while it's open.
+create or replace function public.answer_challenge(p_id uuid, p_status text)
+returns void
+language plpgsql security definer
+set search_path = public
+as $$
+declare
+  me uuid := public.my_player_id();
+  c public.challenges;
+begin
+  select * into c from public.challenges where id = p_id;
+  if c.id is null then
+    raise exception 'That challenge is gone';
+  end if;
+  if c.status <> 'open' then
+    raise exception 'That challenge has already been answered';
+  end if;
+  if p_status in ('accepted', 'declined') and c.to_id is distinct from me then
+    raise exception 'Only the challenged player can answer';
+  end if;
+  if p_status = 'cancelled' and c.from_id is distinct from me then
+    raise exception 'Only the sender can call it off';
+  end if;
+  if p_status not in ('accepted', 'declined', 'cancelled') then
+    raise exception 'Unknown answer';
+  end if;
+  update public.challenges set status = p_status, responded_at = now() where id = p_id;
+end;
+$$;
+
+
+-- ---------------------------------------------------------------------
+--  Predictions: everyone guesses this week's Player of the Week, until
+--  the end of Tuesday (in the group's timezone). A right guess scores.
+-- ---------------------------------------------------------------------
+
+create table if not exists public.predictions (
+  player_id uuid not null references public.players(id) on delete cascade,
+  week_key date not null,
+  pick_id uuid not null references public.players(id) on delete cascade,
+  updated_at timestamptz not null default now(),
+  primary key (player_id, week_key)
+);
+
+alter table public.predictions enable row level security;
+
+drop policy if exists "Squad members view predictions" on public.predictions;
+create policy "Squad members view predictions" on public.predictions
+  for select to authenticated using ((select public.is_member()));
+
+grant select on public.predictions to authenticated;
+revoke all on public.predictions from anon;
+
+create or replace function public.make_prediction(p_pick uuid)
+returns void
+language plpgsql security definer
+set search_path = public
+as $$
+declare
+  me uuid := public.my_player_id();
+  tz text := coalesce((select timezone from public.settings where id = 1), 'UTC');
+  week date := date_trunc('week', now() at time zone tz)::date;
+begin
+  if me is null then
+    raise exception 'Only squad members can make predictions';
+  end if;
+  if now() >= ((week + 2)::timestamp at time zone tz) then
+    raise exception 'Predictions for this week closed at the end of Tuesday';
+  end if;
+  if not exists (select 1 from public.players where id = p_pick and active) then
+    raise exception 'Pick someone in the squad';
+  end if;
+  insert into public.predictions (player_id, week_key, pick_id, updated_at)
+  values (me, week, p_pick, now())
+  on conflict (player_id, week_key) do update set pick_id = excluded.pick_id, updated_at = now();
+end;
+$$;
+
+-- Live updates for the new tables too
+do $$
+declare
+  t text;
+begin
+  if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    return;
+  end if;
+  foreach t in array array['challenges', 'predictions'] loop
+    if not exists (
+      select 1 from pg_publication_tables
+       where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t
+    ) then
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    end if;
+  end loop;
+end $$;
+
+
+-- ---------------------------------------------------------------------
 --  Housekeeping
 -- ---------------------------------------------------------------------
 
@@ -830,6 +1043,11 @@ create index if not exists player_achievements_achievement_id_idx on public.play
 create index if not exists player_achievements_awarded_by_idx on public.player_achievements (awarded_by);
 create index if not exists tournament_players_player_id_idx on public.tournament_players (player_id);
 create index if not exists tournaments_created_by_idx on public.tournaments (created_by);
+create index if not exists push_subscriptions_player_id_idx on public.push_subscriptions (player_id);
+create index if not exists notifications_sent_sender_idx on public.notifications_sent (sender_id, sent_at);
+create index if not exists challenges_from_id_idx on public.challenges (from_id);
+create index if not exists challenges_to_id_idx on public.challenges (to_id);
+create index if not exists predictions_pick_id_idx on public.predictions (pick_id);
 
 -- Keep this block last. Signed-out visitors can't call any of the app's functions
 -- (each one already refused them, this closes the door before they're reached);
@@ -854,8 +1072,16 @@ grant execute on function
   public.update_my_avatar(text),
   public.update_my_card(text),
   public.create_tournament(text, uuid[], int, int, boolean),
-  public.admin_set_password(uuid, text)
+  public.admin_set_password(uuid, text),
+  public.save_push_subscription(text, text, text, text[]),
+  public.remove_push_subscription(text),
+  public.answer_challenge(uuid, text),
+  public.make_prediction(uuid),
+  public.ping()
   to authenticated;
+
+-- The daily keep-awake call comes from the site's server without signing in.
+grant execute on function public.ping() to anon;
 
 -- Only ever runs as a trigger, never called directly.
 revoke execute on function public.tournament_match_rules() from authenticated;
