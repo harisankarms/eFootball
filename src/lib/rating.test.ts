@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { START_RATING, changeSince, expectedScore, formatChange, marginWeight, ratings } from './rating'
+import { START_RATING, changeSince, expectedScore, formatChange, marginWeight, overallRating, ratings } from './rating'
 import type { Match } from './types'
 
 let seq = 0
@@ -88,5 +88,15 @@ describe('form rating', () => {
     expect(formatChange(12.4)).toBe('+12')
     expect(formatChange(-7.6)).toBe('−8')
     expect(formatChange(0.2)).toBe('±0')
+  })
+})
+
+describe('overall card rating', () => {
+  it('starts at 75 and moves a point for every 12 rating points, between 50 and 99', () => {
+    expect(overallRating(START_RATING)).toBe(75)
+    expect(overallRating(1121)).toBe(85)
+    expect(overallRating(862)).toBe(64)
+    expect(overallRating(2000)).toBe(99)
+    expect(overallRating(0)).toBe(50)
   })
 })

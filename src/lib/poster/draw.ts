@@ -198,3 +198,11 @@ function inkOn(hex: string) {
   const l = luminance(hex)
   return 1.05 / (l + 0.05) >= (l + 0.05) / (luminance('#0b1020') + 0.05) ? '#ffffff' : '#0b1020'
 }
+
+/** A blend of two '#rrggbb' colours: `t` of the way from `a` to `b`. */
+export function mixHex(a: string, b: string, t: number) {
+  const pa = parseInt(a.slice(1, 7), 16)
+  const pb = parseInt(b.slice(1, 7), 16)
+  const ch = (shift: number) => Math.round(((pa >> shift) & 255) * (1 - t) + ((pb >> shift) & 255) * t)
+  return `#${[16, 8, 0].map((s) => ch(s).toString(16).padStart(2, '0')).join('')}`
+}

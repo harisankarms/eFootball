@@ -1,6 +1,6 @@
 // The share pictures: 1080 x 1350 posters drawn on a canvas, so they come out the same on every
 // phone. Each returns a PNG.
-import { BrickWall, CalendarDays, Crown, Drum, Flame, Footprints, Gamepad2, Trophy, TrendingUp, Volume2, Zap, type LucideIcon } from 'lucide-react'
+import { BrickWall, CalendarDays, Crown, Drum, Flame, Footprints, Gamepad2, TrendingUp, Trophy, Volume2, Zap, type LucideIcon } from 'lucide-react'
 import type { League } from '../queries'
 import { matchStatLines } from '../matchStats'
 import { cardRating, cardStars, formatPerGame, formatPoints, headToHead, sideOf, signed, winnerOf, type Row, type WeekResult } from '../stats'
@@ -20,6 +20,7 @@ import {
   fitFont,
   glow,
   loadImage,
+  mixHex,
   newCanvas,
   roundRect,
   spacing,
@@ -29,7 +30,7 @@ import {
   type Ctx,
 } from './draw'
 
-type Kind = 'potw' | 'chenda' | 'potm'
+type Kind = 'potw' | 'chenda' | 'potm' | 'player'
 
 type Theme = {
   bg: [string, string]
@@ -42,7 +43,23 @@ type Theme = {
   statLabel: string
 }
 
-const THEMES: Record<Kind | 'plain', Theme> = {
+/** A player's own card: lit in their colour, with the usual bronze frame. */
+function playerTheme(color: string): Theme {
+  return {
+    bg: [mixHex(color, '#050816', 0.9), mixHex(color, '#050816', 0.78)],
+    accent: mixHex(color, '#ffffff', 0.35),
+    neon: color,
+    tunnel1: mixHex(color, '#000000', 0.55),
+    tunnel3: mixHex(color, '#02040a', 0.93),
+    bronze: '#e9c47c',
+    frame: ['#f6dfa0', '#9a6a33', '#f1d391', '#6e4521', '#e7c17a'],
+    statLabel: '#c3cbe0',
+  }
+}
+
+const themeFor = (kind: Kind, color: string) => (kind === 'player' ? playerTheme(color) : THEMES[kind])
+
+const THEMES: Record<Exclude<Kind, 'player'> | 'plain', Theme> = {
   potw: {
     bg: ['#03100a', '#08201a'],
     accent: '#f6d77a',
@@ -153,6 +170,8 @@ export type CardSpec = {
   caption: string
   /** Player of the Month: the month's key. */
   month?: string
+  /** A player's own card: their overall rating (`row` is their career). */
+  overall?: number
 }
 
 type Pt = [number, number]
@@ -244,12 +263,12 @@ function drawMonthFace(ctx: Ctx, spec: CardSpec, name: string, rating: number | 
 
 async function drawCard(ctx: Ctx, league: League, spec: CardSpec, x: number, y: number, w: number, h: number) {
   const { kind, row } = spec
-  const t = THEMES[kind]
+  const t = themeFor(kind, row ? league.colorOf(row.playerId) : '#3dff8f')
   const id = row?.playerId
   const player = id ? league.byId.get(id) : undefined
   const name = player?.name ?? (kind === 'chenda' ? 'Nobody yet' : 'Up for grabs')
   const color = id ? league.colorOf(id) : '#3b4566'
-  const rating = row ? cardRating(row) : null
+  const rating = kind === 'player' ? (spec.overall ?? null) : row ? cardRating(row) : null
   const stars = cardStars(rating)
   const stats =
     kind === 'chenda'
@@ -258,18 +277,24 @@ async function drawCard(ctx: Ctx, league: League, spec: CardSpec, x: number, y: 
           { label: 'CONCEDED', value: row?.ga },
           { label: 'PTS/GAME', value: row ? formatPerGame(row) : undefined },
         ]
-      : [
-          { label: 'GOALS', value: row?.gf },
-          { label: 'WINS', value: row?.won },
-          { label: 'CLEAN SHEETS', value: row?.cleanSheets },
-        ]
-  const chipIcons: LucideIcon[] = kind === 'chenda' ? [Drum, Volume2] : kind === 'potm' ? [CalendarDays, Crown] : [Crown, Flame]
+      : kind === 'player'
+        ? [
+            { label: 'GOALS', value: row?.gf },
+            { label: 'WINS', value: row?.won },
+            { label: 'WIN %', value: row ? Math.round(row.winPct) : undefined },
+          ]
+        : [
+            { label: 'GOALS', value: row?.gf },
+            { label: 'WINS', value: row?.won },
+            { label: 'CLEAN SHEETS', value: row?.cleanSheets },
+          ]
+  const chipIcons: LucideIcon[] = kind === 'chenda' ? [Drum, Volume2] : kind === 'potm' ? [CalendarDays, Crown] : kind === 'player' ? [TrendingUp, Flame] : [Crown, Flame]
 
   const [art, figure, photo, badge, ...chips] = await Promise.all([
-    cardBackground(kind, !row, Math.round(w), Math.round(h)),
+    cardBackground(kind, !row, Math.round(w), Math.round(h), color),
     row ? loadImage(player?.card_url) : Promise.resolve(null),
     row ? loadImage(player?.avatar_url) : Promise.resolve(null),
-    kind === 'potw' ? iconImage(Crown, t.bronze, Math.round(w * 0.09)) : kind === 'chenda' ? iconImage(Drum, t.bronze, Math.round(w * 0.07)) : Promise.resolve(null),
+    kind === 'potw' || kind === 'player' ? iconImage(kind === 'player' ? TrendingUp : Crown, t.bronze, Math.round(w * 0.09)) : kind === 'chenda' ? iconImage(Drum, t.bronze, Math.round(w * 0.07)) : Promise.resolve(null),
     ...chipIcons.map((I, i) =>
       iconImage(I, kind === 'potm' ? (i === 0 ? '#7ff3ff' : '#8d94a3') : '#fff1dc', Math.round(w * (kind === 'potm' ? 0.034 : 0.04))),
     ),
@@ -363,7 +388,7 @@ async function drawCard(ctx: Ctx, league: League, spec: CardSpec, x: number, y: 
     ctx.font = `900 ${0.036 * w}px ${SANS}`
     spacing(ctx, 0.008 * w)
     ctx.fillStyle = t.bronze
-    ctx.fillText(kind === 'chenda' ? 'CHENDA' : 'POTW', x + pad, y + pad + 0.18 * w * 0.92)
+    ctx.fillText(kind === 'chenda' ? 'CHENDA' : kind === 'player' ? 'OVR' : 'POTW', x + pad, y + pad + 0.18 * w * 0.92)
     spacing(ctx, 0)
     // The badge, top right
     if (badge) {
@@ -517,13 +542,14 @@ const CARD_TITLES: Record<Kind, [string, string]> = {
   potw: ['Player', 'of the week'],
   chenda: ['Chenda', 'of the week'],
   potm: ['Player', 'of the month'],
+  player: ['Player', 'card'],
 }
 
 /** A big card in the middle, with a line about the numbers underneath. */
-export async function cardPoster(league: League, spec: CardSpec & { subtitle: string; title?: [string, string] }) {
+export async function cardPoster(league: League, spec: CardSpec & { subtitle: string; title?: [string, string]; line?: string }) {
   await ensureFonts()
   const { canvas, ctx } = newCanvas()
-  const t = THEMES[spec.kind]
+  const t = themeFor(spec.kind, spec.row ? league.colorOf(spec.row.playerId) : '#3dff8f')
   backdrop(ctx, t)
   const [first, rest] = spec.title ?? CARD_TITLES[spec.kind]
   heading(ctx, t, league.settings.group_name, first, rest, spec.subtitle)
@@ -533,9 +559,10 @@ export async function cardPoster(league: League, spec: CardSpec & { subtitle: st
   const r = spec.row
   if (r) {
     const line =
-      spec.kind === 'chenda'
+      spec.line ??
+      (spec.kind === 'chenda'
         ? `${formatPerGame(r)} pts a game · ${r.won}W ${r.drawn}D ${r.lost}L · ${r.gf}–${r.ga}`
-        : `${formatPoints(r.points)} pts · ${r.won}W ${r.drawn}D ${r.lost}L · ${r.gf} goals`
+        : `${formatPoints(r.points)} pts · ${r.won}W ${r.drawn}D ${r.lost}L · ${r.gf} goals`)
     ctx.textAlign = 'center'
     ctx.textBaseline = 'alphabetic'
     ctx.fillStyle = INK

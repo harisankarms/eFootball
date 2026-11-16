@@ -32,6 +32,7 @@ import { FormChips } from '../components/FormChips'
 import { LevelBadge, XpBar } from '../components/Level'
 import { MatchCard } from '../components/MatchCard'
 import { CollectibleCard } from '../components/Potw'
+import { PlayerCardSection } from '../components/PlayerCard'
 import { RatingPanel } from '../components/Rating'
 import { BackButton, Badge, Button, EmptyState, ErrorState, PageSkeleton, SectionTitle, StatTile, buttonClass, type Tint } from '../components/ui'
 import { api } from '../lib/backend'
@@ -188,6 +189,8 @@ export default function PlayerProfile() {
           </div>
         )}
       </section>
+
+      <PlayerCardSection league={league} id={id} all={data.ratings} now={now} />
 
       {level && (
         <section className="card overflow-hidden p-4">

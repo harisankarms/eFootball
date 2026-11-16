@@ -5,7 +5,7 @@ import { flushSync } from 'react-dom'
 import { createRoot } from 'react-dom/client'
 import { ChendaScene } from '../../components/ChendaScene'
 import { ClockworkStill } from '../../components/ClockworkScene'
-import { EMPTY_TUNNEL, EPIC_TUNNEL, tunnelFrame } from '../../components/epicTunnel'
+import { EMPTY_TUNNEL, EPIC_TUNNEL, tunnelColorsFor, tunnelFrame } from '../../components/epicTunnel'
 import { loadImage, svgImage } from './draw'
 
 /** Renders React elements off screen and hands back the markup. */
@@ -19,7 +19,7 @@ function markup(node: ReactElement, pick: (root: HTMLElement) => Element | null 
 }
 
 /** The card's background for each kind, at the given size. */
-export async function cardBackground(kind: 'potw' | 'chenda' | 'potm', empty: boolean, w: number, h: number) {
+export async function cardBackground(kind: 'potw' | 'chenda' | 'potm' | 'player', empty: boolean, w: number, h: number, color = '#3dff8f') {
   if (kind === 'potm') return { back: await svgImage(markup(<ClockworkStill />), w, h), front: null }
   if (kind === 'chenda') {
     // Only the still parts: the drum, nettipattam, rays and lights; the flashes are left out.
@@ -31,7 +31,7 @@ export async function cardBackground(kind: 'potw' | 'chenda' | 'potm', empty: bo
     const front = markup(scene, (r) => r.querySelector('.chenda-front'))
     return { back: await svgImage(withStyle(back), w, h), front: await svgImage(withStyle(front), w, h) }
   }
-  const frame = tunnelFrame(empty ? EMPTY_TUNNEL : EPIC_TUNNEL, w, h)
+  const frame = tunnelFrame(kind === 'player' ? tunnelColorsFor(color) : empty ? EMPTY_TUNNEL : EPIC_TUNNEL, w, h)
   return { back: await loadImage(frame), front: null }
 }
 

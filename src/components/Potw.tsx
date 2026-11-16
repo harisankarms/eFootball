@@ -1,5 +1,5 @@
-import { BrickWall, CalendarDays, ChevronRight, Clock, Crown, Drum, Flame, Footprints, Plus, Volume2, Zap, type LucideIcon } from 'lucide-react'
-import { useEffect, useId, useRef, useState, type PointerEvent, type RefObject } from 'react'
+import { BrickWall, CalendarDays, ChevronRight, Clock, Crown, Drum, Flame, Footprints, Plus, TrendingUp, Volume2, Zap, type LucideIcon } from 'lucide-react'
+import { useEffect, useId, useRef, useState, type CSSProperties, type PointerEvent, type RefObject } from 'react'
 import { Link } from 'react-router'
 import { inkOn } from '../lib/colors'
 import { useAuth, type League } from '../lib/queries'
@@ -11,7 +11,7 @@ import { SoundButton, useCardSound } from './CardSound'
 import { ShareButton } from './Share'
 import { ChendaScene } from './ChendaScene'
 import { ClockworkScene } from './ClockworkScene'
-import { EMPTY_TUNNEL, EPIC_TUNNEL, TUNNEL_START, createTunnel, readyTunnelStill, tunnelStill } from './epicTunnel'
+import { EMPTY_TUNNEL, EPIC_TUNNEL, TUNNEL_START, createTunnel, readyTunnelStill, tunnelColorsFor, tunnelStill, type TunnelColors } from './epicTunnel'
 import { FormChips } from './FormChips'
 import { GlowIcon, buttonClass, type Tint } from './ui'
 import './potw.css'
@@ -63,7 +63,7 @@ function useOnScreen(ref: RefObject<HTMLElement | null>, enabled: boolean) {
 const MAX_SCALE = 1.5
 
 /** The moving honeycomb flight behind the big card, drawn with WebGL; the SVG tunnel stands in without it. */
-function LiveTunnel({ empty, active }: { empty: boolean; active: boolean }) {
+function LiveTunnel({ colors, active }: { colors: TunnelColors; active: boolean }) {
   const boxRef = useRef<HTMLDivElement>(null)
   const activeRef = useRef(active)
   const wakeRef = useRef(() => {})
@@ -79,7 +79,7 @@ function LiveTunnel({ empty, active }: { empty: boolean; active: boolean }) {
     if (!box) return
     const canvas = document.createElement('canvas')
     canvas.className = 'epic-gl'
-    const tunnel = createTunnel(canvas, empty ? EMPTY_TUNNEL : EPIC_TUNNEL)
+    const tunnel = createTunnel(canvas, colors)
     if (!tunnel) {
       setFallback(true)
       return
@@ -135,7 +135,7 @@ function LiveTunnel({ empty, active }: { empty: boolean; active: boolean }) {
       tunnel.destroy()
       canvas.remove()
     }
-  }, [empty])
+  }, [colors])
 
   return (
     <>
@@ -146,8 +146,7 @@ function LiveTunnel({ empty, active }: { empty: boolean; active: boolean }) {
 }
 
 /** One frame of the honeycomb flight as a picture, shared by every small card on the page. */
-function StillTunnel({ empty }: { empty: boolean }) {
-  const colors = empty ? EMPTY_TUNNEL : EPIC_TUNNEL
+function StillTunnel({ colors }: { colors: TunnelColors }) {
   const [url, setUrl] = useState(() => readyTunnelStill(colors))
   useEffect(() => {
     let alive = true
@@ -274,43 +273,53 @@ type CollectibleProps = {
   to?: string
   /** Shows this figure instead of the player's saved one (used for previews); null shows none. */
   figureUrl?: string | null
-  /** A Player of the Week card, the chenda card for the week's last place, or a Player of the Month card. */
-  kind?: 'potw' | 'chenda' | 'potm'
+  /** A Player of the Week card, the chenda card for the week's last place, a Player of the Month card, or a player's own card. */
+  kind?: 'potw' | 'chenda' | 'potm' | 'player'
   /** Player of the Month: the month's key ('2026-10'), shown on the card. */
   month?: string
+  /** A player's own card: their overall rating (from the form rating).  is then their career. */
+  overall?: number
 }
 
 /** An eFootball 2026 Epic-style player card with the player's figure, photo or initials, rating and weekly stats. */
-export function CollectibleCard({ league, row, caption, mini = false, to, figureUrl, kind = 'potw', month }: CollectibleProps) {
+export function CollectibleCard({ league, row, caption, mini = false, to, figureUrl, kind = 'potw', month, overall }: CollectibleProps) {
   const ref = useRef<HTMLDivElement>(null)
   const tilt = useTilt(ref)
   const onScreen = useOnScreen(ref, !mini)
   // Only the big cards have a background track (if one has been added).
-  const sound = useCardSound(ref, mini ? null : kind)
+  const sound = useCardSound(ref, mini || kind === 'player' ? null : kind)
   const [broken, setBroken] = useState(false)
   const [figureBroken, setFigureBroken] = useState(false)
   const chenda = kind === 'chenda'
   const potm = kind === 'potm'
+  const own = kind === 'player'
   const id = row?.playerId
   const player = id ? league.byId.get(id) : undefined
   const color = id ? league.colorOf(id) : '#3b4566'
   const photo = player?.avatar_url && !broken ? player.avatar_url : null
   const figure = figureUrl !== undefined ? figureUrl : player?.card_url && !figureBroken ? player.card_url : null
   const name = player?.name ?? (chenda ? 'Nobody yet' : 'Up for grabs')
-  const rating = row ? cardRating(row) : null
+  const rating = own ? (overall ?? null) : row ? cardRating(row) : null
   const stats = chenda
     ? [
         { label: 'Lost', value: row?.lost },
         { label: mini ? 'GA' : 'Conceded', value: row?.ga },
         { label: mini ? 'PPG' : 'Pts/game', value: row ? formatPerGame(row) : undefined },
       ]
-    : [
-        { label: 'Goals', value: row?.gf },
-        { label: 'Wins', value: row?.won },
-        { label: mini ? 'CS' : 'Clean sheets', value: row?.cleanSheets },
-      ]
-  const Badge = chenda ? Drum : Crown
-  const chips = chenda ? [Drum, Volume2] : potm ? [CalendarDays, Crown] : [Crown, Flame]
+    : own
+      ? [
+          { label: 'Goals', value: row?.gf },
+          { label: 'Wins', value: row?.won },
+          { label: 'Win %', value: row ? Math.round(row.winPct) : undefined },
+        ]
+      : [
+          { label: 'Goals', value: row?.gf },
+          { label: 'Wins', value: row?.won },
+          { label: mini ? 'CS' : 'Clean sheets', value: row?.cleanSheets },
+        ]
+  const Badge = chenda ? Drum : own ? TrendingUp : Crown
+  const chips = chenda ? [Drum, Volume2] : potm ? [CalendarDays, Crown] : own ? [TrendingUp, Flame] : [Crown, Flame]
+  const tunnel = own ? tunnelColorsFor(color) : row ? EPIC_TUNNEL : EMPTY_TUNNEL
 
   const stars = cardStars(rating)
 
@@ -342,16 +351,16 @@ export function CollectibleCard({ league, row, caption, mini = false, to, figure
       ) : potm ? (
         <ClockworkScene />
       ) : mini ? (
-        <StillTunnel empty={!row} />
+        <StillTunnel colors={tunnel} />
       ) : (
-        <LiveTunnel empty={!row} active={onScreen} />
+        <LiveTunnel colors={tunnel} active={onScreen} />
       )}
       <div className="epic-shade" />
       <div className="epic-content">
         <div className="potw-card-top">
           <div>
             <div className="potw-rating">{rating ?? '??'}</div>
-            <div className="potw-position">{chenda ? 'CHENDA' : potm ? 'POTM' : 'POTW'}</div>
+            <div className="potw-position">{chenda ? 'CHENDA' : potm ? 'POTM' : own ? 'OVR' : 'POTW'}</div>
             {/* The month sits under the position, where a player's flag would be. */}
             {potm && <div className="potm-badge">{month ? monthCardLabel(month).slice(0, 3).toUpperCase() : 'POTM'}</div>}
           </div>
@@ -411,22 +420,35 @@ export function CollectibleCard({ league, row, caption, mini = false, to, figure
     </div>
   )
 
-  const className = `potw-card ${mini ? 'is-mini' : ''} ${row ? '' : 'is-empty'} ${chenda ? 'is-chenda' : ''} ${potm ? 'is-potm' : ''} ${sound ? 'has-sound' : ''}`
-  const label = chenda
-    ? row
-      ? `${name}: chenda card, ${caption}, ${formatPerGame(row)} points a game`
-      : 'Chenda card: nobody yet'
-    : potm
+  const className = `potw-card ${mini ? 'is-mini' : ''} ${row || own ? '' : 'is-empty'} ${chenda ? 'is-chenda' : ''} ${potm ? 'is-potm' : ''} ${own ? 'is-player' : ''} ${sound ? 'has-sound' : ''}`
+  const label = own
+    ? `${name}: player card, overall ${rating ?? 'unrated'}, ${caption}`
+    : chenda
       ? row
-        ? `${name}: Player of the Month, ${month ? monthLabel(month) : caption}, card rating ${rating}, ${stars} stars`
-        : 'Player of the Month card: up for grabs'
-      : row
-      ? `${name}: ${caption}, card rating ${rating}, ${stars} stars`
-      : 'Player of the Week card: up for grabs'
+        ? `${name}: chenda card, ${caption}, ${formatPerGame(row)} points a game`
+        : 'Chenda card: nobody yet'
+      : potm
+        ? row
+          ? `${name}: Player of the Month, ${month ? monthLabel(month) : caption}, card rating ${rating}, ${stars} stars`
+          : 'Player of the Month card: up for grabs'
+        : row
+          ? `${name}: ${caption}, card rating ${rating}, ${stars} stars`
+          : 'Player of the Week card: up for grabs'
+  // A player's own card glows in their colour.
+  const ownColors = own
+    ? ({
+        '--neon': color,
+        '--neon-bright': `color-mix(in srgb, ${color} 35%, #fff)`,
+        '--tunnel-1': `color-mix(in srgb, ${color} 45%, #000)`,
+        '--tunnel-2': `color-mix(in srgb, ${color} 22%, #000)`,
+        '--tunnel-3': `color-mix(in srgb, ${color} 7%, #02040a)`,
+      } as CSSProperties)
+    : undefined
   // The card's face is the link; the speaker sits beside it (a button can't go inside a link).
   return (
     <div
       ref={ref}
+      style={ownColors}
       className={className}
       onPointerMove={to ? tilt.onPointerMove : undefined}
       onPointerLeave={to ? tilt.onPointerLeave : undefined}

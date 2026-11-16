@@ -25,6 +25,29 @@ export const EMPTY_TUNNEL: TunnelColors = {
   rim: [0.42, 0.5, 0.66],
 }
 
+const tinted = new Map<string, TunnelColors>()
+
+/** The honeycomb lit in one player's colour (the same object each time, so stills are shared). */
+export function tunnelColorsFor(hex: string): TunnelColors {
+  let colors = tinted.get(hex)
+  if (!colors) {
+    const n = parseInt(hex.slice(1, 7), 16)
+    const c: Rgb = [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]
+    // A brighter, more saturated version of the colour for the neon, white-hot highlights,
+    // and dark steel with a hint of it.
+    const peak = Math.max(...c, 0.01)
+    const neon = c.map((v) => Math.min(1, (v / peak) ** 1.6)) as unknown as Rgb
+    colors = {
+      neon,
+      hot: neon.map((v) => 0.55 + v * 0.45) as unknown as Rgb,
+      steel: c.map((v) => 0.03 + v * 0.07) as unknown as Rgb,
+      rim: c.map((v) => 0.18 + v * 0.45) as unknown as Rgb,
+    }
+    tinted.set(hex, colors)
+  }
+  return colors
+}
+
 /** Good-looking moments to start the animation on, and to use for still images. */
 export const TUNNEL_START = 0.8
 const STILL_AT = 1.2

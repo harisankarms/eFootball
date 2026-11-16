@@ -96,3 +96,11 @@ export function formatChange(n: number): string {
   const r = Math.round(n)
   return r > 0 ? `+${r}` : r < 0 ? `−${-r}` : '±0'
 }
+
+/**
+ * A player card's overall rating, 50 to 99, from the form rating: 75 at the start, and about one
+ * point for every 12 rating points above or below it.
+ */
+export function overallRating(rating: number): number {
+  return Math.max(50, Math.min(99, Math.round(75 + (rating - START_RATING) / 12)))
+}
