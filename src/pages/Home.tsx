@@ -3,7 +3,9 @@ import { Suspense, lazy, useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { AnnouncementCard, ComposerSheet } from '../components/Announcements'
 import { ChendaSpotlight } from '../components/ChendaSpotlight'
+import { ChallengesSection } from '../components/Challenges'
 import { MatchCard } from '../components/MatchCard'
+import { PredictionsSection } from '../components/Predictions'
 import { NotificationsPrompt } from '../components/Notifications'
 import { RecordNewsCard, useNewsFeed } from '../components/Records'
 import { PotmSpotlight, monthView } from '../components/Potm'
@@ -12,7 +14,7 @@ import { StandingsTable } from '../components/StandingsTable'
 import { useToast } from '../components/Toast'
 import { BallLogo, Button, ErrorState, GlowIcon, PageSkeleton, SectionTitle, Wordmark, buttonClass, type Tint } from '../components/ui'
 import { formatPoints, groupByMonth, groupByWeek, monthResult, newestFirst, weekResult, type WeekResult } from '../lib/stats'
-import { useAnnouncements, useAuth, useJoinRequests, useLeague, useNow, useTournaments, type League } from '../lib/queries'
+import { useAnnouncements, useAuth, useJoinRequests, useLeague, useNow, usePredictions, useTournaments, type League } from '../lib/queries'
 import { monthMessage, weekMessage } from '../lib/notifications'
 import { sendPush, type PushMessage } from '../lib/push'
 import { addDays, dayKey, startOfDay, weekKey, weekLabel } from '../lib/time'
@@ -298,6 +300,7 @@ export default function Home() {
   const [params, setParams] = useSearchParams()
   const [recapOpen, setRecapOpen] = useState(false)
   const [wrappedOpen, setWrappedOpen] = useState(false)
+  const predictions = usePredictions()
 
   const view = useMemo(() => {
     if (!league) return null
@@ -384,7 +387,7 @@ export default function Home() {
       )}
       {!wrappedOpen && recapOpen && view.recapWeek.matches.length > 0 && (
         <Suspense fallback={null}>
-          <Recap league={league} week={view.recapWeek} onClose={closeRecap} />
+          <Recap league={league} week={view.recapWeek} predictions={predictions.data} onClose={closeRecap} />
         </Suspense>
       )}
       <PotwHero league={league} week={view.week} lastWeek={view.lastWeek} now={now} />
@@ -393,6 +396,10 @@ export default function Home() {
       {/* In a month's first week, last month's winner has just been crowned: show them up top. */}
       {view.month.fresh && <PotmSpotlight league={league} view={view.month} now={now} onWatch={() => setWrappedOpen(true)} />}
       <LiveTournaments league={league} />
+      <div className="grid grid-cols-1 gap-7 empty:hidden md:grid-cols-2 md:items-start">
+        <ChallengesSection league={league} now={now} />
+        <PredictionsSection league={league} now={now} week={view.week} lastWeek={view.lastWeek} />
+      </div>
       <div className="grid grid-cols-1 gap-7 md:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] md:items-start">
         <div className="min-w-0 space-y-7">
           <ChendaSpotlight league={league} week={view.week} lastWeek={view.lastWeek} />

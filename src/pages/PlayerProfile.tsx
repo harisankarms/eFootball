@@ -19,6 +19,7 @@ import {
   Shield,
   ShieldHalf,
   Sparkles,
+  Swords,
   TrendingUp,
   type LucideIcon,
 } from 'lucide-react'
@@ -32,6 +33,7 @@ import { FormChips } from '../components/FormChips'
 import { LevelBadge, XpBar } from '../components/Level'
 import { MatchCard } from '../components/MatchCard'
 import { CollectibleCard } from '../components/Potw'
+import { ChallengeSheet } from '../components/Challenges'
 import { PlayerCardSection } from '../components/PlayerCard'
 import { RatingPanel } from '../components/Rating'
 import { BackButton, Badge, Button, EmptyState, ErrorState, PageSkeleton, SectionTitle, StatTile, buttonClass, type Tint } from '../components/ui'
@@ -91,6 +93,7 @@ export default function PlayerProfile() {
   const progress = useProgress(league)
   const [editingPhoto, setEditingPhoto] = useState(false)
   const [editingCard, setEditingCard] = useState(false)
+  const [challenging, setChallenging] = useState(false)
 
   const data = useMemo(() => {
     if (!league || !league.byId.has(id)) return null
@@ -174,6 +177,11 @@ export default function PlayerProfile() {
             {canEditPhoto && (
               <Button size="sm" variant="secondary" className="mt-3" icon={<Sparkles className="h-4 w-4 text-gold" />} onClick={() => setEditingCard(true)}>
                 {player.card_url ? 'Change card figure' : 'Add card figure'}
+              </Button>
+            )}
+            {me?.active && me.id !== id && player.active && (
+              <Button size="sm" variant="secondary" className="mt-3" icon={<Swords className="h-4 w-4 text-ember" />} onClick={() => setChallenging(true)}>
+                Challenge {player.name}
               </Button>
             )}
           </div>
@@ -396,6 +404,7 @@ export default function PlayerProfile() {
           <CardFigureEditor open={editingCard} onClose={() => setEditingCard(false)} league={league} player={player} self={me?.id === id} />
         </>
       )}
+      {challenging && <ChallengeSheet league={league} open onClose={() => setChallenging(false)} preset={id} />}
     </div>
   )
 }

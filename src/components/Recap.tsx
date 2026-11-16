@@ -1,9 +1,10 @@
-import { BrickWall, Footprints, Medal, Zap } from 'lucide-react'
+import { BrickWall, Footprints, Medal, Sparkles, Zap } from 'lucide-react'
 import { useMemo } from 'react'
 import type { League } from '../lib/queries'
 import { newsworthy, recordBook } from '../lib/records'
 import { formatPerGame, formatPoints, sideOf, winnerOf, type WeekResult } from '../lib/stats'
 import { addDays, startOfDay, weekLabel } from '../lib/time'
+import type { Prediction } from '../lib/types'
 import { Avatar } from './Avatar'
 import { CollectibleCard } from './Potw'
 import { RECORD_ICONS, breakSentence } from './Records'
@@ -11,7 +12,7 @@ import { AwardSlide, Count, Story, at, type Posters, type Slide } from './Story'
 import { StandingsTable } from './StandingsTable'
 import { BallLogo, GlowIcon } from './ui'
 
-function buildSlides(league: League, week: WeekResult): Slide[] {
+function buildSlides(league: League, week: WeekResult, predictions: Prediction[]): Slide[] {
   const { nameOf } = league
   const label = weekLabel(week.weekKey)
   const a = week.awards
@@ -82,6 +83,38 @@ function buildSlides(league: League, week: WeekResult): Slide[] {
           </div>
           <div className="recap-sub recap-in" style={at(3)}>
             {formatPoints(w.points)} points · {w.won}W {w.drawn}D {w.lost}L · {w.gf} goals
+          </div>
+        </>
+      ),
+    })
+  }
+
+  // Who guessed the Player of the Week.
+  const picks = predictions.filter((p) => p.week_key === week.weekKey)
+  if (week.winner && picks.length) {
+    const winnerId = week.winner.playerId
+    const called = picks.filter((p) => p.pick_id === winnerId)
+    slides.push({
+      key: 'called',
+      theme: 'records',
+      body: (
+        <>
+          <div className="recap-pop" style={at(0)}>
+            <GlowIcon icon={Sparkles} tint="violet" size="lg" />
+          </div>
+          <div className="recap-title recap-in" style={at(1)}>
+            {called.length ? 'Who called it' : 'Nobody called it'}
+          </div>
+          <div className="recap-list">
+            {picks.map((p, i) => (
+              <div key={p.player_id} className="recap-row recap-in" style={at(i + 2)}>
+                <Avatar league={league} id={p.player_id} size={30} />
+                <span className="min-w-0 flex-1 truncate text-sm">
+                  <b>{nameOf(p.player_id)}</b> picked {nameOf(p.pick_id)}
+                </span>
+                <span aria-label={p.pick_id === winnerId ? 'Right' : 'Wrong'}>{p.pick_id === winnerId ? '🔮' : '✗'}</span>
+              </div>
+            ))}
           </div>
         </>
       ),
@@ -277,7 +310,9 @@ function buildSlides(league: League, week: WeekResult): Slide[] {
 }
 
 /** Last week as a story. */
-export function Recap({ league, week, onClose }: { league: League; week: WeekResult; onClose: () => void }) {
-  const slides = useMemo(() => buildSlides(league, week), [league, week])
+const NO_PICKS: Prediction[] = []
+
+export function Recap({ league, week, predictions = NO_PICKS, onClose }: { league: League; week: WeekResult; predictions?: Prediction[]; onClose: () => void }) {
+  const slides = useMemo(() => buildSlides(league, week, predictions), [league, week, predictions])
   return <Story slides={slides} title={`Week in review, ${weekLabel(week.weekKey)}`} onClose={onClose} />
 }
