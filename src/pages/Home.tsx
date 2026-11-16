@@ -13,11 +13,12 @@ import { AwardsStrip, PotwHero } from '../components/Potw'
 import { StandingsTable } from '../components/StandingsTable'
 import { useToast } from '../components/Toast'
 import { BallLogo, Button, ErrorState, GlowIcon, PageSkeleton, SectionTitle, Wordmark, buttonClass, type Tint } from '../components/ui'
-import { formatPoints, groupByMonth, groupByWeek, monthResult, newestFirst, weekResult, type WeekResult } from '../lib/stats'
+import { formatPoints, groupByMonth, groupByWeek, monthResult, newestFirst, pastMonths, pastWeeks, weekResult, type WeekResult } from '../lib/stats'
 import { useAnnouncements, useAuth, useJoinRequests, useLeague, useNow, usePredictions, useTournaments, type League } from '../lib/queries'
-import { monthMessage, weekMessage } from '../lib/notifications'
+import { monthMessage, seasonMessage, weekMessage } from '../lib/notifications'
 import { sendPush, type PushMessage } from '../lib/push'
-import { addDays, dayKey, startOfDay, weekKey, weekLabel } from '../lib/time'
+import { addSeasons, firstSeason, seasonBounds, seasonKeyOf, seasonName, seasonResult, seasonSpan, type SeasonResult } from '../lib/seasons'
+import { addDays, dayKey, durationLabel, startOfDay, weekKey, weekLabel } from '../lib/time'
 import { phaseLabel, tournamentState } from '../lib/tournaments'
 
 function MoreLink({ to, children }: { to: string; children: string }) {
@@ -252,8 +253,38 @@ const Recap = lazy(() => import('../components/Recap').then((m) => ({ default: m
 
 const MonthWrapped = lazy(() => import('../components/MonthWrapped').then((m) => ({ default: m.MonthWrapped })))
 
+const SeasonWrapped = lazy(() => import('../components/SeasonWrapped').then((m) => ({ default: m.SeasonWrapped })))
+
 const RECAP_SEEN = 'eft-recap-seen'
 const WRAPPED_SEEN = 'eft-wrapped-seen'
+const SEASON_SEEN = 'eft-season-seen'
+
+/** The season so far: who leads, and how long is left. */
+function SeasonStrip({ league, season, now, onWatch }: { league: League; season: { key: string; first: string; current: SeasonResult; ends: Date }; now: Date; onWatch: () => void }) {
+  const s = season.current
+  const leader = s.champion ?? s.rows[0] ?? null
+  return (
+    <div className="card flex items-center gap-3 border-gold/25 bg-[linear-gradient(90deg,rgb(255_207_77/0.1),rgb(255_207_77/0.02))] p-3.5">
+      <GlowIcon icon={Trophy} tint="gold" size="sm" />
+      <Link to={`/table?view=season`} className="min-w-0 flex-1">
+        <span className="block text-sm font-semibold">
+          {seasonName(season.key, season.first)} · {seasonSpan(season.key)}
+        </span>
+        <span className="block truncate text-xs text-muted">
+          {durationLabel(season.ends.getTime() - now.getTime())} left ·{' '}
+          {leader
+            ? `${league.nameOf(leader.playerId)} leads with ${formatPoints(leader.points)} pts${s.champion ? '' : `, needs ${leader.gamesNeeded} more games`}`
+            : 'No games yet'}
+        </span>
+      </Link>
+      {s.matches.length > 0 && (
+        <button type="button" onClick={onWatch} aria-label="The season so far, as a story" className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gold/15 text-gold transition hover:bg-gold/25">
+          <Play className="ml-0.5 h-4 w-4" fill="currentColor" aria-hidden />
+        </button>
+      )}
+    </div>
+  )
+}
 
 function readSeen(key = RECAP_SEEN) {
   try {
@@ -300,6 +331,7 @@ export default function Home() {
   const [params, setParams] = useSearchParams()
   const [recapOpen, setRecapOpen] = useState(false)
   const [wrappedOpen, setWrappedOpen] = useState(false)
+  const [seasonOpen, setSeasonOpen] = useState(false)
   const predictions = usePredictions()
 
   const view = useMemo(() => {
@@ -318,12 +350,33 @@ export default function Home() {
       askedMonth && /^\d{4}-\d{2}$/.test(askedMonth) && askedMonth < month.current.monthKey
         ? monthResult(groupByMonth(matches, tz).get(askedMonth) ?? [], settings, askedMonth, nameOf)
         : month.last
+    // Seasons: this one so far, the last one (its story opens once when a new season starts),
+    // or any one asked for by link (including this one, "so far").
+    const seasonNow = seasonKeyOf(now, tz)
+    const lastSeasonKey = addSeasons(seasonNow, -1)
+    const weeks = pastWeeks(matches, settings, current, nameOf)
+    const months = pastMonths(matches, settings, month.current.monthKey, nameOf)
+    const askedSeason = params.get('season')
+    const storyKey = askedSeason && /^\d{4}-Q[1-4]$/.test(askedSeason) && askedSeason <= seasonNow ? askedSeason : lastSeasonKey
+    const lastSeason = seasonResult(matches, settings, lastSeasonKey, weeks, months, nameOf)
+    const season = {
+      key: seasonNow,
+      first: firstSeason(matches, tz) ?? seasonNow,
+      current: seasonResult(matches, settings, seasonNow, weeks, months, nameOf),
+      last: lastSeason,
+      story: storyKey === lastSeasonKey ? lastSeason : seasonResult(matches, settings, storyKey, weeks, months, nameOf),
+      storyLive: storyKey === seasonNow,
+      ends: seasonBounds(seasonNow, tz).end,
+      /** The new season's first fortnight, when last season's champion has just been crowned. */
+      fresh: now.getTime() - seasonBounds(seasonNow, tz).start.getTime() < 14 * 86_400_000,
+    }
     return {
       week: weekResult(byWeek.get(current) ?? [], settings, current, nameOf),
       lastWeek: weekResult(byWeek.get(previous) ?? [], settings, previous, nameOf),
       recapWeek: weekResult(byWeek.get(recapKey) ?? [], settings, recapKey, nameOf),
       month,
       wrapped,
+      season,
       latest: newestFirst(matches).slice(0, 6),
     }
   }, [league, now, params])
@@ -335,12 +388,27 @@ export default function Home() {
   const lastMonthKey = view?.month.last.monthKey
   const [wrappedSeen, setWrappedSeen] = useState(() => readSeen(WRAPPED_SEEN))
   const monthPending = !!view && isMember && view.month.fresh && view.month.last.matches.length > 0 && wrappedSeen !== lastMonthKey
+  // A new season: last season's story comes first of all.
+  const lastSeasonKey = view?.season.last.key
+  const [seasonSeen, setSeasonSeen] = useState(() => readSeen(SEASON_SEEN))
+  const seasonPending = !!view && isMember && view.season.fresh && view.season.last.matches.length > 0 && seasonSeen !== lastSeasonKey
   useEffect(() => {
-    if (params.get('wrapped')) setWrappedOpen(true)
+    if (params.get('season')) setSeasonOpen(true)
+    else if (params.get('wrapped')) setWrappedOpen(true)
     else if (params.get('recap')) setRecapOpen(true)
+    else if (seasonPending) setSeasonOpen(true)
     else if (monthPending) setWrappedOpen(true)
     else if (isMember && lastKey && lastPlayed && readSeen() !== lastKey) setRecapOpen(true)
-  }, [params, isMember, lastKey, lastPlayed, monthPending])
+  }, [params, isMember, lastKey, lastPlayed, monthPending, seasonPending])
+
+  const closeSeason = () => {
+    setSeasonOpen(false)
+    if (!params.get('season') && lastSeasonKey) {
+      markSeen(lastSeasonKey, SEASON_SEEN)
+      setSeasonSeen(lastSeasonKey)
+    }
+    if (params.get('season')) setParams({}, { replace: true })
+  }
 
   const closeWrapped = () => {
     setWrappedOpen(false)
@@ -359,6 +427,10 @@ export default function Home() {
     const weekStarted = startOfDay(weekKey(now, league.tz), league.tz).getTime()
     if (now.getTime() - weekStarted < 3 * 86_400_000) out.push(...[weekMessage(league, view.lastWeek)].filter((m) => m !== null))
     if (Number(dayKey(now, league.tz).slice(8)) <= 3) out.push(...[monthMessage(league, view.month.last)].filter((m) => m !== null))
+    const s = view.season
+    if (now.getTime() - seasonBounds(s.key, league.tz).start.getTime() < 3 * 86_400_000) {
+      out.push(...[seasonMessage(league, s.last, seasonName(s.last.key, s.first))].filter((m) => m !== null))
+    }
     return out
   }, [league, view, now])
   const announceKeys = announce.map((m) => m.key).join()
@@ -380,12 +452,17 @@ export default function Home() {
   return (
     <div className="space-y-7">
       {isAdmin && <WaitingBanner />}
-      {wrappedOpen && view.wrapped.matches.length > 0 && (
+      {seasonOpen && view.season.story.matches.length > 0 && (
+        <Suspense fallback={null}>
+          <SeasonWrapped league={league} season={view.season.story} first={view.season.first} live={view.season.storyLive} onClose={closeSeason} />
+        </Suspense>
+      )}
+      {!seasonOpen && wrappedOpen && view.wrapped.matches.length > 0 && (
         <Suspense fallback={null}>
           <MonthWrapped league={league} month={view.wrapped} onClose={closeWrapped} />
         </Suspense>
       )}
-      {!wrappedOpen && recapOpen && view.recapWeek.matches.length > 0 && (
+      {!seasonOpen && !wrappedOpen && recapOpen && view.recapWeek.matches.length > 0 && (
         <Suspense fallback={null}>
           <Recap league={league} week={view.recapWeek} predictions={predictions.data} onClose={closeRecap} />
         </Suspense>
@@ -400,6 +477,7 @@ export default function Home() {
         <ChallengesSection league={league} now={now} />
         <PredictionsSection league={league} now={now} week={view.week} lastWeek={view.lastWeek} />
       </div>
+      <SeasonStrip league={league} season={view.season} now={now} onWatch={() => setParams({ season: view.season.key })} />
       <div className="grid grid-cols-1 gap-7 md:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] md:items-start">
         <div className="min-w-0 space-y-7">
           <ChendaSpotlight league={league} week={view.week} lastWeek={view.lastWeek} />

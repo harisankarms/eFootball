@@ -1,5 +1,5 @@
 import { Footprints, Gamepad2, Medal, TrendingUp, Zap } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import type { League } from '../lib/queries'
 import { ratings } from '../lib/rating'
 import { newsworthy, recordBook } from '../lib/records'
@@ -16,6 +16,25 @@ const REVEAL_AFTER_MS = 2600
 
 /** The Player of the Month card, face down: it charges up, bursts, and flips over. Tap it to flip early. */
 export function CardReveal({ league, row, month }: { league: League; row: Row; month: string }) {
+  return (
+    <FaceDownCard
+      title="Player of the Month"
+      sub={monthLabel(month)}
+      card={<CollectibleCard kind="potm" league={league} row={row} month={month} caption={monthCardLabel(month)} />}
+      caption={
+        <>
+          <div className="recap-title">{league.nameOf(row.playerId)}</div>
+          <div className="recap-sub mt-1">
+            {formatPoints(row.points)} points · {row.won}W {row.drawn}D {row.lost}L · {row.gf} goals
+          </div>
+        </>
+      }
+    />
+  )
+}
+
+/** Any card, face down: it charges up, bursts with a flash and confetti, and flips over. Tap to flip early. */
+export function FaceDownCard({ title, sub, card, caption }: { title: string; sub: string; card: ReactNode; caption: ReactNode }) {
   const [phase, setPhase] = useState<'charging' | 'burst' | 'shown'>('charging')
   const started = useRef(false)
 
@@ -39,7 +58,6 @@ export function CardReveal({ league, row, month }: { league: League; row: Row; m
     // Once, when the slide appears.
   }, [])
 
-  const name = league.nameOf(row.playerId)
   return (
     <div
       className={`reveal is-${phase}`}
@@ -54,25 +72,18 @@ export function CardReveal({ league, row, month }: { league: League; row: Row; m
       <div className="reveal-rays" aria-hidden />
       <div className="reveal-slot">
         {phase !== 'shown' ? (
-          <div className="reveal-back" role="button" aria-label="Reveal the Player of the Month">
+          <div className="reveal-back" role="button" aria-label={`Reveal the ${title}`}>
             <BallLogo />
-            <div className="reveal-back-label">Player of the Month</div>
-            <div className="reveal-back-month">{monthLabel(month)}</div>
+            <div className="reveal-back-label">{title}</div>
+            <div className="reveal-back-month">{sub}</div>
           </div>
         ) : (
-          <div className="reveal-front">
-            <CollectibleCard kind="potm" league={league} row={row} month={month} caption={monthCardLabel(month)} />
-          </div>
+          <div className="reveal-front">{card}</div>
         )}
         <div className="reveal-flash" aria-hidden />
       </div>
       {phase === 'shown' ? (
-        <div className="reveal-caption text-center">
-          <div className="recap-title">{name}</div>
-          <div className="recap-sub mt-1">
-            {formatPoints(row.points)} points · {row.won}W {row.drawn}D {row.lost}L · {row.gf} goals
-          </div>
-        </div>
+        <div className="reveal-caption text-center">{caption}</div>
       ) : (
         <div className="reveal-hint">Tap to reveal</div>
       )}

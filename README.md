@@ -6,8 +6,12 @@ A small, free website for a group of friends who play eFootball. Log every resul
 - **Tables** for this week, this month and all time, with form, goal difference and win %.
 - **Player of the Week**, decided by points: 3 per win, 1 per draw, 0.5 per goal, 1 per clean sheet, minimum 3 games. Ties go to win %, then goal difference, then goals, then head-to-head. The admin can change all of this.
 - **Weekly awards**: Golden Boot, The Wall, Biggest Win and the **Chenda**, a card showing the player as a chenda melam performer in front of a nettipattam, for whoever has the fewest points a game that week (among players with the minimum games, once at least three have them).
-- **Player of the Month**: the most points over the month (at least three times the weekly minimum of games), on its own clockwork card.
-- **Week in review**: after each week, a story like Instagram's runs through the winner, the awards, the chenda, any records that fell and the final table.
+- **Player of the Month**: the most points over the month (at least three times the weekly minimum of games), on its own clockwork card, revealed like opening a card pack at the start of the next month.
+- **Seasons**: every three months (Jan–Mar, Apr–Jun, Jul–Sep, Oct–Dec) a champion (at least six times the weekly minimum of games), a top scorer, a best defence and a season chenda, with their own table and Hall of Fame entry.
+- **Week, month and season in review**: stories like Instagram's that run through the winners, the awards, the chenda, records that fell, who predicted the winner and the final table.
+- **Challenges and predictions**: challenge a friend (they accept or decline, and your next game settles it), and guess each week's Player of the Week before Wednesday.
+- **Notifications** on phones: a result logged against you, disputes, challenges, the week's, month's and season's winners, records.
+- **Player cards**: everyone has their own card with an overall rating that follows their form.
 - **Share as a picture**: the cards, any result, the table and every story slide turn into a picture for WhatsApp or Instagram.
 - **Form rating**: one number per player, like chess ratings. Beating someone rated higher earns more. Each profile has its rating over time.
 - **Records**: biggest win, longest streaks, most points in a week and more, with a news item when one falls.
@@ -129,11 +133,28 @@ Without this step, Google sign-in sends people back to the wrong place.
 - **Penalties**: if a draw goes to penalties, the shootout winner gets the win. Shootout goals don't count as goals.
 - **Screenshots** are shrunk on the phone before uploading (to about 150 KB plus a small thumbnail). The free 1 GB of storage holds several thousand matches.
 - **Every stat is calculated from the list of matches.** Fixing or deleting a wrong result automatically corrects every table, award and trophy.
+- **Notifications** are web push, sent by the site's own server (`api/notify.ts`) through the browsers' free push services. Each person turns them on per phone from the account menu. On iPhone they only work in the app added to the Home Screen. They need three settings in Vercel (see below).
+
+### Turning on notifications (once)
+
+In Vercel → your project → **Settings → Environment Variables**, add these, then redeploy:
+
+| Name | Value |
+|---|---|
+| `SUPABASE_SECRET_KEY` | Supabase → Project Settings → API Keys → **Secret key** |
+| `VITE_VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` | a key pair from `npx web-push generate-vapid-keys` |
+
+Until they're there, the site works as before and simply sends nothing.
+
+### Weekly backups (once)
+
+`.github/workflows/backup.yml` copies every table and uploaded file each week, encrypts it, and keeps it on the repository's **Actions** page for 90 days. In GitHub → **Settings → Secrets and variables → Actions**, add `SUPABASE_URL`, `SUPABASE_SECRET_KEY` and `BACKUP_PASSWORD` (any long password, kept somewhere safe: it's the only way to open a backup). The top of the workflow file says how to open one.
 
 ## Free plan limits worth knowing
 
-- **Supabase pauses a free project after a week with no activity.** If the site says it can't reach the database after a long break, open the Supabase dashboard and click **Restore project**. Nothing is lost.
-- **There are no automatic backups on the free plan.** Use **Admin → Backup → Download CSV** now and then. The file opens in Excel or Google Sheets.
+- **Supabase pauses a free project after a week with no activity.** The site asks the database one tiny question every day (`api/daily.ts`, scheduled in `vercel.json`) so that doesn't happen. If it ever does, open the Supabase dashboard and click **Restore project**. Nothing is lost.
+- **There are no automatic backups on the free plan.** The weekly backup above covers it; **Admin → Backup → Download CSV** gives you a spreadsheet any time.
+- **GitHub pauses scheduled jobs** in a repository nobody has changed for 60 days. If backups stop, it emails you; re-enable them on the Actions page.
 - **Vercel Hobby is for personal, non-commercial use only**, which is exactly what a group of friends needs.
 
 ## Troubleshooting

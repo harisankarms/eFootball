@@ -5,6 +5,7 @@ import type { PushMessage } from './push'
 import type { League } from './queries'
 import { newsworthy, recordBook, recordInfo, type RecordKey } from './records'
 import { breakSentence } from './recordText'
+import { seasonSpan, type SeasonResult } from './seasons'
 import { formatPerGame, formatPoints, type MonthResult, type WeekResult } from './stats'
 import { monthLabel, weekKey, weekLabel } from './time'
 import type { Challenge, Match } from './types'
@@ -125,6 +126,20 @@ export function monthMessage(league: League, month: MonthResult): PushMessage | 
     title: `🏆 ${league.nameOf(w.playerId)} is Player of the Month`,
     body: `${monthLabel(month.monthKey)}: ${formatPoints(w.points)} pts from ${w.played} games. Tap to reveal the card.`,
     url: '/',
+    to: 'all',
+  }
+}
+
+/** The season's champion, once the season is over: to everyone. */
+export function seasonMessage(league: League, season: SeasonResult, name: string): PushMessage | null {
+  const c = season.champion
+  if (!c) return null
+  return {
+    key: `season:${season.key}`,
+    topic: 'winners',
+    title: `🏆 ${league.nameOf(c.playerId)} wins ${name}`,
+    body: `${seasonSpan(season.key)}: ${formatPoints(c.points)} pts from ${c.played} games. Tap for the season review.`,
+    url: `/?season=${season.key}`,
     to: 'all',
   }
 }

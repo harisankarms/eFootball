@@ -21,6 +21,7 @@ import {
   Sparkles,
   Swords,
   TrendingUp,
+  Trophy,
   type LucideIcon,
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
@@ -41,6 +42,7 @@ import { api } from '../lib/backend'
 import { formatStat, playerStats, type StatSummary } from '../lib/matchStats'
 import { useAuth, useLeague, useNow, useProgress } from '../lib/queries'
 import { ratings } from '../lib/rating'
+import { pastSeasons, seasonKeyOf } from '../lib/seasons'
 import { formatPct, involves, newestFirst, pastMonths, pastWeeks, playerSummary, signed, trophyCounts, type Outcome } from '../lib/stats'
 import { longDate, monthCardLabel, monthKey, weekKey, weekLabel } from '../lib/time'
 
@@ -107,6 +109,7 @@ export default function PlayerProfile() {
       trophies: trophyCounts(weeks).get(id) ?? { potw: 0, goldenBoots: 0, walls: 0, chendas: 0 },
       potwWeeks: weeks.filter((w) => w.winner?.playerId === id),
       potmMonths: months.filter((m) => m.winner?.playerId === id),
+      seasonTitles: pastSeasons(matches, settings, seasonKeyOf(now, tz), weeks, months, nameOf).filter((x) => x.champion?.playerId === id).length,
       chendaWeeks: weeks.filter((w) => w.awards.chenda?.playerId === id),
       recent: mine.slice(0, 5),
       gallery: mine.filter((m) => m.thumb_path || m.screenshot_path).slice(0, 9),
@@ -127,7 +130,7 @@ export default function PlayerProfile() {
     )
   }
 
-  const { summary: s, trophies, potwWeeks, potmMonths, chendaWeeks } = data
+  const { summary: s, trophies, potwWeeks, potmMonths, chendaWeeks, seasonTitles } = data
   const streak = s.currentStreak
   const canEditPhoto = me?.id === id || isAdmin
   const statuses = progress?.statusesOf(id) ?? []
@@ -136,6 +139,7 @@ export default function PlayerProfile() {
     .filter((x) => x.unlocked)
     .sort((a, b) => Date.parse(b.unlockedAt ?? '') - Date.parse(a.unlockedAt ?? ''))
   const trophyChips = [
+    { n: seasonTitles, icon: Trophy, label: 'Season champion', cls: 'border-gold/50 bg-gold/15 text-gold' },
     { n: potmMonths.length, icon: CalendarDays, label: 'Player of the Month', cls: 'border-[#ff8a1c]/45 bg-[#ff8a1c]/10 text-[#ffa040]' },
     { n: trophies.potw, icon: Crown, label: 'Player of the Week', cls: 'border-gold/40 bg-gold/10 text-gold' },
     { n: trophies.goldenBoots, icon: Footprints, label: 'Golden Boot', cls: 'border-line-strong bg-surface-2 text-ink-2' },

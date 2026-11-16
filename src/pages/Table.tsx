@@ -1,4 +1,4 @@
-import { CalendarDays, ChevronLeft, ChevronRight, Crown, Drum, Info, ListOrdered } from 'lucide-react'
+import { CalendarDays, ChevronLeft, ChevronRight, Crown, Drum, Info, ListOrdered, Trophy } from 'lucide-react'
 import { useMemo } from 'react'
 import { useSearchParams } from 'react-router'
 import { Avatar } from '../components/Avatar'
@@ -9,13 +9,15 @@ import { EmptyState, ErrorState, PageSkeleton, PageTitle, SectionTitle, Segmente
 import { statLeaders } from '../lib/matchStats'
 import { useLeague, useNow } from '../lib/queries'
 import { buildTable, formatPerGame, formatPoints, isCounted, monthMinimum, monthResult, weekResult, type Row } from '../lib/stats'
-import { addDays, addMonths, monthKey, monthLabel, startOfDay, weekKey, weekLabel } from '../lib/time'
+import { addSeasons, firstSeason, seasonBounds, seasonKeyOf, seasonMinimum, seasonName, seasonResult, seasonSpan } from '../lib/seasons'
+import { addDays, addMonths, durationLabel, monthKey, monthLabel, startOfDay, weekKey, weekLabel } from '../lib/time'
 import type { Match } from '../lib/types'
 
-type View = 'week' | 'month' | 'all'
+type View = 'week' | 'month' | 'season' | 'all'
 const VIEWS: { value: View; label: string }[] = [
   { value: 'week', label: 'Week' },
   { value: 'month', label: 'Month' },
+  { value: 'season', label: 'Season' },
   { value: 'all', label: 'All time' },
 ]
 
@@ -36,7 +38,7 @@ export default function Table() {
   const [params, setParams] = useSearchParams()
   const now = useNow()
   const viewParam = params.get('view')
-  const view: View = viewParam === 'month' || viewParam === 'all' ? viewParam : 'week'
+  const view: View = viewParam === 'month' || viewParam === 'season' || viewParam === 'all' ? viewParam : 'week'
   const at = params.get('at')
 
   const period = useMemo<Period | null>(() => {
@@ -84,6 +86,24 @@ export default function Table() {
         next: key < current ? addMonths(key, 1) : null,
       }
     }
+    if (view === 'season') {
+      const current = seasonKeyOf(now, tz)
+      const key = at && /^\d{4}-Q[1-4]$/.test(at) ? at : current
+      const first = firstSeason(counted, tz) ?? current
+      const res = seasonResult(counted, settings, key, [], [], nameOf)
+      const left = seasonBounds(key, tz).end.getTime() - now.getTime()
+      return {
+        title: `${seasonName(key, first)} · ${seasonSpan(key)}`,
+        note: key === current ? `This season · ${durationLabel(left)} left` : null,
+        matches: res.matches,
+        rows: res.rows,
+        winner: res.champion,
+        chenda: res.awards.chenda,
+        isCurrent: key === current,
+        prev: key > first ? addSeasons(key, -1) : null,
+        next: key < current ? addSeasons(key, 1) : null,
+      }
+    }
     return {
       title: 'All time',
       note: `${counted.length} matches`,
@@ -124,7 +144,7 @@ export default function Table() {
               make={(p) =>
                 p.tablePoster(league, {
                   rows: period.rows,
-                  first: view === 'all' ? 'All-time' : view === 'month' ? 'Month' : 'Week',
+                  first: view === 'all' ? 'All-time' : view === 'month' ? 'Month' : view === 'season' ? 'Season' : 'Week',
                   rest: 'table',
                   subtitle: view === 'all' ? period.note ?? '' : `${period.title}${period.note ? ` · ${period.note}` : ''}`,
                   crownId: view !== 'all' ? period.winner?.playerId : null,
@@ -169,6 +189,19 @@ export default function Table() {
         </div>
       )}
 
+      {view === 'season' && period.winner && (
+        <div className="mb-4 flex items-center gap-3 rounded-2xl border border-gold/40 bg-gold/[0.08] p-3.5">
+          <Avatar league={league} id={period.winner.playerId} size={36} ring="gold" />
+          <div className="min-w-0 flex-1">
+            <div className="text-[11px] font-semibold tracking-wider text-gold uppercase">{period.isCurrent ? 'Leading the season' : 'Season champion'}</div>
+            <div className="truncate font-semibold">
+              {league.nameOf(period.winner.playerId)} · {formatPoints(period.winner.points)} pts
+            </div>
+          </div>
+          <Trophy className="h-6 w-6 shrink-0 text-gold" aria-hidden />
+        </div>
+      )}
+
       {view === 'month' && period.winner && (
         <div className="mb-4 flex items-center gap-3 rounded-2xl border border-[#ff8a1c]/35 bg-[#ff8a1c]/[0.08] p-3.5">
           <Avatar league={league} id={period.winner.playerId} size={36} ring="gold" />
@@ -204,7 +237,7 @@ export default function Table() {
           league={league}
           rows={period.rows}
           crownId={view !== 'all' ? period.winner?.playerId : null}
-          drumId={view === 'week' ? period.chenda?.playerId : null}
+          drumId={view === 'week' || view === 'season' ? period.chenda?.playerId : null}
           showQualification={view !== 'all'}
           sortable
         />
@@ -233,7 +266,8 @@ export default function Table() {
           draw, {formatPoints(s.potw_goal)} per goal, {formatPoints(s.potw_clean_sheet)} per clean sheet. Player of the Week needs at
           least {s.potw_min_matches} games in the week. Ties go to win %, goal difference, goals, then head-to-head. The chenda goes to
           whoever has the fewest points a game among players with {s.potw_min_matches}+ games, once at least three have them. Player
-          of the Month goes to the most points in the month, with at least {monthMinimum(s)} games. Disputed
+          of the Month goes to the most points in the month, with at least {monthMinimum(s)} games. Seasons run three months (Jan–Mar,
+          Apr–Jun, Jul–Sep, Oct–Dec); the champion needs {seasonMinimum(s)} games. Disputed
           results don't count until they're resolved. Tap a column to sort.
         </p>
       </div>

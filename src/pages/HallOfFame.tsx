@@ -6,7 +6,8 @@ import { PlayersTabs } from '../components/PlayersTabs'
 import { CollectibleCard, awardItems } from '../components/Potw'
 import { EmptyState, ErrorState, PageSkeleton, PageTitle, SectionTitle } from '../components/ui'
 import { useLeague, useNow } from '../lib/queries'
-import { formatPoints, pastMonths, pastWeeks, trophyCounts } from '../lib/stats'
+import { firstSeason, pastSeasons, seasonKeyOf, seasonMinimum, seasonName, seasonSpan } from '../lib/seasons'
+import { formatPerGame, formatPoints, pastMonths, pastWeeks, trophyCounts } from '../lib/stats'
 import { monthCardLabel, monthKey, weekKey, weekLabel } from '../lib/time'
 
 export default function HallOfFame() {
@@ -17,19 +18,32 @@ export default function HallOfFame() {
     if (!league) return null
     const { matches, settings, tz, nameOf } = league
     const weeks = pastWeeks(matches, settings, weekKey(now, tz), nameOf)
-    const months = pastMonths(matches, settings, monthKey(now, tz), nameOf).filter((m) => m.winner)
+    const allMonths = pastMonths(matches, settings, monthKey(now, tz), nameOf)
+    const months = allMonths.filter((m) => m.winner)
+    const first = firstSeason(matches, tz)
+    const seasons = pastSeasons(matches, settings, seasonKeyOf(now, tz), weeks, allMonths, nameOf)
     const counts = trophyCounts(weeks)
-    const potm = new Map<string, number>()
-    for (const m of months) potm.set(m.winner!.playerId, (potm.get(m.winner!.playerId) ?? 0) + 1)
+    const tally = (ids: (string | undefined)[]) => {
+      const out = new Map<string, number>()
+      for (const id of ids) if (id) out.set(id, (out.get(id) ?? 0) + 1)
+      return out
+    }
+    const potm = tally(months.map((m) => m.winner?.playerId))
+    const titles = tally(seasons.map((s) => s.champion?.playerId))
     const none = { potw: 0, goldenBoots: 0, walls: 0, chendas: 0 }
-    const cabinet = [...new Set([...counts.keys(), ...potm.keys()])]
-      .map((id) => [id, { ...(counts.get(id) ?? none), potm: potm.get(id) ?? 0 }] as const)
-      .filter(([, t]) => t.potm + t.potw + t.goldenBoots + t.walls + t.chendas > 0)
+    const cabinet = [...new Set([...counts.keys(), ...potm.keys(), ...titles.keys()])]
+      .map((id) => [id, { ...(counts.get(id) ?? none), potm: potm.get(id) ?? 0, seasons: titles.get(id) ?? 0 }] as const)
+      .filter(([, t]) => t.seasons + t.potm + t.potw + t.goldenBoots + t.walls + t.chendas > 0)
       .sort(
         ([ia, a], [ib, b]) =>
-          b.potm - a.potm || b.potw - a.potw || b.goldenBoots - a.goldenBoots || b.walls - a.walls || nameOf(ia).localeCompare(nameOf(ib)),
+          b.seasons - a.seasons ||
+          b.potm - a.potm ||
+          b.potw - a.potw ||
+          b.goldenBoots - a.goldenBoots ||
+          b.walls - a.walls ||
+          nameOf(ia).localeCompare(nameOf(ib)),
       )
-    return { weeks, months, cabinet }
+    return { weeks, months, seasons, first, cabinet }
   }, [league, now])
 
   if (error) return <ErrorState error={error} onRetry={refetch} />
@@ -57,6 +71,12 @@ export default function HallOfFame() {
                   <Avatar league={league} id={id} size={36} ring={i === 0 && t.potw + t.potm > 0 ? 'gold' : undefined} />
                   <span className="min-w-0 flex-1 truncate font-semibold">{league.nameOf(id)}</span>
                   <span className="flex items-center gap-2.5 text-sm font-semibold tabular-nums">
+                    {data.seasons.length > 0 && (
+                      <span className={`flex items-center gap-1 ${t.seasons ? 'text-gold' : 'text-muted/50'}`} title="Season champion">
+                        <Trophy className="h-4 w-4" aria-label="Season champion" />
+                        {t.seasons}
+                      </span>
+                    )}
                     {data.months.length > 0 && (
                       <span className={`flex items-center gap-1 ${t.potm ? 'text-[#ffa040]' : 'text-muted/50'}`} title="Player of the Month">
                         <CalendarDays className="h-4 w-4" aria-label="Player of the Month" />
@@ -84,6 +104,67 @@ export default function HallOfFame() {
               ))}
             </div>
           </section>
+
+          {data.seasons.length > 0 && (
+            <section>
+              <SectionTitle title="Seasons" />
+              <div className="space-y-3">
+                {data.seasons.map((s) => {
+                  const crowns = [...s.crowns.entries()].sort((a, b) => b[1] - a[1])[0]
+                  const honours = [
+                    { icon: Footprints, label: 'Top scorer', ids: s.awards.goldenBoot?.ids ?? [], detail: s.awards.goldenBoot ? `${s.awards.goldenBoot.goals} goals` : '' },
+                    { icon: BrickWall, label: 'Best defence', ids: s.awards.wall?.ids ?? [], detail: s.awards.wall ? `${s.awards.wall.cleanSheets} clean sheets` : '' },
+                    { icon: Crown, label: 'Most crowns', ids: crowns ? [crowns[0]] : [], detail: crowns ? `${crowns[1]}× Player of the Week` : '' },
+                    { icon: Drum, label: 'Season chenda', ids: s.awards.chenda ? [s.awards.chenda.playerId] : [], detail: s.awards.chenda ? `${formatPerGame(s.awards.chenda)} pts a game` : '' },
+                  ].filter((h) => h.ids.length)
+                  return (
+                    <article key={s.key} className="card overflow-hidden p-4">
+                      <div aria-hidden className="pointer-events-none absolute -top-16 -right-12 h-40 w-40 rounded-full bg-[radial-gradient(circle,rgb(255_207_77/0.16),transparent_70%)]" />
+                      <div className="relative flex items-center justify-between gap-3 text-xs text-muted">
+                        <Link to={`/table?view=season&at=${s.key}`} className="font-semibold text-ink-2 hover:text-ink">
+                          {seasonName(s.key, data.first ?? s.key)} · {seasonSpan(s.key)}
+                        </Link>
+                        <span className="flex items-center gap-3">
+                          {s.matches.length} matches
+                          <Link to={`/?season=${s.key}`} className="flex items-center gap-1 font-semibold text-accent hover:text-cyan">
+                            <Play className="h-3 w-3" fill="currentColor" aria-hidden /> Recap
+                          </Link>
+                        </span>
+                      </div>
+                      {s.champion ? (
+                        <Link to={`/players/${s.champion.playerId}`} className="relative mt-3 flex items-center gap-3">
+                          <Avatar league={league} id={s.champion.playerId} size={48} ring="gold" />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="truncate font-display text-2xl leading-none font-bold uppercase italic">{league.nameOf(s.champion.playerId)}</span>
+                              <Trophy className="h-4 w-4 shrink-0 text-gold" aria-label="Season champion" />
+                            </div>
+                            <div className="mt-1 text-xs text-ink-2">
+                              Champion · {formatPoints(s.champion.points)} pts · {s.champion.won}W {s.champion.drawn}D {s.champion.lost}L
+                            </div>
+                          </div>
+                        </Link>
+                      ) : (
+                        <p className="relative mt-3 text-sm text-muted">No champion: nobody played {seasonMinimum(league.settings)} games.</p>
+                      )}
+                      {honours.length > 0 && (
+                        <ul className="relative mt-3 grid grid-cols-1 gap-x-4 gap-y-1.5 border-t border-line/70 pt-3 text-xs sm:grid-cols-2">
+                          {honours.map((h) => (
+                            <li key={h.label} className="flex min-w-0 items-center gap-2 text-ink-2">
+                              <h.icon className="h-3.5 w-3.5 shrink-0 text-muted" aria-hidden />
+                              <span className="shrink-0 text-muted">{h.label}</span>
+                              <span className="truncate font-semibold text-ink">{h.ids.map(league.nameOf).join(' & ')}</span>
+                              <span className="shrink-0 text-muted">{h.detail}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </article>
+                  )
+                })}
+              </div>
+            </section>
+          )}
 
           {data.months.length > 0 && (
             <section>
