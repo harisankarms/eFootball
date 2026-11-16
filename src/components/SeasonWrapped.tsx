@@ -4,7 +4,7 @@ import type { League } from '../lib/queries'
 import { overallRating, ratings } from '../lib/rating'
 import { seasonName, seasonSpan, type SeasonKey, type SeasonResult } from '../lib/seasons'
 import { buildTable, formatPerGame, formatPoints } from '../lib/stats'
-import { FaceDownCard } from './MonthWrapped'
+import { Walkout } from './Walkout'
 import { CollectibleCard } from './Potw'
 import { AwardSlide, Count, Story, at, type Posters, type Slide } from './Story'
 import { StandingsTable } from './StandingsTable'
@@ -75,7 +75,7 @@ function buildSeasonSlides(league: League, season: SeasonResult, first: SeasonKe
     slides.push({
       key: 'champion',
       theme: 'boot',
-      ms: 10_000,
+      ms: 18_000,
       share: {
         name: `season-champion-${season.key}`,
         text: `${nameOf(champ.playerId)} ${live ? 'leads' : 'wins'} ${name} 🏆`,
@@ -91,24 +91,15 @@ function buildSeasonSlides(league: League, season: SeasonResult, first: SeasonKe
           }),
       },
       body: (
-        <>
-          <div className="recap-kicker recap-in" style={at(0)}>
-            {live ? 'Leading the season…' : 'And the champion is…'}
-          </div>
-          <FaceDownCard
-            title={live ? 'Season leader' : 'Season champion'}
-            sub={`${name} · ${span}`}
-            card={<CollectibleCard kind="player" league={league} row={career} overall={ovr} caption={`${name} ${live ? 'leader' : 'champion'}`} />}
-            caption={
-              <>
-                <div className="recap-title">{nameOf(champ.playerId)}</div>
-                <div className="recap-sub mt-1">
-                  {formatPoints(champ.points)} points · {champ.won}W {champ.drawn}D {champ.lost}L · {champ.gf} goals
-                </div>
-              </>
-            }
-          />
-        </>
+        <Walkout
+          league={league}
+          row={champ}
+          rating={ovr}
+          banner={live ? 'Season leader' : 'Season champion'}
+          clues={[span.split(' ')[0], name]}
+          line={`${name} · ${formatPoints(champ.points)} points · ${champ.won}W ${champ.drawn}D ${champ.lost}L`}
+          card={<CollectibleCard kind="player" league={league} row={career} overall={ovr} caption={`${name} ${live ? 'leader' : 'champion'}`} />}
+        />
       ),
     })
   }

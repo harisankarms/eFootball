@@ -1,9 +1,9 @@
 import { Footprints, Gamepad2, Medal, TrendingUp, Zap } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useMemo } from 'react'
 import type { League } from '../lib/queries'
 import { ratings } from '../lib/rating'
 import { newsworthy, recordBook } from '../lib/records'
-import { formatPerGame, formatPoints, sideOf, winnerOf, type MonthResult, type Row } from '../lib/stats'
+import { cardRating, formatPerGame, formatPoints, sideOf, winnerOf, type MonthResult } from '../lib/stats'
 import { addMonths, monthCardLabel, monthLabel, startOfDay, weekKey } from '../lib/time'
 import { Avatar } from './Avatar'
 import { CollectibleCard } from './Potw'
@@ -11,85 +11,7 @@ import { RECORD_ICONS, breakSentence } from './Records'
 import { AwardSlide, Count, Story, at, type Slide } from './Story'
 import { StandingsTable } from './StandingsTable'
 import { BallLogo, GlowIcon } from './ui'
-
-const REVEAL_AFTER_MS = 2600
-
-/** The Player of the Month card, face down: it charges up, bursts, and flips over. Tap it to flip early. */
-export function CardReveal({ league, row, month }: { league: League; row: Row; month: string }) {
-  return (
-    <FaceDownCard
-      title="Player of the Month"
-      sub={monthLabel(month)}
-      card={<CollectibleCard kind="potm" league={league} row={row} month={month} caption={monthCardLabel(month)} />}
-      caption={
-        <>
-          <div className="recap-title">{league.nameOf(row.playerId)}</div>
-          <div className="recap-sub mt-1">
-            {formatPoints(row.points)} points · {row.won}W {row.drawn}D {row.lost}L · {row.gf} goals
-          </div>
-        </>
-      }
-    />
-  )
-}
-
-/** Any card, face down: it charges up, bursts with a flash and confetti, and flips over. Tap to flip early. */
-export function FaceDownCard({ title, sub, card, caption }: { title: string; sub: string; card: ReactNode; caption: ReactNode }) {
-  const [phase, setPhase] = useState<'charging' | 'burst' | 'shown'>('charging')
-  const started = useRef(false)
-
-  const reveal = () => {
-    if (started.current) return
-    started.current = true
-    setPhase('burst')
-    window.setTimeout(() => setPhase('shown'), 380)
-    if (!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
-      void import('canvas-confetti').then(({ default: confetti }) => {
-        const colors = ['#ff8a1c', '#ffb052', '#ffd77a', '#fff1c4', '#e8641a']
-        confetti({ particleCount: 140, spread: 85, startVelocity: 42, origin: { y: 0.45 }, colors, scalar: 1.05, zIndex: 70 })
-        window.setTimeout(() => confetti({ particleCount: 70, spread: 120, startVelocity: 30, origin: { y: 0.4 }, colors, zIndex: 70 }), 250)
-      })
-    }
-  }
-
-  useEffect(() => {
-    const t = window.setTimeout(reveal, REVEAL_AFTER_MS)
-    return () => window.clearTimeout(t)
-    // Once, when the slide appears.
-  }, [])
-
-  return (
-    <div
-      className={`reveal is-${phase}`}
-      // Taps on the card flip it; they don't move the story on.
-      onPointerDown={(e) => phase === 'charging' && e.stopPropagation()}
-      onPointerUp={(e) => {
-        if (phase !== 'charging') return
-        e.stopPropagation()
-        reveal()
-      }}
-    >
-      <div className="reveal-rays" aria-hidden />
-      <div className="reveal-slot">
-        {phase !== 'shown' ? (
-          <div className="reveal-back" role="button" aria-label={`Reveal the ${title}`}>
-            <BallLogo />
-            <div className="reveal-back-label">{title}</div>
-            <div className="reveal-back-month">{sub}</div>
-          </div>
-        ) : (
-          <div className="reveal-front">{card}</div>
-        )}
-        <div className="reveal-flash" aria-hidden />
-      </div>
-      {phase === 'shown' ? (
-        <div className="reveal-caption text-center">{caption}</div>
-      ) : (
-        <div className="reveal-hint">Tap to reveal</div>
-      )}
-    </div>
-  )
-}
+import { Walkout } from './Walkout'
 
 function buildMonthSlides(league: League, month: MonthResult): Slide[] {
   const { nameOf } = league
@@ -149,19 +71,22 @@ function buildMonthSlides(league: League, month: MonthResult): Slide[] {
     slides.push({
       key: 'reveal',
       theme: 'potm',
-      ms: 10_000,
+      ms: 18_000,
       share: {
         name: `player-of-the-month-${month.monthKey}`,
         text: `${nameOf(w.playerId)} is Player of the Month for ${name} 🏆`,
         make: (p) => p.cardPoster(league, { kind: 'potm', row: w, month: month.monthKey, caption: monthCardLabel(month.monthKey), subtitle: `${name} champion` }),
       },
       body: (
-        <>
-          <div className="recap-kicker recap-in" style={at(0)}>
-            And the Player of the Month is…
-          </div>
-          <CardReveal league={league} row={w} month={month.monthKey} />
-        </>
+        <Walkout
+          league={league}
+          row={w}
+          rating={cardRating(w)}
+          banner="Player of the Month"
+          clues={[short, 'POTM']}
+          line={`${monthLabel(month.monthKey)} · ${formatPoints(w.points)} points · ${w.won}W ${w.drawn}D ${w.lost}L`}
+          card={<CollectibleCard kind="potm" league={league} row={w} month={month.monthKey} caption={monthCardLabel(month.monthKey)} />}
+        />
       ),
     })
   }
